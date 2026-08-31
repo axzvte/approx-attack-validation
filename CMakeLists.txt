@@ -24,26 +24,14 @@ add_executable(
     app/main.cpp
 
     src/io/image_io.cpp
-
     src/region/region_mask.cpp
-    
-    src/analysis/pixel_distribution.cpp
-    src/analysis/interval_evaluation.cpp
-    src/analysis/interval_search.cpp
-    src/analysis/visual_importance.cpp
-    src/analysis/application_response.cpp
-    src/analysis/attack_value.cpp
-    src/analysis/weighted_distribution.cpp
-    src/analysis/weighted_interval_search.cpp
 
     src/processing/exact_sharpen.cpp
-    src/processing/sharpen_approx_config.cpp
     src/processing/approx_sharpen.cpp
 
     src/approximate/evoapprox_adapter.cpp
 
     src/metrics/psnr.cpp
-    
 )
 
 target_include_directories(
