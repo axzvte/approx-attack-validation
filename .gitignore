@@ -1,11 +1,11 @@
-# 编译文件
+# CMake 编译目录
 build/
 cmake-build-*/
 
 # 实验输出
 results/
 
-# VS Code
+# VS Code 配置
 .vscode/
 
 # 临时文件
