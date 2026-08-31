@@ -13,10 +13,4 @@ struct SharpenApproxConfig
     approximate::ApproxUnitId subtractRight;
 };
 
-SharpenApproxConfig createNormalConfig();
-
-SharpenApproxConfig createImportantConfig();
-
-SharpenApproxConfig createNonImportantConfig();
-
 }
