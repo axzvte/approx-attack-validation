@@ -1,0 +1,16 @@
+# 编译文件
+build/
+cmake-build-*/
+
+# 实验输出
+results/
+
+# VS Code
+.vscode/
+
+# 临时文件
+*.log
+*.tmp
+
+# 系统文件
+.DS_Store
