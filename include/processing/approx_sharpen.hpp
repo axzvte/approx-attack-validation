@@ -12,18 +12,4 @@ cv::Mat sharpenApproximate(
     const SharpenApproxConfig& config
 );
 
-cv::Mat sharpenRegionalApproximate(
-    const cv::Mat& inputImage,
-    const cv::Mat& mask,
-    const SharpenApproxConfig& importantConfig,
-    const SharpenApproxConfig& nonImportantConfig
-);
-
-cv::Mat sharpenIntervalApproximate(
-    const cv::Mat& inputImage,
-    int lower,
-    int upper,
-    const SharpenApproxConfig& approximateConfig
-);
-
 }
