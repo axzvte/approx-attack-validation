@@ -1,16 +1,20 @@
-# CMake 编译目录
+# CMake build
 build/
 cmake-build-*/
 
-# 实验输出
+# Experimental data
+data/
+
+# Generated results
 results/
 
-# VS Code 配置
+# VS Code
 .vscode/
 
-# 临时文件
+# Temporary files
 *.log
 *.tmp
 
-# 系统文件
+# System files
 .DS_Store
+Thumbs.db

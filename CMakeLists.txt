@@ -28,8 +28,17 @@ add_executable(
 
     src/processing/exact_sharpen.cpp
     src/processing/approx_sharpen.cpp
+    src/processing/triggered_sharpen.cpp
+    src/processing/exact_sobel.cpp
 
     src/approximate/evoapprox_adapter.cpp
+
+    src/analysis/intermediate_analysis.cpp
+    src/analysis/trigger_search.cpp
+    src/analysis/sobel_intermediate_analysis.cpp
+    src/analysis/bit_trigger_validation.cpp
+    src/analysis/roi_feature_analysis.cpp
+    src/analysis/interval_attack_search.cpp
 
     src/metrics/psnr.cpp
 )

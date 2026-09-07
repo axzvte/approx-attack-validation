@@ -1,0 +1,12 @@
+#pragma once
+
+#include <opencv2/core/mat.hpp>
+
+namespace image_processing
+{
+
+cv::Mat sobelExact(
+    const cv::Mat& inputImage
+);
+
+}
