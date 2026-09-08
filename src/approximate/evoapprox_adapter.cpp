@@ -53,20 +53,32 @@ int addSigned12(
 
     switch (unit)
     {
-        case ApproxUnitId::Add12se5QT:
-            rawResult = add12se_5QT(rawB, rawA);
+        case ApproxUnitId::Add12se5L8:
+            rawResult = add12se_5L8(rawB, rawA);
+            break;
+
+        case ApproxUnitId::Add12se5PD:
+            rawResult = add12se_5PD(rawB, rawA);
+            break;
+
+        case ApproxUnitId::Add12se5PN:
+            rawResult = add12se_5PN(rawB, rawA);
             break;
 
         case ApproxUnitId::Add12se5QC:
             rawResult = add12se_5QC(rawB, rawA);
             break;
 
-        case ApproxUnitId::Add12se5TE:
-            rawResult = add12se_5TE(rawB, rawA);
+        case ApproxUnitId::Add12se5QT:
+            rawResult = add12se_5QT(rawB, rawA);
             break;
 
-        case ApproxUnitId::Add12se5PN:
-            rawResult = add12se_5PN(rawB, rawA);
+        case ApproxUnitId::Add12se5RP:
+            rawResult = add12se_5RP(rawB, rawA);
+            break;
+
+        case ApproxUnitId::Add12se5TE:
+            rawResult = add12se_5TE(rawB, rawA);
             break;
 
         case ApproxUnitId::Add12se5SB:
@@ -76,7 +88,7 @@ int addSigned12(
         case ApproxUnitId::Add12se5Z0:
             rawResult = add12se_5Z0(rawB, rawA);
             break;
-
+        
         default:
             throw std::runtime_error(
                 "Unknown approximate unit."

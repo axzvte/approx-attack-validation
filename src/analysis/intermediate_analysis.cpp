@@ -1,5 +1,6 @@
 #include "analysis/intermediate_analysis.hpp"
 #include "region/region_mask.hpp"
+#include "approximate/evoapprox_adapter.hpp"
 
 #include <stdexcept>
 #include <fstream>
@@ -69,6 +70,82 @@ SharpenIntermediateValues computeSharpenIntermediateValues(
     return values;
 }
 
+SharpenIntermediateValues
+computeApproximateSharpenIntermediateValues(
+    int center,
+    int top,
+    int bottom,
+    int left,
+    int right,
+    const image_processing::SharpenApproxConfig& config
+)
+{
+    SharpenIntermediateValues values{};
+
+
+    // A1 = 5C + (-Top)
+    values.a1.input1 =
+        5 * center;
+
+    values.a1.input2 =
+        -top;
+
+    values.a1.output =
+        approximate::addSigned12(
+            values.a1.input1,
+            values.a1.input2,
+            config.subtractTop
+        );
+
+
+    // A2 = A1 + (-Bottom)
+    // 注意：这里使用的是近似 A1 的输出
+    values.a2.input1 =
+        values.a1.output;
+
+    values.a2.input2 =
+        -bottom;
+
+    values.a2.output =
+        approximate::addSigned12(
+            values.a2.input1,
+            values.a2.input2,
+            config.subtractBottom
+        );
+
+
+    // A3 = A2 + (-Left)
+    values.a3.input1 =
+        values.a2.output;
+
+    values.a3.input2 =
+        -left;
+
+    values.a3.output =
+        approximate::addSigned12(
+            values.a3.input1,
+            values.a3.input2,
+            config.subtractLeft
+        );
+
+
+    // A4 = A3 + (-Right)
+    values.a4.input1 =
+        values.a3.output;
+
+    values.a4.input2 =
+        -right;
+
+    values.a4.output =
+        approximate::addSigned12(
+            values.a4.input1,
+            values.a4.input2,
+            config.subtractRight
+        );
+
+
+    return values;
+}
 
 std::vector<SharpenSample> collectSharpenSamples(
     const cv::Mat& image,
@@ -158,6 +235,110 @@ std::vector<SharpenSample> collectSharpenSamples(
                     bottom,
                     left,
                     right
+                );
+
+
+            samples.push_back(
+                sample
+            );
+        }
+    }
+
+
+    return samples;
+}
+
+std::vector<SharpenSample>
+collectApproximateSharpenSamples(
+    const cv::Mat& image,
+    const cv::Mat& roiMask,
+    const image_processing::SharpenApproxConfig& config
+)
+{
+    if (image.empty())
+    {
+        throw std::runtime_error(
+            "Input image is empty."
+        );
+    }
+
+    if (roiMask.empty())
+    {
+        throw std::runtime_error(
+            "ROI mask is empty."
+        );
+    }
+
+    if (image.size() != roiMask.size())
+    {
+        throw std::runtime_error(
+            "Image and ROI mask sizes do not match."
+        );
+    }
+
+
+    std::vector<SharpenSample> samples;
+
+
+    for (int row = 1;
+         row < image.rows - 1;
+         ++row)
+    {
+        for (int col = 1;
+             col < image.cols - 1;
+             ++col)
+        {
+            const int center =
+                image.at<unsigned char>(
+                    row,
+                    col
+                );
+
+            const int top =
+                image.at<unsigned char>(
+                    row - 1,
+                    col
+                );
+
+            const int bottom =
+                image.at<unsigned char>(
+                    row + 1,
+                    col
+                );
+
+            const int left =
+                image.at<unsigned char>(
+                    row,
+                    col - 1
+                );
+
+            const int right =
+                image.at<unsigned char>(
+                    row,
+                    col + 1
+                );
+
+
+            SharpenSample sample{};
+
+            sample.row = row;
+            sample.col = col;
+
+            sample.insideRoi =
+                region_mask::isImportantPixel(
+                    roiMask,
+                    row,
+                    col
+                );
+
+            sample.values =
+                computeApproximateSharpenIntermediateValues(
+                    center,
+                    top,
+                    bottom,
+                    left,
+                    right,
+                    config
                 );
 
 

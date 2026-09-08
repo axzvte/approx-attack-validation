@@ -35,4 +35,19 @@ std::uint64_t add12se_5Z0(
     std::uint64_t A
 );
 
+std::uint64_t add12se_5L8(
+    std::uint64_t B,
+    std::uint64_t A
+);
+
+std::uint64_t add12se_5PD(
+    std::uint64_t B,
+    std::uint64_t A
+);
+
+std::uint64_t add12se_5RP(
+    std::uint64_t B,
+    std::uint64_t A
+);
+
 }

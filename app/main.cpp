@@ -1,10 +1,17 @@
-#include "analysis/interval_attack_search.hpp"
+#include "analysis/intermediate_analysis.hpp"
+
+#include "approximate/evoapprox_adapter.hpp"
 
 #include "io/image_io.hpp"
+
+#include "processing/approx_sharpen.hpp"
 #include "processing/exact_sharpen.hpp"
+#include "processing/sharpen_approx_config.hpp"
+
+#include "region/region_mask.hpp"
 
 #include <exception>
-#include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -12,27 +19,70 @@
 
 int main()
 {
+    // =========================================================
+    // 输入图片
+    // =========================================================
+
     const std::string inputImagePath =
         "data/input/test_1.jpg";
 
 
-    const std::string roiMaskPath =
-        "data/input/test_1_mask.png";
-
-
     try
     {
+        // =====================================================
+        // 创建结果目录
+        // =====================================================
+
+        std::filesystem::create_directories(
+            "results"
+        );
+
+
+        // =====================================================
+        // 1. 读取输入图片
+        // =====================================================
+
         const cv::Mat inputImage =
             image_io::loadGrayImage(
                 inputImagePath
             );
 
 
+        std::cout
+            << "Input image size: "
+            << inputImage.cols
+            << " x "
+            << inputImage.rows
+            << "\n";
+
+
+        // =====================================================
+        // 2. 自动生成 PASCAL-S 统计 ROI
+        // =====================================================
+
         const cv::Mat roiMask =
-            image_io::loadGrayImage(
-                roiMaskPath
+            region_mask::createStatisticalRoiMask(
+                inputImage.cols,
+                inputImage.rows
             );
 
+
+        image_io::saveImage(
+            "results/statistical_roi_mask.png",
+            roiMask
+        );
+
+
+        std::cout
+            << "Saved ROI mask: "
+            << "results/statistical_roi_mask.png\n";
+
+
+        // =====================================================
+        // 3. 生成精确锐化结果
+        //
+        // 后面计算 PSNR 时仍然以精确结果作为参考
+        // =====================================================
 
         const cv::Mat exactImage =
             image_processing::sharpenExact(
@@ -41,232 +91,113 @@ int main()
 
 
         image_io::saveImage(
-            "results/interval_exact.png",
+            "results/exact_sharpen.png",
             exactImage
         );
 
 
-        std::cout
-            << "Searching...\n";
+        // =====================================================
+        // 4. 设置原始近似电路
+        //
+        // 当前固定：
+        //
+        // A1 -> 5RP
+        // A2 -> 5RP
+        // A3 -> 5RP
+        // A4 -> 5RP
+        // =====================================================
+
+        const image_processing::SharpenApproxConfig baseConfig =
+        {
+            approximate::ApproxUnitId::Add12se5RP,
+            approximate::ApproxUnitId::Add12se5RP,
+            approximate::ApproxUnitId::Add12se5RP,
+            approximate::ApproxUnitId::Add12se5RP
+        };
 
 
-        const auto candidates =
-            interval_attack_search::
-                searchBestCandidates(
-                    inputImage,
-                    roiMask,
-                    30.0,
-                    20
-                );
+        // =====================================================
+        // 5. 生成原始近似锐化结果
+        // =====================================================
+
+        const cv::Mat approximateImage =
+            image_processing::sharpenApproximate(
+                inputImage,
+                baseConfig
+            );
 
 
-        std::ofstream report(
-            "results/interval_search.csv"
+        image_io::saveImage(
+            "results/base_approx_sharpen.png",
+            approximateImage
         );
 
 
-        report
-            << "rank,"
-            << "attack_position,"
-            << "monitor_signal,"
-            << "unit,"
-            << "lower,"
-            << "upper,"
-            << "global_psnr,"
-            << "roi_psnr,"
-            << "nonroi_psnr,"
-            << "roi_mse,"
-            << "nonroi_mse,"
-            << "error_gap,"
-            << "error_ratio,"
-            << "roi_trigger_rate,"
-            << "nonroi_trigger_rate\n";
-
-
         std::cout
-            << std::fixed
-            << std::setprecision(3);
+            << "Saved base approximate image: "
+            << "results/base_approx_sharpen.png\n";
 
 
-        for (
-            std::size_t i = 0;
-            i < candidates.size();
-            ++i
-        )
-        {
-            const auto& candidate =
-                candidates[i];
+        // =====================================================
+        // 6. 采集原始近似电路内部数据
+        //
+        // A1 的近似输出 -> A2 输入
+        // A2 的近似输出 -> A3 输入
+        // A3 的近似输出 -> A4 输入
+        //
+        // 因此这里记录的是近似误差真实传播后的内部值
+        // =====================================================
+
+        const auto samples =
+            intermediate_analysis::
+                collectApproximateSharpenSamples(
+                    inputImage,
+                    roiMask,
+                    baseConfig
+                );
 
 
-            const std::string attack =
-                interval_attack_search::
-                    attackPositionName(
-                        candidate.attackPosition
-                    );
+        // =====================================================
+        // 7. 保存内部数据 CSV
+        // =====================================================
+
+        const std::string csvPath =
+            "results/approx_internal_values.csv";
 
 
-            const std::string signal =
-                interval_attack_search::
-                    monitorSignalName(
-                        candidate.monitorSignal
-                    );
-
-
-            const std::string unit =
-                interval_attack_search::
-                    unitName(
-                        candidate.unit
-                    );
-
-
-            std::cout
-                << "\n#"
-                << i + 1
-                << "\n"
-
-                << "Attack position: "
-                << attack
-                << "\n"
-
-                << "Monitor signal: "
-                << signal
-                << "\n"
-
-                << "Unit: "
-                << unit
-                << "\n"
-
-                << "Interval: ["
-                << candidate.lower
-                << ", "
-                << candidate.upper
-                << "]\n"
-
-                << "Global PSNR: "
-                << candidate.globalPsnr
-                << " dB\n"
-
-                << "ROI PSNR: "
-                << candidate.roiPsnr
-                << " dB\n"
-
-                << "Non-ROI PSNR: "
-                << candidate.nonRoiPsnr
-                << " dB\n"
-
-                << "ROI MSE: "
-                << candidate.roiMse
-                << "\n"
-
-                << "Non-ROI MSE: "
-                << candidate.nonRoiMse
-                << "\n"
-
-                << "Error gap: "
-                << candidate.errorGap
-                << "\n"
-
-                << "Error ratio: "
-                << candidate.errorRatio
-                << "\n"
-
-                << "ROI trigger rate: "
-                << candidate.roiTriggerRate * 100.0
-                << "%\n"
-
-                << "Non-ROI trigger rate: "
-                << candidate.nonRoiTriggerRate * 100.0
-                << "%\n";
-
-
-            report
-                << i + 1
-                << ","
-
-                << attack
-                << ","
-
-                << signal
-                << ","
-
-                << unit
-                << ","
-
-                << candidate.lower
-                << ","
-
-                << candidate.upper
-                << ","
-
-                << candidate.globalPsnr
-                << ","
-
-                << candidate.roiPsnr
-                << ","
-
-                << candidate.nonRoiPsnr
-                << ","
-
-                << candidate.roiMse
-                << ","
-
-                << candidate.nonRoiMse
-                << ","
-
-                << candidate.errorGap
-                << ","
-
-                << candidate.errorRatio
-                << ","
-
-                << candidate.roiTriggerRate
-                << ","
-
-                << candidate.nonRoiTriggerRate
-                << "\n";
-
-
-            const cv::Mat attackImage =
-                interval_attack_search::
-                    renderAttack(
-                        inputImage,
-                        candidate
-                    );
-
-
-            const std::string outputPath =
-                "results/interval_rank"
-                +
-                std::to_string(
-                    i + 1
-                )
-                +
-                "_"
-                +
-                attack
-                +
-                "_"
-                +
-                signal
-                +
-                "_"
-                +
-                unit
-                +
-                ".png";
-
-
-            image_io::saveImage(
-                outputPath,
-                attackImage
+        intermediate_analysis::
+            saveSharpenSamplesCsv(
+                csvPath,
+                samples
             );
-        }
+
+
+        // =====================================================
+        // 输出基本信息
+        // =====================================================
+
+        std::cout
+            << "\nBase approximate configuration:\n"
+            << "A1 = 5RP\n"
+            << "A2 = 5RP\n"
+            << "A3 = 5RP\n"
+            << "A4 = 5RP\n";
 
 
         std::cout
-            << "\nFinished.\n"
-            << "Saved report: "
-            << "results/interval_search.csv\n";
+            << "\nCollected samples: "
+            << samples.size()
+            << "\n";
+
+
+        std::cout
+            << "Saved internal values: "
+            << csvPath
+            << "\n";
+
+
+        std::cout
+            << "\nFinished.\n";
 
 
         return 0;

@@ -1285,6 +1285,15 @@ std::string unitName(
 
         case approximate::ApproxUnitId::Add12se5Z0:
             return "5Z0";
+        
+        case approximate::ApproxUnitId::Add12se5L8:
+            return "5L8";
+
+        case approximate::ApproxUnitId::Add12se5PD:
+            return "5PD";
+
+        case approximate::ApproxUnitId::Add12se5RP:
+            return "5RP";
     }
 
 

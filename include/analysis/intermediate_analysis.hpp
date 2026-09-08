@@ -1,5 +1,7 @@
 #pragma once
 
+#include "processing/sharpen_approx_config.hpp"
+
 #include <opencv2/core/mat.hpp>
 #include <string>
 
@@ -44,10 +46,27 @@ SharpenIntermediateValues computeSharpenIntermediateValues(
     int right
 );
 
+SharpenIntermediateValues
+computeApproximateSharpenIntermediateValues(
+    int center,
+    int top,
+    int bottom,
+    int left,
+    int right,
+    const image_processing::SharpenApproxConfig& config
+);
+
 
 std::vector<SharpenSample> collectSharpenSamples(
     const cv::Mat& image,
     const cv::Mat& roiMask
+);
+
+std::vector<SharpenSample>
+collectApproximateSharpenSamples(
+    const cv::Mat& image,
+    const cv::Mat& roiMask,
+    const image_processing::SharpenApproxConfig& config
 );
 
 void saveSharpenSamplesCsv(
