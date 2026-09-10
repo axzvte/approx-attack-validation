@@ -1,8 +1,11 @@
 #pragma once
 
+#include "core/attack_config.hpp"
+
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 
 namespace applications
@@ -34,14 +37,14 @@ public:
         32;
 
 
-    // 余弦系数使用 Q15：
-    //
-    // realCoefficient
-    //      × 2^15
-    //      ↓
-    // integerCoefficient
     static constexpr int kCoefficientFractionBits =
         15;
+
+
+    // 基准近似加法器
+    static constexpr approximate::ApproxUnitId
+        kBaselineUnit =
+            approximate::ApproxUnitId::Add12se5RP;
 
 
     using Trace =
@@ -51,8 +54,17 @@ public:
         >;
 
 
+    // 全精确运行
     Vector runExact(
         const Vector& input,
+        Trace* trace = nullptr
+    ) const;
+
+
+    // 近似运行
+    Vector runApprox(
+        const Vector& input,
+        const std::vector<core::AttackConfig>& configs,
         Trace* trace = nullptr
     ) const;
 
@@ -68,6 +80,15 @@ private:
         int nodeId,
         Value input1,
         Value input2,
+        Trace* trace
+    ) const;
+
+
+    Value addApprox(
+        int nodeId,
+        Value input1,
+        Value input2,
+        const std::vector<core::AttackConfig>& configs,
         Trace* trace
     ) const;
 

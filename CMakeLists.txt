@@ -92,3 +92,22 @@ add_test(
     NAME dct8_fixed_graph
     COMMAND test_dct8_fixed_graph
 )
+
+add_executable(
+    test_dct_application
+
+    tests/test_dct_application.cpp
+)
+
+
+target_link_libraries(
+    test_dct_application
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_application
+    COMMAND test_dct_application
+)

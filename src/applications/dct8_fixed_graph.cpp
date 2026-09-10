@@ -1,5 +1,7 @@
 #include "applications/dct8_fixed_graph.hpp"
 
+#include "approximate/evoapprox_adapter.hpp"
+
 #include <array>
 #include <iomanip>
 #include <sstream>
@@ -11,16 +13,6 @@ namespace applications
 
 namespace
 {
-
-// =========================================================
-// 8-point DCT 的 Q15 系数
-//
-// coefficient =
-// round(realCoefficient * 2^15)
-//
-// 每一行对应一个 DCT 输出 X0 ~ X7
-// 每一列对应当前输出的4个输入
-// =========================================================
 
 constexpr std::array<
     std::array<std::int32_t, 4>,
@@ -41,10 +33,7 @@ constexpr std::array<
 
 
 // =========================================================
-// 精确整数加法
-//
-// 当前没有位宽限制，也没有近似。
-// 后面8/10/12 bit以及EvoApprox都从这里接入。
+// 精确加法
 // =========================================================
 
 Dct8FixedGraph::Value
@@ -92,11 +81,109 @@ Dct8FixedGraph::addExact(
 
 
 // =========================================================
-// 有符号舍入右移
+// 近似加法
 //
-// 例如Q15乘法结果需要除以2^15。
+// 默认：5RP
 //
-// 这里不是简单截断，而是进行四舍五入。
+// 如果：
+// 1. 当前 nodeId 存在配置
+// 2. input1 落入 [lower, upper]
+//
+// 则切换到配置中的近似加法器。
+// =========================================================
+
+Dct8FixedGraph::Value
+Dct8FixedGraph::addApprox(
+    int nodeId,
+    Value input1,
+    Value input2,
+    const std::vector<core::AttackConfig>& configs,
+    Trace* trace
+) const
+{
+    if (
+        nodeId < 0
+        ||
+        nodeId >= kAddNodeCount
+    )
+    {
+        throw std::runtime_error(
+            "Invalid DCT ADD node ID."
+        );
+    }
+
+
+    approximate::ApproxUnitId selectedUnit =
+        kBaselineUnit;
+
+
+    for (const auto& config : configs)
+    {
+        if (config.nodeId != nodeId)
+        {
+            continue;
+        }
+
+
+        if (config.lower > config.upper)
+        {
+            throw std::runtime_error(
+                "AttackConfig lower is greater than upper."
+            );
+        }
+
+
+        if (
+            input1 >= config.lower
+            &&
+            input1 <= config.upper
+        )
+        {
+            selectedUnit =
+                config.unit;
+        }
+
+
+        break;
+    }
+
+
+    // addSigned12 会检查输入是否超出：
+    //
+    // [-2048, 2047]
+    //
+    // 如果超出，直接判定当前计算无效，
+    // 不进行人为截断或饱和。
+    const Value output =
+        approximate::addSigned12(
+            input1,
+            input2,
+            selectedUnit
+        );
+
+
+    if (trace != nullptr)
+    {
+        (*trace)[nodeId].nodeId =
+            nodeId;
+
+        (*trace)[nodeId].input1 =
+            input1;
+
+        (*trace)[nodeId].input2 =
+            input2;
+
+        (*trace)[nodeId].output =
+            output;
+    }
+
+
+    return output;
+}
+
+
+// =========================================================
+// 有符号四舍五入右移
 // =========================================================
 
 std::int64_t
@@ -137,17 +224,7 @@ Dct8FixedGraph::roundShift(
 
 
 // =========================================================
-// 精确定点乘法
-//
-// input：整数数据
-//
-// coefficient：Q15定点系数
-//
-// 乘法：
-// input × coefficient
-//
-// 得到Q15乘积以后，再右移15位，
-// 回到普通整数数据域。
+// 精确 Q15 系数乘法
 // =========================================================
 
 Dct8FixedGraph::Value
@@ -190,21 +267,7 @@ Dct8FixedGraph::multiplyCoefficientExact(
 
 
 // =========================================================
-// 精确整数8-point DCT
-//
-// 拓扑仍然是：
-//
-// 8 ADD/SUB
-// +
-// 32 MUL
-// +
-// 24 ADD
-//
-// =
-//
-// 32 ADD/SUB
-// +
-// 32 MUL
+// 精确 DCT
 // =========================================================
 
 Dct8FixedGraph::Vector
@@ -213,14 +276,6 @@ Dct8FixedGraph::runExact(
     Trace* trace
 ) const
 {
-    // =====================================================
-    // 第一层：
-    //
-    // ADD_00 ~ ADD_03：和
-    //
-    // ADD_04 ~ ADD_07：差
-    // =====================================================
-
     std::array<Value, 4>
         sums{};
 
@@ -228,8 +283,6 @@ Dct8FixedGraph::runExact(
     std::array<Value, 4>
         differences{};
 
-
-    // s0 = x0 + x7
 
     sums[0] =
         addExact(
@@ -240,8 +293,6 @@ Dct8FixedGraph::runExact(
         );
 
 
-    // s1 = x1 + x6
-
     sums[1] =
         addExact(
             1,
@@ -250,8 +301,6 @@ Dct8FixedGraph::runExact(
             trace
         );
 
-
-    // s2 = x2 + x5
 
     sums[2] =
         addExact(
@@ -262,8 +311,6 @@ Dct8FixedGraph::runExact(
         );
 
 
-    // s3 = x3 + x4
-
     sums[3] =
         addExact(
             3,
@@ -272,12 +319,6 @@ Dct8FixedGraph::runExact(
             trace
         );
 
-
-    // d0 = x0 - x7
-    //
-    // 统一写成：
-    //
-    // x0 + (-x7)
 
     differences[0] =
         addExact(
@@ -288,8 +329,6 @@ Dct8FixedGraph::runExact(
         );
 
 
-    // d1 = x1 - x6
-
     differences[1] =
         addExact(
             5,
@@ -298,8 +337,6 @@ Dct8FixedGraph::runExact(
             trace
         );
 
-
-    // d2 = x2 - x5
 
     differences[2] =
         addExact(
@@ -310,8 +347,6 @@ Dct8FixedGraph::runExact(
         );
 
 
-    // d3 = x3 - x4
-
     differences[3] =
         addExact(
             7,
@@ -321,10 +356,6 @@ Dct8FixedGraph::runExact(
         );
 
 
-    // =====================================================
-    // 8个DCT输出
-    // =====================================================
-
     Vector output{};
 
 
@@ -332,12 +363,6 @@ Dct8FixedGraph::runExact(
          k < 8;
          ++k)
     {
-        // 偶数频率：
-        // 使用s0~s3
-        //
-        // 奇数频率：
-        // 使用d0~d3
-
         const std::array<Value, 4>& values =
             (
                 k % 2 == 0
@@ -347,12 +372,6 @@ Dct8FixedGraph::runExact(
             :
             differences;
 
-
-        // =================================================
-        // 4个精确定点乘法
-        //
-        // 每个乘积已经缩放回整数数据域
-        // =================================================
 
         std::array<Value, 4>
             products{};
@@ -370,21 +389,6 @@ Dct8FixedGraph::runExact(
                 );
         }
 
-
-        // =================================================
-        // 每个输出对应3个ADD
-        //
-        // X0：
-        // ADD_08 ~ ADD_10
-        //
-        // X1：
-        // ADD_11 ~ ADD_13
-        //
-        // ...
-        //
-        // X7：
-        // ADD_29 ~ ADD_31
-        // =================================================
 
         const int firstAddNode =
             8
@@ -415,6 +419,220 @@ Dct8FixedGraph::runExact(
                 firstAddNode + 2,
                 partial012,
                 products[3],
+                trace
+            );
+    }
+
+
+    return output;
+}
+
+
+// =========================================================
+// 近似 DCT
+// =========================================================
+
+Dct8FixedGraph::Vector
+Dct8FixedGraph::runApprox(
+    const Vector& input,
+    const std::vector<core::AttackConfig>& configs,
+    Trace* trace
+) const
+{
+    std::array<bool, kAddNodeCount>
+        configuredNodes{};
+
+
+    // 先检查配置是否合法
+    for (const auto& config : configs)
+    {
+        if (
+            config.nodeId < 0
+            ||
+            config.nodeId >= kAddNodeCount
+        )
+        {
+            throw std::runtime_error(
+                "AttackConfig contains invalid node ID."
+            );
+        }
+
+
+        if (config.lower > config.upper)
+        {
+            throw std::runtime_error(
+                "AttackConfig lower is greater than upper."
+            );
+        }
+
+
+        if (configuredNodes[config.nodeId])
+        {
+            throw std::runtime_error(
+                "Duplicate AttackConfig for the same node."
+            );
+        }
+
+
+        configuredNodes[config.nodeId] =
+            true;
+    }
+
+
+    std::array<Value, 4>
+        sums{};
+
+
+    std::array<Value, 4>
+        differences{};
+
+
+    sums[0] =
+        addApprox(
+            0,
+            input[0],
+            input[7],
+            configs,
+            trace
+        );
+
+
+    sums[1] =
+        addApprox(
+            1,
+            input[1],
+            input[6],
+            configs,
+            trace
+        );
+
+
+    sums[2] =
+        addApprox(
+            2,
+            input[2],
+            input[5],
+            configs,
+            trace
+        );
+
+
+    sums[3] =
+        addApprox(
+            3,
+            input[3],
+            input[4],
+            configs,
+            trace
+        );
+
+
+    differences[0] =
+        addApprox(
+            4,
+            input[0],
+            -input[7],
+            configs,
+            trace
+        );
+
+
+    differences[1] =
+        addApprox(
+            5,
+            input[1],
+            -input[6],
+            configs,
+            trace
+        );
+
+
+    differences[2] =
+        addApprox(
+            6,
+            input[2],
+            -input[5],
+            configs,
+            trace
+        );
+
+
+    differences[3] =
+        addApprox(
+            7,
+            input[3],
+            -input[4],
+            configs,
+            trace
+        );
+
+
+    Vector output{};
+
+
+    for (int k = 0;
+         k < 8;
+         ++k)
+    {
+        const std::array<Value, 4>& values =
+            (
+                k % 2 == 0
+            )
+            ?
+            sums
+            :
+            differences;
+
+
+        std::array<Value, 4>
+            products{};
+
+
+        for (int n = 0;
+             n < 4;
+             ++n)
+        {
+            products[n] =
+                multiplyCoefficientExact(
+                    values[n],
+                    k,
+                    n
+                );
+        }
+
+
+        const int firstAddNode =
+            8
+            +
+            3 * k;
+
+
+        const Value partial01 =
+            addApprox(
+                firstAddNode,
+                products[0],
+                products[1],
+                configs,
+                trace
+            );
+
+
+        const Value partial012 =
+            addApprox(
+                firstAddNode + 1,
+                partial01,
+                products[2],
+                configs,
+                trace
+            );
+
+
+        output[k] =
+            addApprox(
+                firstAddNode + 2,
+                partial012,
+                products[3],
+                configs,
                 trace
             );
     }
