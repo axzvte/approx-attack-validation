@@ -193,4 +193,101 @@ add_executable(
     triple_A2A3A4_search
 
     app/triple_A2A3A4_search.cpp
+
+    src/io/image_io.cpp
+    src/region/region_mask.cpp
+
+    src/processing/exact_sharpen.cpp
+
+    src/approximate/evoapprox_adapter.cpp
+
+    src/metrics/psnr.cpp
+)
+
+
+target_include_directories(
+    triple_A2A3A4_search
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+
+target_link_libraries(
+    triple_A2A3A4_search
+    PRIVATE
+        evoapprox_units
+        ${OpenCV_LIBS}
+)
+
+add_executable(
+    test_dct_application
+
+    app/test_dct_application.cpp
+
+    src/applications/dct.cpp
+
+    src/io/image_io.cpp
+    src/region/region_mask.cpp
+    src/metrics/psnr.cpp
+)
+
+target_include_directories(
+    test_dct_application
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+
+target_link_libraries(
+    test_dct_application
+    PRIVATE
+        evoapprox_units
+        ${OpenCV_LIBS}
+)
+
+add_executable(
+    test_dct8_graph
+
+    app/test_dct8_graph.cpp
+
+    src/applications/dct8_graph.cpp
+)
+
+target_include_directories(
+    test_dct8_graph
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+    test_dct8_graph
+    PRIVATE
+        ${OpenCV_LIBS}
+)
+
+add_executable(
+    test_dct8_fixed_graph
+
+    app/test_dct8_fixed_graph.cpp
+
+    src/applications/dct8_graph.cpp
+    src/applications/dct8_fixed_graph.cpp
+)
+
+
+target_include_directories(
+    test_dct8_fixed_graph
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+
+target_link_libraries(
+    test_dct8_fixed_graph
+    PRIVATE
+        ${OpenCV_LIBS}
 )
