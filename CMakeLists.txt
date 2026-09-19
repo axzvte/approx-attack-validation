@@ -45,6 +45,8 @@ add_library(
 
     src/approximate/evoapprox_adapter.cpp
 
+    src/analysis/add_sample_collector.cpp
+
     src/io/image_io.cpp
     src/region/region_mask.cpp
     src/metrics/psnr.cpp
@@ -110,4 +112,23 @@ target_link_libraries(
 add_test(
     NAME dct_application
     COMMAND test_dct_application
+)
+
+add_executable(
+    test_add_sample_collector
+
+    tests/test_add_sample_collector.cpp
+)
+
+
+target_link_libraries(
+    test_add_sample_collector
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME add_sample_collector
+    COMMAND test_add_sample_collector
 )

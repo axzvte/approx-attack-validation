@@ -2,6 +2,7 @@
 
 #include "core/application.hpp"
 
+
 namespace applications
 {
 
@@ -28,6 +29,13 @@ public:
     cv::Mat runApprox(
         const cv::Mat& inputImage,
         const std::vector<core::AttackConfig>& configs
+    ) const override;
+
+
+    void collectExactAddSamples(
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        std::vector<core::AddSample>& samples
     ) const override;
 
 
