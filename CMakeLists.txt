@@ -42,14 +42,17 @@ add_library(
 
     src/applications/dct.cpp
     src/applications/dct8_fixed_graph.cpp
+    src/applications/dct8_dfg_builder.cpp
 
     src/approximate/evoapprox_adapter.cpp
 
     src/analysis/add_sample_collector.cpp
+    src/analysis/propagation_analyzer.cpp
 
     src/io/image_io.cpp
     src/region/region_mask.cpp
     src/metrics/psnr.cpp
+    src/core/dfg_graph.cpp
 )
 
 
@@ -117,6 +120,7 @@ add_test(
 add_executable(
     test_add_sample_collector
 
+
     tests/test_add_sample_collector.cpp
 )
 
@@ -131,4 +135,79 @@ target_link_libraries(
 add_test(
     NAME add_sample_collector
     COMMAND test_add_sample_collector
+)
+
+add_executable(
+    test_dfg_graph
+
+    tests/test_dfg_graph.cpp
+)
+
+
+target_link_libraries(
+    test_dfg_graph
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dfg_graph
+    COMMAND test_dfg_graph
+)
+
+
+add_executable(
+    test_propagation_analyzer
+
+    tests/test_propagation_analyzer.cpp
+)
+
+
+target_link_libraries(
+    test_propagation_analyzer
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME propagation_analyzer
+    COMMAND test_propagation_analyzer
+)
+
+add_executable(
+    test_dct8_dfg_builder
+
+    tests/test_dct8_dfg_builder.cpp
+)
+
+
+target_link_libraries(
+    test_dct8_dfg_builder
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct8_dfg_builder
+    COMMAND test_dct8_dfg_builder
+)
+
+# =========================================================
+# DCT structural propagation analysis
+# =========================================================
+
+add_executable(
+    dct_propagation_analysis
+
+    app/dct_propagation_analysis.cpp
+)
+
+
+target_link_libraries(
+    dct_propagation_analysis
+    PRIVATE
+        approx_framework
 )
