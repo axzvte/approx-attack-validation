@@ -151,6 +151,14 @@ void TwoStageSearch::validateDataset(
     }
 
 
+    if (dataset.roiMaskPath.empty())
+    {
+        throw std::runtime_error(
+            "Shared ROI mask path is empty."
+        );
+    }
+
+
     std::set<std::string>
         allInputPaths;
 
@@ -164,14 +172,6 @@ void TwoStageSearch::validateDataset(
             {
                 throw std::runtime_error(
                     "Input image path is empty."
-                );
-            }
-
-
-            if (imageCase.roiMaskPath.empty())
-            {
-                throw std::runtime_error(
-                    "ROI mask path is empty."
                 );
             }
 
