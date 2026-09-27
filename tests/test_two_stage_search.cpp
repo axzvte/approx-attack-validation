@@ -181,6 +181,60 @@ int main()
     }
 
 
+    std::uint64_t
+        stage1ImageEvaluations =
+            0;
+
+
+    analysis::TwoStageSearch::runStage1(
+        dataset,
+        stage1SearchSpace,
+
+        [&](
+            std::uint64_t,
+            const analysis::AttackConfiguration&,
+            std::size_t imageIndex,
+            const analysis::ImageCase& imageCase
+        )
+        {
+            if (imageIndex >= 10)
+            {
+                throw std::runtime_error(
+                    "Stage 1 image index is out of range."
+                );
+            }
+
+
+            if (
+                imageCase.inputPath.find(
+                    "stage1_image_"
+                )
+                !=
+                0
+            )
+            {
+                throw std::runtime_error(
+                    "Stage 1 used an image from the wrong dataset."
+                );
+            }
+
+
+            ++stage1ImageEvaluations;
+        }
+    );
+
+
+    if (stage1ImageEvaluations != 760)
+    {
+        std::cerr
+            << "Unexpected Stage 1 image evaluation count: "
+            << stage1ImageEvaluations
+            << ".\n";
+
+        return 1;
+    }
+
+
     // =====================================================
     // 模拟 Stage 1 中选中的一条好配置
     // =====================================================
@@ -340,6 +394,61 @@ int main()
     }
 
 
+    std::uint64_t
+        stage2ImageEvaluations =
+            0;
+
+
+    analysis::TwoStageSearch::runStage2(
+        dataset,
+        stage1SearchSpace,
+        structure,
+
+        [&](
+            std::uint64_t,
+            const analysis::AttackConfiguration&,
+            std::size_t imageIndex,
+            const analysis::ImageCase& imageCase
+        )
+        {
+            if (imageIndex >= 10)
+            {
+                throw std::runtime_error(
+                    "Stage 2 image index is out of range."
+                );
+            }
+
+
+            if (
+                imageCase.inputPath.find(
+                    "stage2_image_"
+                )
+                !=
+                0
+            )
+            {
+                throw std::runtime_error(
+                    "Stage 2 used an image from the wrong dataset."
+                );
+            }
+
+
+            ++stage2ImageEvaluations;
+        }
+    );
+
+
+    if (stage2ImageEvaluations != 60)
+    {
+        std::cerr
+            << "Unexpected Stage 2 image evaluation count: "
+            << stage2ImageEvaluations
+            << ".\n";
+
+        return 1;
+    }
+
+
     std::cout
         << "Stage 1 images: "
         << dataset.stage1Images.size()
@@ -361,6 +470,18 @@ int main()
     std::cout
         << "Stage 2 interval-only configurations: "
         << stage2Count
+        << "\n";
+
+
+    std::cout
+        << "Stage 1 image evaluations: "
+        << stage1ImageEvaluations
+        << "\n";
+
+
+    std::cout
+        << "Stage 2 image evaluations: "
+        << stage2ImageEvaluations
         << "\n";
 
 
