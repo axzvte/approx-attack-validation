@@ -27,12 +27,6 @@ int main()
                     +
                     std::to_string(i)
                     +
-                    ".png",
-
-                "stage1_mask_"
-                    +
-                    std::to_string(i)
-                    +
                     ".png"
             }
         );
@@ -44,16 +38,14 @@ int main()
                     +
                     std::to_string(i)
                     +
-                    ".png",
-
-                "stage2_mask_"
-                    +
-                    std::to_string(i)
-                    +
                     ".png"
             }
         );
     }
+
+
+    dataset.roiMaskPath =
+        "shared_roi_mask.png";
 
 
     // =====================================================
