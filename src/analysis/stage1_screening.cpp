@@ -3,11 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
-#include <sstream>
 #include <stdexcept>
-#include <string>
-#include <utility>
+#include <vector>
 
 
 namespace analysis
@@ -16,86 +13,97 @@ namespace analysis
 namespace
 {
 
-std::string structureKey(
-    const AttackStructure& structure
+bool globalMetricIsNormal(
+    double value,
+    double threshold,
+    MetricDirection direction
 )
 {
-    std::ostringstream stream;
-
-
-    for (const auto& node : structure)
-    {
-        stream
-            << node.nodeId
-            << ":"
-            << static_cast<int>(
-                node.unit
-            )
-            << ":"
-            << static_cast<int>(
-                node.monitorInput
-            )
-            << "|";
-    }
-
-
-    return stream.str();
-}
-
-
-bool isBetterConfiguration(
-    double meanScore,
-    double worstScore,
-    const Stage1SelectedStructure& currentBest
-)
-{
-    constexpr double epsilon =
-        1e-12;
-
-
     if (
-        meanScore
-        >
-        currentBest.meanScore
-        +
-        epsilon
+        direction
+        ==
+        MetricDirection::HigherIsBetter
     )
     {
-        return true;
+        return
+            value
+            >=
+            threshold;
     }
 
 
-    if (
-        std::abs(
-            meanScore
-            -
-            currentBest.meanScore
-        )
+    return
+        value
         <=
-        epsilon
-        &&
-        worstScore
-        >
-        currentBest.worstScore
-        +
-        epsilon
+        threshold;
+}
+
+
+bool roiDamageIsWorse(
+    const Stage1SelectedCandidate& first,
+    const Stage1SelectedCandidate& second,
+    MetricDirection direction
+)
+{
+    // 如果指标越大越好（例如 PSNR），
+    // 那么 ROI 指标越小，说明攻击越严重。
+    if (
+        direction
+        ==
+        MetricDirection::HigherIsBetter
     )
     {
-        return true;
+        if (
+            first.meanRoiMetric
+            !=
+            second.meanRoiMetric
+        )
+        {
+            return
+                first.meanRoiMetric
+                <
+                second.meanRoiMetric;
+        }
+
+
+        // 平均值相同时，
+        // 最差一张图越低越靠前。
+        return
+            first.worstRoiMetric
+            <
+            second.worstRoiMetric;
     }
 
 
-    return false;
+    // 如果指标越小越好（例如 MED），
+    // 那么 ROI 指标越大，说明攻击越严重。
+    if (
+        first.meanRoiMetric
+        !=
+        second.meanRoiMetric
+    )
+    {
+        return
+            first.meanRoiMetric
+            >
+            second.meanRoiMetric;
+    }
+
+
+    return
+        first.worstRoiMetric
+        >
+        second.worstRoiMetric;
 }
 
 }
 
 
 // =========================================================
-// Stage 1 结构筛选
+// Stage 1 筛选
 // =========================================================
 
-std::vector<Stage1SelectedStructure>
+std::vector<Stage1SelectedCandidate>
 Stage1Screening::screen(
     const TwoStageDataset& dataset,
     const BruteForceSearchSpace& searchSpace,
@@ -117,40 +125,35 @@ Stage1Screening::screen(
 
 
     if (
-        options.minimumValidImages == 0
-        ||
-        options.minimumValidImages
-            >
-            dataset.stage1Images.size()
+        !std::isfinite(
+            options.globalMetricThreshold
+        )
     )
     {
         throw std::runtime_error(
-            "minimumValidImages is outside the Stage 1 image range."
+            "Global metric threshold must be finite."
         );
     }
 
 
     if (
-        options.topStructuresPerNodeCount
-        ==
-        0
+        options.keepWorstFraction
+        <=
+        0.0
+        ||
+        options.keepWorstFraction
+        >
+        1.0
     )
     {
         throw std::runtime_error(
-            "topStructuresPerNodeCount must be greater than zero."
+            "keepWorstFraction must be in (0, 1]."
         );
     }
 
 
-    // key = 结构本身：
-    // nodeId + attack unit + monitor input
-    //
-    // 同一结构的不同区间配置会落入同一个 key。
-    std::map<
-        std::string,
-        Stage1SelectedStructure
-    >
-        bestByStructure;
+    std::vector<Stage1SelectedCandidate>
+        globallyNormalCandidates;
 
 
     BruteForceSearch::enumerate(
@@ -161,19 +164,45 @@ Stage1Screening::screen(
                 configuration
         )
         {
-            std::size_t validImageCount =
-                0;
-
-
-            double scoreSum =
+            double globalMetricSum =
                 0.0;
 
 
-            double worstScore =
+            double roiMetricSum =
+                0.0;
+
+
+            double worstGlobalMetric =
+                (
+                    options.globalMetricDirection
+                    ==
+                    MetricDirection::HigherIsBetter
+                )
+                ?
                 std::numeric_limits<double>::
+                    infinity()
+                :
+                -std::numeric_limits<double>::
                     infinity();
 
 
+            double worstRoiMetric =
+                (
+                    options.roiMetricDirection
+                    ==
+                    MetricDirection::HigherIsBetter
+                )
+                ?
+                std::numeric_limits<double>::
+                    infinity()
+                :
+                -std::numeric_limits<double>::
+                    infinity();
+
+
+            // 关键：
+            // 无论某一张图表现如何，
+            // 当前配置都会把 10 张图全部跑完。
             for (
                 std::size_t imageIndex = 0;
                 imageIndex
@@ -182,8 +211,8 @@ Stage1Screening::screen(
                 ++imageIndex
             )
             {
-                const Stage1ImageScore
-                    imageScore =
+                const Stage1ImageMetrics
+                    metrics =
                         evaluator(
                             configuration,
                             imageIndex,
@@ -193,250 +222,199 @@ Stage1Screening::screen(
                         );
 
 
-                if (!imageScore.valid)
-                {
-                    continue;
-                }
-
-
                 if (
                     !std::isfinite(
-                        imageScore.score
+                        metrics.globalMetric
+                    )
+                    ||
+                    !std::isfinite(
+                        metrics.roiMetric
                     )
                 )
                 {
                     throw std::runtime_error(
-                        "Stage 1 evaluator returned a non-finite score."
+                        "Stage 1 evaluator returned a non-finite metric."
                     );
                 }
 
 
-                ++validImageCount;
+                globalMetricSum +=
+                    metrics.globalMetric;
 
 
-                scoreSum +=
-                    imageScore.score;
+                roiMetricSum +=
+                    metrics.roiMetric;
 
 
-                worstScore =
-                    std::min(
-                        worstScore,
-                        imageScore.score
-                    );
-            }
-
-
-            if (
-                validImageCount
-                <
-                options.minimumValidImages
-            )
-            {
-                return;
-            }
-
-
-            const double meanScore =
-                scoreSum
-                /
-                static_cast<double>(
-                    validImageCount
-                );
-
-
-            const AttackStructure
-                structure =
-                    TwoStageSearch::
-                        extractStructure(
-                            configuration
+                if (
+                    options.globalMetricDirection
+                    ==
+                    MetricDirection::HigherIsBetter
+                )
+                {
+                    worstGlobalMetric =
+                        std::min(
+                            worstGlobalMetric,
+                            metrics.globalMetric
                         );
+                }
+                else
+                {
+                    worstGlobalMetric =
+                        std::max(
+                            worstGlobalMetric,
+                            metrics.globalMetric
+                        );
+                }
 
 
-            const std::string key =
-                structureKey(
-                    structure
-                );
-
-
-            auto iterator =
-                bestByStructure.find(
-                    key
-                );
-
-
-            if (
-                iterator
-                ==
-                bestByStructure.end()
-            )
-            {
-                Stage1SelectedStructure
-                    selected;
-
-
-                selected.structure =
-                    structure;
-
-
-                selected.bestConfiguration =
-                    configuration;
-
-
-                selected.validImageCount =
-                    validImageCount;
-
-
-                selected.meanScore =
-                    meanScore;
-
-
-                selected.worstScore =
-                    worstScore;
-
-
-                bestByStructure.emplace(
-                    key,
-                    std::move(
-                        selected
-                    )
-                );
-
-
-                return;
+                if (
+                    options.roiMetricDirection
+                    ==
+                    MetricDirection::HigherIsBetter
+                )
+                {
+                    worstRoiMetric =
+                        std::min(
+                            worstRoiMetric,
+                            metrics.roiMetric
+                        );
+                }
+                else
+                {
+                    worstRoiMetric =
+                        std::max(
+                            worstRoiMetric,
+                            metrics.roiMetric
+                        );
+                }
             }
 
 
+            const double imageCount =
+                static_cast<double>(
+                    dataset.stage1Images.size()
+                );
+
+
+            const double meanGlobalMetric =
+                globalMetricSum
+                /
+                imageCount;
+
+
+            const double meanRoiMetric =
+                roiMetricSum
+                /
+                imageCount;
+
+
+            // 第一层筛选：
+            // 只看 10 张图汇总后的全图指标是否正常。
             if (
-                isBetterConfiguration(
-                    meanScore,
-                    worstScore,
-                    iterator->second
+                !globalMetricIsNormal(
+                    meanGlobalMetric,
+                    options.globalMetricThreshold,
+                    options.globalMetricDirection
                 )
             )
             {
-                iterator->second.structure =
-                    structure;
-
-
-                iterator->second.bestConfiguration =
-                    configuration;
-
-
-                iterator->second.validImageCount =
-                    validImageCount;
-
-
-                iterator->second.meanScore =
-                    meanScore;
-
-
-                iterator->second.worstScore =
-                    worstScore;
+                return;
             }
+
+
+            Stage1SelectedCandidate
+                candidate;
+
+
+            candidate.configuration =
+                configuration;
+
+
+            candidate.meanGlobalMetric =
+                meanGlobalMetric;
+
+
+            candidate.meanRoiMetric =
+                meanRoiMetric;
+
+
+            candidate.worstGlobalMetric =
+                worstGlobalMetric;
+
+
+            candidate.worstRoiMetric =
+                worstRoiMetric;
+
+
+            globallyNormalCandidates.push_back(
+                std::move(
+                    candidate
+                )
+            );
         }
     );
 
 
-    // 不同攻击节点数量分别筛选。
-    std::map<
-        std::size_t,
-        std::vector<Stage1SelectedStructure>
-    >
-        groupedByNodeCount;
-
-
-    for (
-        auto& entry :
-        bestByStructure
+    if (
+        globallyNormalCandidates.empty()
     )
     {
-        Stage1SelectedStructure
-            selected =
-                std::move(
-                    entry.second
+        return {};
+    }
+
+
+    // 第二层筛选：
+    // 在全图指标正常的配置中，
+    // 按重要区域破坏程度从强到弱排序。
+    std::sort(
+        globallyNormalCandidates.begin(),
+        globallyNormalCandidates.end(),
+
+        [&options](
+            const Stage1SelectedCandidate& first,
+            const Stage1SelectedCandidate& second
+        )
+        {
+            return
+                roiDamageIsWorse(
+                    first,
+                    second,
+                    options.roiMetricDirection
                 );
+        }
+    );
 
 
-        groupedByNodeCount[
-            selected.structure.size()
-        ].push_back(
-            std::move(
-                selected
+    // 前 20%。
+    //
+    // 使用 ceil，确保只要存在合格配置，
+    // 至少保留 1 个。
+    const std::size_t keepCount =
+        std::max<std::size_t>(
+            1,
+            static_cast<std::size_t>(
+                std::ceil(
+                    static_cast<double>(
+                        globallyNormalCandidates.size()
+                    )
+                    *
+                    options.keepWorstFraction
+                )
             )
         );
-    }
 
 
-    std::vector<Stage1SelectedStructure>
-        result;
-
-
-    for (
-        auto& groupEntry :
-        groupedByNodeCount
-    )
-    {
-        auto& group =
-            groupEntry.second;
-
-
-        std::sort(
-            group.begin(),
-            group.end(),
-
-            [](
-                const Stage1SelectedStructure& first,
-                const Stage1SelectedStructure& second
-            )
-            {
-                if (
-                    first.meanScore
-                    !=
-                    second.meanScore
-                )
-                {
-                    return
-                        first.meanScore
-                        >
-                        second.meanScore;
-                }
-
-
-                return
-                    first.worstScore
-                    >
-                    second.worstScore;
-            }
-        );
-
-
-        if (
-            group.size()
-            >
-            options.topStructuresPerNodeCount
+    globallyNormalCandidates.resize(
+        std::min(
+            keepCount,
+            globallyNormalCandidates.size()
         )
-        {
-            group.resize(
-                options.topStructuresPerNodeCount
-            );
-        }
+    );
 
 
-        for (
-            auto& selected :
-            group
-        )
-        {
-            result.push_back(
-                std::move(
-                    selected
-                )
-            );
-        }
-    }
-
-
-    return result;
+    return
+        globallyNormalCandidates;
 }
 
 }
