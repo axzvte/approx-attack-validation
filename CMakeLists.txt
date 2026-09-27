@@ -47,6 +47,7 @@ add_library(
     src/approximate/evoapprox_adapter.cpp
 
     src/analysis/add_sample_collector.cpp
+    src/analysis/brute_force_search.cpp
     src/analysis/propagation_analyzer.cpp
 
     src/io/image_io.cpp
@@ -193,6 +194,26 @@ target_link_libraries(
 add_test(
     NAME dct8_dfg_builder
     COMMAND test_dct8_dfg_builder
+)
+
+
+add_executable(
+    test_brute_force_search
+
+    tests/test_brute_force_search.cpp
+)
+
+
+target_link_libraries(
+    test_brute_force_search
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME brute_force_search
+    COMMAND test_brute_force_search
 )
 
 # =========================================================
