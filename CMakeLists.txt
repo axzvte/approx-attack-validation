@@ -48,6 +48,7 @@ add_library(
 
     src/analysis/add_sample_collector.cpp
     src/analysis/brute_force_search.cpp
+    src/analysis/two_stage_search.cpp
     src/analysis/propagation_analyzer.cpp
 
     src/io/image_io.cpp
@@ -214,6 +215,26 @@ target_link_libraries(
 add_test(
     NAME brute_force_search
     COMMAND test_brute_force_search
+)
+
+
+add_executable(
+    test_two_stage_search
+
+    tests/test_two_stage_search.cpp
+)
+
+
+target_link_libraries(
+    test_two_stage_search
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME two_stage_search
+    COMMAND test_two_stage_search
 )
 
 # =========================================================
