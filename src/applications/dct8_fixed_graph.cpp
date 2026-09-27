@@ -33,6 +33,61 @@ constexpr std::array<
 
 
 // =========================================================
+// Baseline 配置
+// =========================================================
+
+Dct8FixedGraph::Dct8FixedGraph()
+    :
+    baselineConfig_(
+        createDefaultBaselineConfig()
+    )
+{
+}
+
+
+Dct8FixedGraph::Dct8FixedGraph(
+    const BaselineConfig& baselineConfig
+)
+    :
+    baselineConfig_(
+        baselineConfig
+    )
+{
+}
+
+
+void Dct8FixedGraph::setBaselineConfig(
+    const BaselineConfig& baselineConfig
+)
+{
+    baselineConfig_ =
+        baselineConfig;
+}
+
+
+const Dct8FixedGraph::BaselineConfig&
+Dct8FixedGraph::baselineConfig() const
+{
+    return baselineConfig_;
+}
+
+
+Dct8FixedGraph::BaselineConfig
+Dct8FixedGraph::createDefaultBaselineConfig()
+{
+    BaselineConfig config{};
+
+
+    config.fill(
+        approximate::ApproxUnitId::Add12se5RP
+    );
+
+
+    return config;
+}
+
+
+// =========================================================
 // 精确加法
 // =========================================================
 
@@ -83,13 +138,13 @@ Dct8FixedGraph::addExact(
 // =========================================================
 // 近似加法
 //
-// 默认：5RP
+// 正常状态：
+// 使用 baselineConfig_[nodeId]
 //
-// 如果：
-// 1. 当前 nodeId 存在配置
-// 2. input1 落入 [lower, upper]
-//
-// 则切换到配置中的近似加法器。
+// 攻击触发：
+// 根据 AttackConfig 选择监测 input1 / input2，
+// 当监测值落入 [lower, upper] 时，
+// 切换到攻击近似加法器。
 // =========================================================
 
 Dct8FixedGraph::Value
@@ -114,7 +169,7 @@ Dct8FixedGraph::addApprox(
 
 
     approximate::ApproxUnitId selectedUnit =
-        kBaselineUnit;
+        baselineConfig_[nodeId];
 
 
     for (const auto& config : configs)
@@ -133,10 +188,20 @@ Dct8FixedGraph::addApprox(
         }
 
 
+        const Value monitorValue =
+            config.monitorInput
+                ==
+                core::MonitorInput::Input1
+            ?
+            input1
+            :
+            input2;
+
+
         if (
-            input1 >= config.lower
+            monitorValue >= config.lower
             &&
-            input1 <= config.upper
+            monitorValue <= config.upper
         )
         {
             selectedUnit =
