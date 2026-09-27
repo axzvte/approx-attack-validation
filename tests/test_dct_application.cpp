@@ -166,6 +166,7 @@ int main()
         {
             0,
             approximate::ApproxUnitId::Add12se5Z0,
+            core::MonitorInput::Input1,
             -2048,
             2047
         }
