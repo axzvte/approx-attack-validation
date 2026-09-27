@@ -44,6 +44,17 @@ using AttackStructure =
     std::vector<AttackStructureNode>;
 
 
+using StageImageCallback =
+    std::function<
+        void(
+            std::uint64_t configurationIndex,
+            const AttackConfiguration& configuration,
+            std::size_t imageIndex,
+            const ImageCase& imageCase
+        )
+    >;
+
+
 class TwoStageSearch
 {
 public:
@@ -76,6 +87,15 @@ public:
     static void enumerateStage1(
         const BruteForceSearchSpace& stage1SearchSpace,
         const ConfigurationCallback& callback
+    );
+
+
+    // 真正执行 Stage 1 的多图流程：
+    // 每一个完整攻击配置都会依次作用于第一阶段的 10 张图。
+    static void runStage1(
+        const TwoStageDataset& dataset,
+        const BruteForceSearchSpace& stage1SearchSpace,
+        const StageImageCallback& callback
     );
 
 
@@ -113,6 +133,16 @@ public:
         const BruteForceSearchSpace& stage1SearchSpace,
         const AttackStructure& structure,
         const ConfigurationCallback& callback
+    );
+
+
+    // 真正执行 Stage 2 的多图流程：
+    // 固定结构后，每一个区间组合依次作用于第二阶段的 10 张图。
+    static void runStage2(
+        const TwoStageDataset& dataset,
+        const BruteForceSearchSpace& stage1SearchSpace,
+        const AttackStructure& structure,
+        const StageImageCallback& callback
     );
 };
 
