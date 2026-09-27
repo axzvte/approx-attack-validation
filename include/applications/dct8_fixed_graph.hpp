@@ -41,12 +41,6 @@ public:
         15;
 
 
-    // 基准近似加法器
-    static constexpr approximate::ApproxUnitId
-        kBaselineUnit =
-            approximate::ApproxUnitId::Add12se5RP;
-
-
     using Trace =
         std::array<
             AddTrace,
@@ -54,14 +48,40 @@ public:
         >;
 
 
-    // 全精确运行
+    using BaselineConfig =
+        std::array<
+            approximate::ApproxUnitId,
+            kAddNodeCount
+        >;
+
+
+    Dct8FixedGraph();
+
+
+    explicit Dct8FixedGraph(
+        const BaselineConfig& baselineConfig
+    );
+
+
+    void setBaselineConfig(
+        const BaselineConfig& baselineConfig
+    );
+
+
+    const BaselineConfig&
+    baselineConfig() const;
+
+
+    static BaselineConfig
+    createDefaultBaselineConfig();
+
+
     Vector runExact(
         const Vector& input,
         Trace* trace = nullptr
     ) const;
 
 
-    // 近似运行
     Vector runApprox(
         const Vector& input,
         const std::vector<core::AttackConfig>& configs,
@@ -75,6 +95,10 @@ public:
 
 
 private:
+
+    BaselineConfig
+        baselineConfig_;
+
 
     Value addExact(
         int nodeId,
