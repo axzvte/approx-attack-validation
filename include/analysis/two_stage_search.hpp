@@ -15,7 +15,6 @@ namespace analysis
 struct ImageCase
 {
     std::string inputPath;
-    std::string roiMaskPath;
 };
 
 
@@ -26,6 +25,10 @@ struct TwoStageDataset
 
     std::vector<ImageCase>
         stage2Images;
+
+    // Stage 1 与 Stage 2 的全部图像
+    // 共用同一张 ROI 掩码。
+    std::string roiMaskPath;
 };
 
 
@@ -69,7 +72,7 @@ public:
     // 1. 第一阶段是否为 10 张
     // 2. 第二阶段是否为 10 张
     // 3. 两阶段输入图像是否互不重复
-    // 4. 图像路径与 ROI 路径是否为空
+    // 4. 所有图像共用的 ROI 掩码路径是否为空
     static void validateDataset(
         const TwoStageDataset& dataset,
         std::size_t expectedImagesPerStage =
