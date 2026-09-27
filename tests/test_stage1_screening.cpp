@@ -4,8 +4,8 @@
 #include "core/attack_config.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 
 
@@ -57,61 +57,36 @@ int main()
 
 
     // =====================================================
-    // 两个候选节点
+    // 构造 5 个完整配置
     //
-    // 每个节点：
-    // 1 个攻击加法器
-    // 1 个 monitor input
-    // 2 个区间
+    // 同一个节点、同一个攻击单元、同一个 monitor input，
+    // 只有触发区间不同。
     // =====================================================
 
     analysis::NodeSearchSpace
-        node0;
+        node;
 
 
-    node0.nodeId =
+    node.nodeId =
         0;
 
 
-    node0.attackUnits =
+    node.attackUnits =
     {
         approximate::ApproxUnitId::Add12se5Z0
     };
 
 
-    node0.monitorSpaces =
+    node.monitorSpaces =
     {
         {
             core::MonitorInput::Input1,
             {
                 { 0, 9 },
-                { 10, 19 }
-            }
-        }
-    };
-
-
-    analysis::NodeSearchSpace
-        node1;
-
-
-    node1.nodeId =
-        1;
-
-
-    node1.attackUnits =
-    {
-        approximate::ApproxUnitId::Add12se5SB
-    };
-
-
-    node1.monitorSpaces =
-    {
-        {
-            core::MonitorInput::Input2,
-            {
-                { 0, 9 },
-                { 10, 19 }
+                { 10, 19 },
+                { 20, 29 },
+                { 30, 39 },
+                { 40, 49 }
             }
         }
     };
@@ -123,8 +98,7 @@ int main()
 
     searchSpace.nodes =
     {
-        node0,
-        node1
+        node
     };
 
 
@@ -133,38 +107,186 @@ int main()
 
 
     searchSpace.maxAttackNodes =
-        2;
-
-
-    analysis::Stage1ScreeningOptions
-        options;
-
-
-    // 每一种攻击节点数量只保留 1 套结构。
-    options.topStructuresPerNodeCount =
         1;
 
 
-    // 10 张图必须全部有效。
-    options.minimumValidImages =
-        10;
+    // =====================================================
+    // PSNR 类筛选测试
+    //
+    // 全图 PSNR：
+    // 前 4 个配置 = 31 dB，正常
+    // 第 5 个配置 = 28 dB，不正常
+    //
+    // ROI PSNR（越低破坏越严重）：
+    // [20,29] 的 ROI PSNR = 12 dB，最差
+    //
+    // 因此：
+    // 5 个配置都必须完整跑 10 张图 = 50 次评价
+    // 全图正常的有 4 个
+    // 前 20% = ceil(4 * 0.2) = 1 个
+    // 最终应保留 [20,29]
+    // =====================================================
+
+    analysis::Stage1ScreeningOptions
+        psnrOptions;
+
+
+    psnrOptions.globalMetricThreshold =
+        30.0;
+
+
+    psnrOptions.globalMetricDirection =
+        analysis::MetricDirection::
+            HigherIsBetter;
+
+
+    psnrOptions.roiMetricDirection =
+        analysis::MetricDirection::
+            HigherIsBetter;
+
+
+    psnrOptions.keepWorstFraction =
+        0.20;
+
+
+    std::uint64_t
+        psnrEvaluationCount =
+            0;
+
+
+    const auto psnrSelected =
+        analysis::Stage1Screening::screen(
+            dataset,
+            searchSpace,
+
+            [&psnrEvaluationCount](
+                const analysis::AttackConfiguration&
+                    configuration,
+                std::size_t,
+                const analysis::ImageCase&
+            )
+            {
+                ++psnrEvaluationCount;
+
+
+                const int lower =
+                    configuration[0].lower;
+
+
+                analysis::Stage1ImageMetrics
+                    metrics;
+
+
+                metrics.globalMetric =
+                    (
+                        lower == 40
+                    )
+                    ?
+                    28.0
+                    :
+                    31.0;
+
+
+                if (lower == 20)
+                {
+                    metrics.roiMetric =
+                        12.0;
+                }
+                else if (lower == 30)
+                {
+                    metrics.roiMetric =
+                        18.0;
+                }
+                else
+                {
+                    metrics.roiMetric =
+                        22.0;
+                }
+
+
+                return metrics;
+            },
+
+            psnrOptions
+        );
+
+
+    if (psnrEvaluationCount != 50)
+    {
+        std::cerr
+            << "Expected 50 Stage 1 evaluations, got "
+            << psnrEvaluationCount
+            << ".\n";
+
+        return 1;
+    }
+
+
+    if (psnrSelected.size() != 1)
+    {
+        std::cerr
+            << "Expected one PSNR candidate after 20 percent screening, got "
+            << psnrSelected.size()
+            << ".\n";
+
+        return 1;
+    }
+
+
+    if (
+        psnrSelected[0].configuration.size()
+            !=
+            1
+        ||
+        psnrSelected[0].configuration[0].lower
+            !=
+            20
+        ||
+        psnrSelected[0].configuration[0].upper
+            !=
+            29
+    )
+    {
+        std::cerr
+            << "PSNR screening did not select the worst ROI candidate.\n";
+
+        return 1;
+    }
 
 
     // =====================================================
-    // 模拟评价器
+    // MED 类筛选测试
     //
-    // 这里只验证筛选框架，不使用真实图像指标。
+    // MED 越低越好，因此：
+    // 全图 MED <= 5 为正常
+    // ROI MED 越高说明攻击越严重
     //
-    // 规则：
-    // 1 节点：
-    //   Node 0 优于 Node 1
-    //   且 Node 0 的 [10,19] 优于 [0,9]
-    //
-    // 2 节点：
-    //   两个节点都选择 [10,19] 时最好
+    // [30,39] 的 ROI MED 最大，应被选中。
     // =====================================================
 
-    const auto selected =
+    analysis::Stage1ScreeningOptions
+        medOptions;
+
+
+    medOptions.globalMetricThreshold =
+        5.0;
+
+
+    medOptions.globalMetricDirection =
+        analysis::MetricDirection::
+            LowerIsBetter;
+
+
+    medOptions.roiMetricDirection =
+        analysis::MetricDirection::
+            LowerIsBetter;
+
+
+    medOptions.keepWorstFraction =
+        0.20;
+
+
+    const auto medSelected =
         analysis::Stage1Screening::screen(
             dataset,
             searchSpace,
@@ -176,139 +298,87 @@ int main()
                 const analysis::ImageCase&
             )
             {
-                analysis::Stage1ImageScore
-                    result;
+                const int lower =
+                    configuration[0].lower;
 
 
-                result.valid =
-                    true;
+                analysis::Stage1ImageMetrics
+                    metrics;
 
 
-                if (configuration.size() == 1)
+                metrics.globalMetric =
+                    (
+                        lower == 40
+                    )
+                    ?
+                    7.0
+                    :
+                    4.0;
+
+
+                if (lower == 30)
                 {
-                    const auto& config =
-                        configuration[0];
-
-
-                    result.score =
-                        (
-                            config.nodeId == 0
-                            ?
-                            20.0
-                            :
-                            10.0
-                        )
-                        +
-                        (
-                            config.lower == 10
-                            ?
-                            2.0
-                            :
-                            0.0
-                        );
-
-
-                    return result;
+                    metrics.roiMetric =
+                        15.0;
+                }
+                else if (lower == 20)
+                {
+                    metrics.roiMetric =
+                        10.0;
+                }
+                else
+                {
+                    metrics.roiMetric =
+                        6.0;
                 }
 
 
-                double score =
-                    30.0;
-
-
-                for (const auto& config : configuration)
-                {
-                    if (config.lower == 10)
-                    {
-                        score +=
-                            1.0;
-                    }
-                }
-
-
-                result.score =
-                    score;
-
-
-                return result;
+                return metrics;
             },
 
-            options
+            medOptions
         );
 
 
-    // 应该分别保留：
-    // 1 节点 Top-1
-    // 2 节点 Top-1
-    if (selected.size() != 2)
-    {
-        std::cerr
-            << "Expected two selected structures, got "
-            << selected.size()
-            << ".\n";
-
-        return 1;
-    }
-
-
-    const auto& oneNode =
-        selected[0];
-
-
     if (
-        oneNode.structure.size() != 1
+        medSelected.size() != 1
         ||
-        oneNode.structure[0].nodeId != 0
+        medSelected[0].configuration[0].lower
+            !=
+            30
         ||
-        oneNode.bestConfiguration.size() != 1
-        ||
-        oneNode.bestConfiguration[0].lower != 10
-        ||
-        oneNode.bestConfiguration[0].upper != 19
-        ||
-        oneNode.validImageCount != 10
+        medSelected[0].configuration[0].upper
+            !=
+            39
     )
     {
         std::cerr
-            << "Single-node Stage 1 screening result is incorrect.\n";
-
-        return 1;
-    }
-
-
-    const auto& twoNode =
-        selected[1];
-
-
-    if (
-        twoNode.structure.size() != 2
-        ||
-        twoNode.bestConfiguration.size() != 2
-        ||
-        twoNode.bestConfiguration[0].lower != 10
-        ||
-        twoNode.bestConfiguration[1].lower != 10
-        ||
-        twoNode.validImageCount != 10
-    )
-    {
-        std::cerr
-            << "Two-node Stage 1 screening result is incorrect.\n";
+            << "MED screening did not select the worst ROI candidate.\n";
 
         return 1;
     }
 
 
     std::cout
-        << "Selected one-node mean score: "
-        << oneNode.meanScore
+        << "PSNR evaluations: "
+        << psnrEvaluationCount
         << "\n";
 
 
     std::cout
-        << "Selected two-node mean score: "
-        << twoNode.meanScore
-        << "\n";
+        << "Selected PSNR interval: ["
+        << psnrSelected[0].configuration[0].lower
+        << ", "
+        << psnrSelected[0].configuration[0].upper
+        << "]\n";
+
+
+    std::cout
+        << "Selected MED interval: ["
+        << medSelected[0].configuration[0].lower
+        << ", "
+        << medSelected[0].configuration[0].upper
+        << "]\n";
 
 
     std::cout
