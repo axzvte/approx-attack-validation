@@ -241,6 +241,62 @@ void TwoStageSearch::enumerateStage1(
 }
 
 
+void TwoStageSearch::runStage1(
+    const TwoStageDataset& dataset,
+    const BruteForceSearchSpace& stage1SearchSpace,
+    const StageImageCallback& callback
+)
+{
+    validateDataset(
+        dataset
+    );
+
+
+    if (!callback)
+    {
+        throw std::runtime_error(
+            "Stage 1 image callback is empty."
+        );
+    }
+
+
+    std::uint64_t configurationIndex =
+        0;
+
+
+    BruteForceSearch::enumerate(
+        stage1SearchSpace,
+
+        [&](
+            const AttackConfiguration&
+                configuration
+        )
+        {
+            for (
+                std::size_t imageIndex = 0;
+                imageIndex
+                    <
+                    dataset.stage1Images.size();
+                ++imageIndex
+            )
+            {
+                callback(
+                    configurationIndex,
+                    configuration,
+                    imageIndex,
+                    dataset.stage1Images[
+                        imageIndex
+                    ]
+                );
+            }
+
+
+            ++configurationIndex;
+        }
+    );
+}
+
+
 // =========================================================
 // 从完整配置提取固定硬件结构
 // =========================================================
@@ -498,6 +554,71 @@ void TwoStageSearch::enumerateStage2(
     BruteForceSearch::enumerate(
         stage2SearchSpace,
         callback
+    );
+}
+
+
+void TwoStageSearch::runStage2(
+    const TwoStageDataset& dataset,
+    const BruteForceSearchSpace& stage1SearchSpace,
+    const AttackStructure& structure,
+    const StageImageCallback& callback
+)
+{
+    validateDataset(
+        dataset
+    );
+
+
+    if (!callback)
+    {
+        throw std::runtime_error(
+            "Stage 2 image callback is empty."
+        );
+    }
+
+
+    const BruteForceSearchSpace
+        stage2SearchSpace =
+            buildStage2SearchSpace(
+                stage1SearchSpace,
+                structure
+            );
+
+
+    std::uint64_t configurationIndex =
+        0;
+
+
+    BruteForceSearch::enumerate(
+        stage2SearchSpace,
+
+        [&](
+            const AttackConfiguration&
+                configuration
+        )
+        {
+            for (
+                std::size_t imageIndex = 0;
+                imageIndex
+                    <
+                    dataset.stage2Images.size();
+                ++imageIndex
+            )
+            {
+                callback(
+                    configurationIndex,
+                    configuration,
+                    imageIndex,
+                    dataset.stage2Images[
+                        imageIndex
+                    ]
+                );
+            }
+
+
+            ++configurationIndex;
+        }
     );
 }
 
