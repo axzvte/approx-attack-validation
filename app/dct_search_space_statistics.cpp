@@ -60,7 +60,7 @@ int main(
             /
             "mask"
             /
-            "roi_mask.png"
+            "roi_mask.jpg"
         ).string();
 
 
@@ -80,7 +80,7 @@ int main(
                         +
                         twoDigit(i)
                         +
-                        ".png"
+                        ".jpg"
                     )
                 ).string()
             }
