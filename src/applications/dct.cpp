@@ -673,4 +673,96 @@ void DctApplication::collectExactAddSamples(
     }
 }
 
+
+// =========================================================
+// 正常近似 Baseline 运行中间数据采集
+//
+// 空 AttackConfig 表示所有节点只使用各自 Baseline。
+// 当前默认整套 Baseline 为 5RP。
+// =========================================================
+
+void DctApplication::collectBaselineAddSamples(
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    std::vector<core::AddSample>& samples
+) const
+{
+    validateInput(
+        inputImage
+    );
+
+
+    validateRoiMask(
+        inputImage,
+        roiMask
+    );
+
+
+    const cv::Mat paddedImage =
+        createPaddedImage(
+            inputImage
+        );
+
+
+    const cv::Mat paddedMask =
+        createPaddedMask(
+            roiMask
+        );
+
+
+    const std::size_t blockCount =
+        static_cast<std::size_t>(
+            paddedImage.rows / 8
+        )
+        *
+        static_cast<std::size_t>(
+            paddedImage.cols / 8
+        );
+
+
+    samples.reserve(
+        samples.size()
+        +
+        blockCount
+        *
+        16
+        *
+        Dct8FixedGraph::kAddNodeCount
+    );
+
+
+    const std::vector<core::AttackConfig>
+        emptyConfigs;
+
+
+    for (int blockRow = 0;
+         blockRow < paddedImage.rows;
+         blockRow += 8)
+    {
+        for (int blockCol = 0;
+             blockCol < paddedImage.cols;
+             blockCol += 8)
+        {
+            const double roiWeight =
+                calculateBlockRoiWeight(
+                    paddedMask,
+                    blockRow,
+                    blockCol
+                );
+
+
+            runForwardBlock(
+                paddedImage,
+                blockRow,
+                blockCol,
+
+                &emptyConfigs,
+
+                roiWeight,
+                &samples
+            );
+        }
+    }
+}
+
 }
