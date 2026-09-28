@@ -312,7 +312,8 @@ DctNodeSensitivityAnalyzer::analyze(
     const applications::DctApplication& application,
     const std::vector<cv::Mat>& inputImages,
     const std::vector<cv::Mat>& roiMasks,
-    const std::vector<approximate::ApproxUnitId>& attackUnits
+    const std::vector<approximate::ApproxUnitId>& attackUnits,
+    const DctNodeSensitivityProgressCallback& progressCallback
 )
 {
     if (inputImages.empty())
@@ -490,6 +491,22 @@ DctNodeSensitivityAnalyzer::analyze(
                     localError;
             }
         }
+
+
+        if (progressCallback)
+        {
+            progressCallback(
+                DctNodeSensitivityProgress{
+                    DctNodeSensitivityPhase::Baseline,
+                    imageIndex + 1,
+                    inputImages.size(),
+                    -1,
+                    approximate::ApproxUnitId::Add12se5RP,
+                    imageIndex + 1,
+                    inputImages.size()
+                }
+            );
+        }
     }
 
 
@@ -588,6 +605,52 @@ DctNodeSensitivityAnalyzer::analyze(
                     roiMasks[imageIndex],
                     outputTotals
                 );
+
+
+                if (progressCallback)
+                {
+                    const std::size_t configurationIndex =
+                        static_cast<std::size_t>(
+                            nodeId
+                        )
+                        *
+                        unitCount
+                        +
+                        unitIndex;
+
+
+                    const std::size_t completedImages =
+                        configurationIndex
+                        *
+                        inputImages.size()
+                        +
+                        imageIndex
+                        +
+                        1;
+
+
+                    const std::size_t totalImages =
+                        static_cast<std::size_t>(
+                            applications::Dct8FixedGraph::kAddNodeCount
+                        )
+                        *
+                        unitCount
+                        *
+                        inputImages.size();
+
+
+                    progressCallback(
+                        DctNodeSensitivityProgress{
+                            DctNodeSensitivityPhase::Attack,
+                            completedImages,
+                            totalImages,
+                            nodeId,
+                            attackUnit,
+                            imageIndex + 1,
+                            inputImages.size()
+                        }
+                    );
+                }
             }
 
 
