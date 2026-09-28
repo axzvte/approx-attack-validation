@@ -50,6 +50,7 @@ add_library(
     src/analysis/brute_force_search.cpp
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
+    src/analysis/dct_stage1_evaluator.cpp
     src/analysis/propagation_analyzer.cpp
 
     src/io/image_io.cpp
@@ -256,6 +257,26 @@ target_link_libraries(
 add_test(
     NAME stage1_screening
     COMMAND test_stage1_screening
+)
+
+
+add_executable(
+    test_dct_stage1_evaluator
+
+    tests/test_dct_stage1_evaluator.cpp
+)
+
+
+target_link_libraries(
+    test_dct_stage1_evaluator
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_stage1_evaluator
+    COMMAND test_dct_stage1_evaluator
 )
 
 # =========================================================
