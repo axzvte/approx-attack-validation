@@ -6,6 +6,7 @@
 #include <opencv2/core.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 
@@ -98,6 +99,40 @@ struct DctNodeSensitivityReport
 };
 
 
+enum class DctNodeSensitivityPhase
+{
+    Baseline,
+    Attack
+};
+
+
+struct DctNodeSensitivityProgress
+{
+    DctNodeSensitivityPhase phase =
+        DctNodeSensitivityPhase::Baseline;
+
+    std::size_t completed = 0;
+    std::size_t total = 0;
+
+    int nodeId = -1;
+
+    approximate::ApproxUnitId
+        attackUnit =
+            approximate::ApproxUnitId::Add12se5RP;
+
+    std::size_t imageIndex = 0;
+    std::size_t imageCount = 0;
+};
+
+
+using DctNodeSensitivityProgressCallback =
+    std::function<
+        void(
+            const DctNodeSensitivityProgress& progress
+        )
+    >;
+
+
 class DctNodeSensitivityAnalyzer
 {
 public:
@@ -120,7 +155,8 @@ public:
         const applications::DctApplication& application,
         const std::vector<cv::Mat>& inputImages,
         const std::vector<cv::Mat>& roiMasks,
-        const std::vector<approximate::ApproxUnitId>& attackUnits
+        const std::vector<approximate::ApproxUnitId>& attackUnits,
+        const DctNodeSensitivityProgressCallback& progressCallback = {}
     );
 };
 
