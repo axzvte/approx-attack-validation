@@ -93,7 +93,7 @@ void validateAttackUnits(
 // 全部 [L,U] 数量
 // =========================================================
 
-boost::multiprecision::cpp_int
+BigUInt
 SearchSpaceStatistics::countAllIntervals(
     int minimum,
     int maximum
@@ -107,29 +107,45 @@ SearchSpaceStatistics::countAllIntervals(
     }
 
 
-    const boost::multiprecision::cpp_int
-        valueCount =
-            static_cast<long long>(
+    std::uint64_t left =
+        static_cast<std::uint64_t>(
+            static_cast<std::int64_t>(
                 maximum
             )
             -
-            static_cast<long long>(
+            static_cast<std::int64_t>(
                 minimum
             )
             +
-            1;
+            1
+        );
+
+
+    std::uint64_t right =
+        left
+        +
+        1;
+
+
+    // N * (N + 1) / 2
+    //
+    // 先除以 2 再相乘，避免中间值溢出。
+    if ((left % 2) == 0)
+    {
+        left /=
+            2;
+    }
+    else
+    {
+        right /=
+            2;
+    }
 
 
     return
-        valueCount
+        BigUInt(left)
         *
-        (
-            valueCount
-            +
-            1
-        )
-        /
-        2;
+        BigUInt(right);
 }
 
 
@@ -315,7 +331,7 @@ SearchSpaceStatistics::analyze(
     }
 
 
-    const boost::multiprecision::cpp_int
+    const BigUInt
         attackUnitCount =
             attackUnits.size();
 
@@ -372,7 +388,7 @@ SearchSpaceStatistics::analyze(
     // 使用 cpp_int，避免 uint64_t 溢出。
     // =====================================================
 
-    std::vector<boost::multiprecision::cpp_int>
+    std::vector<BigUInt>
         dp(
             maxAttackNodes + 1
         );
