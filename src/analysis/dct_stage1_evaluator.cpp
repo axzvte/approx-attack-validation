@@ -4,6 +4,7 @@
 #include "metrics/psnr.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 
 namespace analysis
