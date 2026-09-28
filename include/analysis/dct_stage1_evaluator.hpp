@@ -43,7 +43,8 @@ private:
         application_;
 
 
-    cv::Mat roiMask_;
+    std::vector<cv::Mat>
+        roiMasks_;
 
 
     std::vector<cv::Mat>
