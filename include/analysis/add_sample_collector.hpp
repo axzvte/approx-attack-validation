@@ -23,6 +23,13 @@ public:
     );
 
 
+    void collectBaseline(
+        const core::Application& application,
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask
+    );
+
+
     void clear();
 
 
