@@ -104,7 +104,7 @@ int main(
                         +
                         twoDigit(i)
                         +
-                        ".png"
+                        ".jpg"
                     )
                 ).string()
             }
