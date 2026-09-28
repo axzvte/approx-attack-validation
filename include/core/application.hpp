@@ -43,6 +43,17 @@ public:
         const cv::Mat& roiMask,
         std::vector<AddSample>& samples
     ) const = 0;
+
+
+    // 采集正常近似 Baseline 电路中的节点输入/输出。
+    //
+    // 这与 collectExactAddSamples 不同：
+    // 后级节点的输入会包含前级 Baseline 近似误差传播。
+    virtual void collectBaselineAddSamples(
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        std::vector<AddSample>& samples
+    ) const = 0;
 };
 
 }
