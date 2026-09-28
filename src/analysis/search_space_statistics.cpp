@@ -385,7 +385,7 @@ SearchSpaceStatistics::analyze(
     // 从已经处理的节点中选 k 个节点时，
     // 所有节点候选配置笛卡尔积的总数量。
     //
-    // 使用 cpp_int，避免 uint64_t 溢出。
+    // 使用项目内置 BigUInt，避免 uint64_t 溢出。
     // =====================================================
 
     std::vector<BigUInt>
