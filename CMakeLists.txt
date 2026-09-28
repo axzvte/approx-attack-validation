@@ -51,6 +51,7 @@ add_library(
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
     src/analysis/dct_stage1_evaluator.cpp
+    src/analysis/dct_node_sensitivity.cpp
     src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
@@ -300,6 +301,26 @@ add_test(
     COMMAND test_search_space_statistics
 )
 
+add_executable(
+    test_dct_node_sensitivity
+
+    tests/test_dct_node_sensitivity.cpp
+)
+
+
+target_link_libraries(
+    test_dct_node_sensitivity
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_node_sensitivity
+    COMMAND test_dct_node_sensitivity
+)
+
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -330,6 +351,24 @@ add_executable(
 
 target_link_libraries(
     dct_search_space_statistics
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# DCT single-node sensitivity analysis
+# =========================================================
+
+add_executable(
+    dct_node_sensitivity_analysis
+
+    app/dct_node_sensitivity_analysis.cpp
+)
+
+
+target_link_libraries(
+    dct_node_sensitivity_analysis
     PRIVATE
         approx_framework
 )
