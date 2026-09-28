@@ -20,6 +20,20 @@ void AddSampleCollector::collect(
 }
 
 
+void AddSampleCollector::collectBaseline(
+    const core::Application& application,
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask
+)
+{
+    application.collectBaselineAddSamples(
+        inputImage,
+        roiMask,
+        samples_
+    );
+}
+
+
 void AddSampleCollector::clear()
 {
     samples_.clear();
