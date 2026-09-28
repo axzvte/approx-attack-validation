@@ -51,6 +51,7 @@ add_library(
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
     src/analysis/dct_stage1_evaluator.cpp
+    src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
     src/io/image_io.cpp
@@ -279,6 +280,26 @@ add_test(
     COMMAND test_dct_stage1_evaluator
 )
 
+
+add_executable(
+    test_search_space_statistics
+
+    tests/test_search_space_statistics.cpp
+)
+
+
+target_link_libraries(
+    test_search_space_statistics
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME search_space_statistics
+    COMMAND test_search_space_statistics
+)
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -292,6 +313,23 @@ add_executable(
 
 target_link_libraries(
     dct_propagation_analysis
+    PRIVATE
+        approx_framework
+)
+
+# =========================================================
+# DCT exact brute-force search-space statistics
+# =========================================================
+
+add_executable(
+    dct_search_space_statistics
+
+    app/dct_search_space_statistics.cpp
+)
+
+
+target_link_libraries(
+    dct_search_space_statistics
     PRIVATE
         approx_framework
 )
