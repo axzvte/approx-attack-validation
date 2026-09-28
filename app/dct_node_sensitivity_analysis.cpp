@@ -7,6 +7,8 @@
 #include "region/region_mask.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -72,6 +74,57 @@ std::string unitName(
 
 
     return "UNKNOWN";
+}
+
+
+std::string formatDuration(
+    double seconds
+)
+{
+    if (
+        !std::isfinite(seconds)
+        ||
+        seconds < 0.0
+    )
+    {
+        return "--:--:--";
+    }
+
+
+    const long long totalSeconds =
+        static_cast<long long>(
+            seconds
+        );
+
+
+    const long long hours =
+        totalSeconds / 3600;
+
+
+    const long long minutes =
+        (totalSeconds % 3600) / 60;
+
+
+    const long long remainingSeconds =
+        totalSeconds % 60;
+
+
+    std::ostringstream stream;
+
+
+    stream
+        << std::setfill('0')
+        << std::setw(2)
+        << hours
+        << ":"
+        << std::setw(2)
+        << minutes
+        << ":"
+        << std::setw(2)
+        << remainingSeconds;
+
+
+    return stream.str();
 }
 
 
@@ -338,13 +391,235 @@ int main(
             application;
 
 
+        using Clock =
+            std::chrono::steady_clock;
+
+
+        const auto analysisStart =
+            Clock::now();
+
+
+        auto lastPrinted =
+            analysisStart
+            -
+            std::chrono::seconds(
+                2
+            );
+
+
+        bool attackPhaseStarted =
+            false;
+
+
+        Clock::time_point attackStart =
+            analysisStart;
+
+
+        const auto progressCallback =
+            [&](
+                const analysis::DctNodeSensitivityProgress& progress
+            )
+            {
+                const auto now =
+                    Clock::now();
+
+
+                const bool phaseFinished =
+                    progress.completed
+                    ==
+                    progress.total;
+
+
+                // 最多约每秒刷新一次，避免终端输出本身拖慢程序。
+                if (
+                    !phaseFinished
+                    &&
+                    now - lastPrinted
+                        <
+                        std::chrono::seconds(
+                            1
+                        )
+                )
+                {
+                    return;
+                }
+
+
+                lastPrinted =
+                    now;
+
+
+                const double totalElapsed =
+                    std::chrono::duration<double>(
+                        now - analysisStart
+                    ).count();
+
+
+                if (
+                    progress.phase
+                    ==
+                    analysis::DctNodeSensitivityPhase::Baseline
+                )
+                {
+                    std::cout
+                        << "\r[Baseline] "
+                        << progress.completed
+                        << "/"
+                        << progress.total
+                        << " image(s)"
+                        << " | elapsed "
+                        << formatDuration(
+                            totalElapsed
+                        )
+                        << "                    "
+                        << std::flush;
+
+
+                    if (phaseFinished)
+                    {
+                        std::cout
+                            << "\n";
+                    }
+
+
+                    return;
+                }
+
+
+                if (!attackPhaseStarted)
+                {
+                    attackPhaseStarted =
+                        true;
+
+
+                    attackStart =
+                        now;
+                }
+
+
+                const double attackElapsed =
+                    std::chrono::duration<double>(
+                        now - attackStart
+                    ).count();
+
+
+                const double percentage =
+                    progress.total == 0
+                    ?
+                    0.0
+                    :
+                    100.0
+                    *
+                    static_cast<double>(
+                        progress.completed
+                    )
+                    /
+                    static_cast<double>(
+                        progress.total
+                    );
+
+
+                double etaSeconds =
+                    0.0;
+
+
+                if (
+                    progress.completed > 0
+                    &&
+                    progress.completed < progress.total
+                )
+                {
+                    etaSeconds =
+                        attackElapsed
+                        *
+                        static_cast<double>(
+                            progress.total
+                            -
+                            progress.completed
+                        )
+                        /
+                        static_cast<double>(
+                            progress.completed
+                        );
+                }
+
+
+                std::cout
+                    << "\r[Attack] "
+                    << progress.completed
+                    << "/"
+                    << progress.total
+                    << " ("
+                    << std::fixed
+                    << std::setprecision(1)
+                    << percentage
+                    << "%)"
+                    << " | Node "
+                    << progress.nodeId
+                    << " "
+                    << applications::Dct8FixedGraph::nodeName(
+                        progress.nodeId
+                    )
+                    << " | "
+                    << unitName(
+                        progress.attackUnit
+                    )
+                    << " | image "
+                    << progress.imageIndex
+                    << "/"
+                    << progress.imageCount
+                    << " | elapsed "
+                    << formatDuration(
+                        totalElapsed
+                    )
+                    << " | ETA "
+                    << (
+                        phaseFinished
+                        ?
+                        std::string(
+                            "00:00:00"
+                        )
+                        :
+                        formatDuration(
+                            etaSeconds
+                        )
+                    )
+                    << "                    "
+                    << std::flush;
+
+
+                if (phaseFinished)
+                {
+                    std::cout
+                        << "\n";
+                }
+            };
+
+
         const auto report =
             analysis::DctNodeSensitivityAnalyzer::analyze(
                 application,
                 inputImages,
                 roiMasks,
-                attackUnits
+                attackUnits,
+                progressCallback
             );
+
+
+        const double analysisElapsed =
+            std::chrono::duration<double>(
+                Clock::now()
+                -
+                analysisStart
+            ).count();
+
+
+        std::cout
+            << "\nSensitivity analysis completed in "
+            << formatDuration(
+                analysisElapsed
+            )
+            << "\n\n";
 
 
         std::vector<
