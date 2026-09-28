@@ -1,6 +1,7 @@
 #include "region/region_mask.hpp"
 
 #include <algorithm>
+#include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
 
@@ -20,6 +21,62 @@ bool isImportantPixel(
         );
 
     return pixelValue >= 128;
+}
+
+
+cv::Mat resizeMaskToImage(
+    const cv::Mat& mask,
+    const cv::Mat& targetImage
+)
+{
+    if (mask.empty())
+    {
+        throw std::runtime_error(
+            "ROI mask is empty."
+        );
+    }
+
+
+    if (targetImage.empty())
+    {
+        throw std::runtime_error(
+            "Target image is empty."
+        );
+    }
+
+
+    if (mask.type() != CV_8UC1)
+    {
+        throw std::runtime_error(
+            "ROI mask must be CV_8UC1."
+        );
+    }
+
+
+    if (
+        mask.rows == targetImage.rows
+        &&
+        mask.cols == targetImage.cols
+    )
+    {
+        return mask.clone();
+    }
+
+
+    cv::Mat resizedMask;
+
+
+    cv::resize(
+        mask,
+        resizedMask,
+        targetImage.size(),
+        0.0,
+        0.0,
+        cv::INTER_NEAREST
+    );
+
+
+    return resizedMask;
 }
 
 
