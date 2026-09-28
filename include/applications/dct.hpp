@@ -39,6 +39,13 @@ public:
     ) const override;
 
 
+    void collectBaselineAddSamples(
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        std::vector<core::AddSample>& samples
+    ) const override;
+
+
 private:
 
     std::vector<core::AddNode>
