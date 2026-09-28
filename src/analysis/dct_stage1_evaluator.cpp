@@ -2,6 +2,7 @@
 
 #include "io/image_io.hpp"
 #include "metrics/psnr.hpp"
+#include "region/region_mask.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -19,13 +20,18 @@ DctStage1Evaluator::DctStage1Evaluator(
     );
 
 
-    roiMask_ =
+    const cv::Mat sharedRoiMask =
         image_io::loadGrayImage(
             dataset.roiMaskPath
         );
 
 
     inputImages_.reserve(
+        dataset.stage1Images.size()
+    );
+
+
+    roiMasks_.reserve(
         dataset.stage1Images.size()
     );
 
@@ -46,20 +52,11 @@ DctStage1Evaluator::DctStage1Evaluator(
             );
 
 
-        if (
-            inputImage.rows
-                !=
-                roiMask_.rows
-            ||
-            inputImage.cols
-                !=
-                roiMask_.cols
-        )
-        {
-            throw std::runtime_error(
-                "Stage 1 image size does not match the shared ROI mask."
+        cv::Mat resizedMask =
+            region_mask::resizeMaskToImage(
+                sharedRoiMask,
+                inputImage
             );
-        }
 
 
         cv::Mat referenceImage =
@@ -71,6 +68,13 @@ DctStage1Evaluator::DctStage1Evaluator(
         inputImages_.push_back(
             std::move(
                 inputImage
+            )
+        );
+
+
+        roiMasks_.push_back(
+            std::move(
+                resizedMask
             )
         );
 
@@ -124,7 +128,7 @@ DctStage1Evaluator::evaluate(
         metrics::calculateImportantRegionPSNR(
             referenceImages_[imageIndex],
             attackedImage,
-            roiMask_
+            roiMasks_[imageIndex]
         );
 
 
