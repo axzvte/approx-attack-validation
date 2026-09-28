@@ -1,9 +1,8 @@
 #pragma once
 
+#include "analysis/big_uint.hpp"
 #include "analysis/two_stage_search.hpp"
 #include "core/application.hpp"
-
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -28,10 +27,10 @@ struct NodeSearchSpaceStatistics
     IntegerRange input1Range;
     IntegerRange input2Range;
 
-    boost::multiprecision::cpp_int
+    BigUInt
         input1IntervalCount = 0;
 
-    boost::multiprecision::cpp_int
+    BigUInt
         input2IntervalCount = 0;
 
     // 当前节点的完整单节点配置数：
@@ -43,7 +42,7 @@ struct NodeSearchSpaceStatistics
     //   +
     //   input2 的全部 [L,U]
     // )
-    boost::multiprecision::cpp_int
+    BigUInt
         candidateCount = 0;
 };
 
@@ -52,7 +51,7 @@ struct AttackNodeCountStatistics
 {
     std::size_t attackNodeCount = 0;
 
-    boost::multiprecision::cpp_int
+    BigUInt
         configurationCount = 0;
 };
 
@@ -65,7 +64,7 @@ struct SearchSpaceStatisticsResult
     std::vector<AttackNodeCountStatistics>
         byAttackNodeCount;
 
-    boost::multiprecision::cpp_int
+    BigUInt
         totalConfigurations = 0;
 };
 
@@ -80,7 +79,7 @@ public:
     // N = maximum - minimum + 1
     //
     // intervalCount = N * (N + 1) / 2
-    static boost::multiprecision::cpp_int
+    static BigUInt
     countAllIntervals(
         int minimum,
         int maximum
