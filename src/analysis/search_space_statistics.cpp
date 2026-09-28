@@ -2,6 +2,7 @@
 
 #include "analysis/add_sample_collector.hpp"
 #include "io/image_io.hpp"
+#include "region/region_mask.hpp"
 
 #include <algorithm>
 #include <map>
@@ -265,26 +266,17 @@ SearchSpaceStatistics::analyze(
             );
 
 
-        if (
-            inputImage.rows
-                !=
-                roiMask.rows
-            ||
-            inputImage.cols
-                !=
-                roiMask.cols
-        )
-        {
-            throw std::runtime_error(
-                "Stage 1 image size does not match the shared ROI mask."
+        const cv::Mat resizedMask =
+            region_mask::resizeMaskToImage(
+                roiMask,
+                inputImage
             );
-        }
 
 
         collector.collectBaseline(
             application,
             inputImage,
-            roiMask
+            resizedMask
         );
     }
 
