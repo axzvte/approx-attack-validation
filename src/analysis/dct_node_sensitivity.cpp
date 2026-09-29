@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -245,6 +244,31 @@ void accumulatePixelErrors(
 }
 
 
+void mergePixelErrorTotals(
+    PixelErrorTotals& target,
+    const PixelErrorTotals& source
+)
+{
+    target.globalSquaredError +=
+        source.globalSquaredError;
+
+    target.roiSquaredError +=
+        source.roiSquaredError;
+
+    target.nonRoiSquaredError +=
+        source.nonRoiSquaredError;
+
+    target.globalPixelCount +=
+        source.globalPixelCount;
+
+    target.roiPixelCount +=
+        source.roiPixelCount;
+
+    target.nonRoiPixelCount +=
+        source.nonRoiPixelCount;
+}
+
+
 double meanSquaredError(
     long double squaredError,
     std::uint64_t count
@@ -297,6 +321,134 @@ double normalizedSensitivity(
             outputMse
             /
             localMse
+        );
+}
+
+
+void fillSensitivityMetrics(
+    DctNodeImageUnitSensitivity& result,
+    long double localSquaredError,
+    std::uint64_t localSampleCount,
+    const PixelErrorTotals& outputTotals
+)
+{
+    result.localSampleCount =
+        localSampleCount;
+
+
+    result.localMse =
+        meanSquaredError(
+            localSquaredError,
+            localSampleCount
+        );
+
+
+    result.outputMse =
+        meanSquaredError(
+            outputTotals.globalSquaredError,
+            outputTotals.globalPixelCount
+        );
+
+
+    result.roiMse =
+        meanSquaredError(
+            outputTotals.roiSquaredError,
+            outputTotals.roiPixelCount
+        );
+
+
+    result.nonRoiMse =
+        meanSquaredError(
+            outputTotals.nonRoiSquaredError,
+            outputTotals.nonRoiPixelCount
+        );
+
+
+    result.sensitivity =
+        normalizedSensitivity(
+            result.outputMse,
+            result.localMse
+        );
+
+
+    result.roiSensitivity =
+        normalizedSensitivity(
+            result.roiMse,
+            result.localMse
+        );
+
+
+    result.roiToNonRoiRatio =
+        result.roiMse
+        /
+        (
+            result.nonRoiMse
+            +
+            kEpsilon
+        );
+}
+
+
+void fillSensitivityMetrics(
+    DctNodeUnitSensitivity& result,
+    long double localSquaredError,
+    std::uint64_t localSampleCount,
+    const PixelErrorTotals& outputTotals
+)
+{
+    result.localSampleCount =
+        localSampleCount;
+
+
+    result.localMse =
+        meanSquaredError(
+            localSquaredError,
+            localSampleCount
+        );
+
+
+    result.outputMse =
+        meanSquaredError(
+            outputTotals.globalSquaredError,
+            outputTotals.globalPixelCount
+        );
+
+
+    result.roiMse =
+        meanSquaredError(
+            outputTotals.roiSquaredError,
+            outputTotals.roiPixelCount
+        );
+
+
+    result.nonRoiMse =
+        meanSquaredError(
+            outputTotals.nonRoiSquaredError,
+            outputTotals.nonRoiPixelCount
+        );
+
+
+    result.sensitivity =
+        normalizedSensitivity(
+            result.outputMse,
+            result.localMse
+        );
+
+
+    result.roiSensitivity =
+        normalizedSensitivity(
+            result.roiMse,
+            result.localMse
+        );
+
+
+    result.roiToNonRoiRatio =
+        result.roiMse
+        /
+        (
+            result.nonRoiMse
+            +
+            kEpsilon
         );
 }
 
@@ -371,6 +523,10 @@ DctNodeSensitivityAnalyzer::analyze(
         attackUnits.size();
 
 
+    const std::size_t imageCount =
+        inputImages.size();
+
+
     std::vector<
         std::vector<long double>
     >
@@ -390,28 +546,55 @@ DctNodeSensitivityAnalyzer::analyze(
         localSampleCounts{};
 
 
+    std::vector<
+        std::vector<
+            std::vector<long double>
+        >
+    >
+        perImageLocalSquaredErrorSums(
+            imageCount,
+            std::vector<
+                std::vector<long double>
+            >(
+                applications::Dct8FixedGraph::kAddNodeCount,
+                std::vector<long double>(
+                    unitCount,
+                    0.0L
+                )
+            )
+        );
+
+
+    std::vector<
+        std::array<
+            std::uint64_t,
+            applications::Dct8FixedGraph::kAddNodeCount
+        >
+    >
+        perImageLocalSampleCounts(
+            imageCount
+        );
+
+
     std::vector<cv::Mat>
         baselineImages;
 
 
     baselineImages.reserve(
-        inputImages.size()
+        imageCount
     );
 
 
     // =====================================================
     // 先跑正常 5RP Baseline。
     //
-    // 同时在 Baseline 的真实动态输入上计算：
-    //
-    // attackUnit(a,b) - baseline5RP(a,b)
-    //
-    // 这样 localMse 只描述“节点自身换单元后产生的扰动”，
-    // 不混入该扰动已经传播到后续输入后的二次影响。
+    // 同时分别保留：
+    // 1. 全部图片汇总后的局部误差；
+    // 2. 每张图片自己的局部误差。
     // =====================================================
 
     for (std::size_t imageIndex = 0;
-         imageIndex < inputImages.size();
+         imageIndex < imageCount;
          ++imageIndex)
     {
         const cv::Mat baselineImage =
@@ -458,6 +641,13 @@ DctNodeSensitivityAnalyzer::analyze(
             ];
 
 
+            ++perImageLocalSampleCounts[
+                imageIndex
+            ][
+                sample.nodeId
+            ];
+
+
             for (std::size_t unitIndex = 0;
                  unitIndex < unitCount;
                  ++unitIndex)
@@ -480,15 +670,30 @@ DctNodeSensitivityAnalyzer::analyze(
                     );
 
 
+                const long double squaredLocalError =
+                    localError
+                    *
+                    localError;
+
+
                 localSquaredErrorSums[
                     sample.nodeId
                 ][
                     unitIndex
                 ]
                     +=
-                    localError
-                    *
-                    localError;
+                    squaredLocalError;
+
+
+                perImageLocalSquaredErrorSums[
+                    imageIndex
+                ][
+                    sample.nodeId
+                ][
+                    unitIndex
+                ]
+                    +=
+                    squaredLocalError;
             }
         }
 
@@ -499,11 +704,11 @@ DctNodeSensitivityAnalyzer::analyze(
                 DctNodeSensitivityProgress{
                     DctNodeSensitivityPhase::Baseline,
                     imageIndex + 1,
-                    inputImages.size(),
+                    imageCount,
                     -1,
                     approximate::ApproxUnitId::Add12se5RP,
                     imageIndex + 1,
-                    inputImages.size()
+                    imageCount
                 }
             );
         }
@@ -512,6 +717,10 @@ DctNodeSensitivityAnalyzer::analyze(
 
     // =====================================================
     // 每个节点 × 每个攻击单元做一次“单节点全触发”。
+    //
+    // 在这一轮中同时得到：
+    // 1. 原有的“全部图片合并结果”；
+    // 2. 新增的“每张图片独立结果”。
     // =====================================================
 
     DctNodeSensitivityReport
@@ -519,6 +728,15 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
     report.unitResults.reserve(
+        applications::Dct8FixedGraph::kAddNodeCount
+        *
+        unitCount
+    );
+
+
+    report.perImageUnitResults.reserve(
+        imageCount
+        *
         applications::Dct8FixedGraph::kAddNodeCount
         *
         unitCount
@@ -556,6 +774,13 @@ DctNodeSensitivityAnalyzer::analyze(
             nodeId;
 
 
+        std::vector<double>
+            perImageMeanSensitivity(
+                imageCount,
+                0.0
+            );
+
+
         bool firstUnit =
             true;
 
@@ -587,9 +812,25 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
             for (std::size_t imageIndex = 0;
-                 imageIndex < inputImages.size();
+                 imageIndex < imageCount;
                  ++imageIndex)
             {
+                if (
+                    perImageLocalSampleCounts[
+                        imageIndex
+                    ][
+                        nodeId
+                    ]
+                    ==
+                    0
+                )
+                {
+                    throw std::runtime_error(
+                        "DCT sensitivity found an image/node pair with no baseline samples."
+                    );
+                }
+
+
                 const cv::Mat attackedImage =
                     application.runApprox(
                         inputImages[imageIndex],
@@ -599,11 +840,67 @@ DctNodeSensitivityAnalyzer::analyze(
                     );
 
 
+                PixelErrorTotals
+                    imageOutputTotals;
+
+
                 accumulatePixelErrors(
                     baselineImages[imageIndex],
                     attackedImage,
                     roiMasks[imageIndex],
-                    outputTotals
+                    imageOutputTotals
+                );
+
+
+                mergePixelErrorTotals(
+                    outputTotals,
+                    imageOutputTotals
+                );
+
+
+                DctNodeImageUnitSensitivity
+                    imageResult;
+
+
+                imageResult.imageIndex =
+                    imageIndex;
+
+
+                imageResult.nodeId =
+                    nodeId;
+
+
+                imageResult.attackUnit =
+                    attackUnit;
+
+
+                fillSensitivityMetrics(
+                    imageResult,
+                    perImageLocalSquaredErrorSums[
+                        imageIndex
+                    ][
+                        nodeId
+                    ][
+                        unitIndex
+                    ],
+                    perImageLocalSampleCounts[
+                        imageIndex
+                    ][
+                        nodeId
+                    ],
+                    imageOutputTotals
+                );
+
+
+                perImageMeanSensitivity[
+                    imageIndex
+                ]
+                    +=
+                    imageResult.sensitivity;
+
+
+                report.perImageUnitResults.push_back(
+                    imageResult
                 );
 
 
@@ -622,7 +919,7 @@ DctNodeSensitivityAnalyzer::analyze(
                     const std::size_t completedImages =
                         configurationIndex
                         *
-                        inputImages.size()
+                        imageCount
                         +
                         imageIndex
                         +
@@ -636,7 +933,7 @@ DctNodeSensitivityAnalyzer::analyze(
                         *
                         unitCount
                         *
-                        inputImages.size();
+                        imageCount;
 
 
                     progressCallback(
@@ -647,7 +944,7 @@ DctNodeSensitivityAnalyzer::analyze(
                             nodeId,
                             attackUnit,
                             imageIndex + 1,
-                            inputImages.size()
+                            imageCount
                         }
                     );
                 }
@@ -666,68 +963,18 @@ DctNodeSensitivityAnalyzer::analyze(
                 attackUnit;
 
 
-            result.localSampleCount =
+            fillSensitivityMetrics(
+                result,
+                localSquaredErrorSums[
+                    nodeId
+                ][
+                    unitIndex
+                ],
                 localSampleCounts[
                     nodeId
-                ];
-
-
-            result.localMse =
-                meanSquaredError(
-                    localSquaredErrorSums[
-                        nodeId
-                    ][
-                        unitIndex
-                    ],
-                    localSampleCounts[
-                        nodeId
-                    ]
-                );
-
-
-            result.outputMse =
-                meanSquaredError(
-                    outputTotals.globalSquaredError,
-                    outputTotals.globalPixelCount
-                );
-
-
-            result.roiMse =
-                meanSquaredError(
-                    outputTotals.roiSquaredError,
-                    outputTotals.roiPixelCount
-                );
-
-
-            result.nonRoiMse =
-                meanSquaredError(
-                    outputTotals.nonRoiSquaredError,
-                    outputTotals.nonRoiPixelCount
-                );
-
-
-            result.sensitivity =
-                normalizedSensitivity(
-                    result.outputMse,
-                    result.localMse
-                );
-
-
-            result.roiSensitivity =
-                normalizedSensitivity(
-                    result.roiMse,
-                    result.localMse
-                );
-
-
-            result.roiToNonRoiRatio =
-                result.roiMse
-                /
-                (
-                    result.nonRoiMse
-                    +
-                    kEpsilon
-                );
+                ],
+                outputTotals
+            );
 
 
             summary.meanSensitivity +=
@@ -769,22 +1016,98 @@ DctNodeSensitivityAnalyzer::analyze(
         }
 
 
-        const double divisor =
+        const double unitDivisor =
             static_cast<double>(
                 unitCount
             );
 
 
         summary.meanSensitivity /=
-            divisor;
+            unitDivisor;
 
 
         summary.meanRoiSensitivity /=
-            divisor;
+            unitDivisor;
 
 
         summary.meanRoiToNonRoiRatio /=
-            divisor;
+            unitDivisor;
+
+
+        // =================================================
+        // 跨图片稳定性。
+        //
+        // 每张图片先对 attack units 取平均：
+        //
+        // S_i^(m) = mean_u S_(i,u)^(m)
+        //
+        // 然后再对所有图片计算 mean / std / CV。
+        // =================================================
+
+        for (double& imageSensitivity : perImageMeanSensitivity)
+        {
+            imageSensitivity /=
+                unitDivisor;
+
+
+            summary.meanImageSensitivity +=
+                imageSensitivity;
+        }
+
+
+        const double imageDivisor =
+            static_cast<double>(
+                imageCount
+            );
+
+
+        summary.meanImageSensitivity /=
+            imageDivisor;
+
+
+        double squaredDeviationSum =
+            0.0;
+
+
+        for (const double imageSensitivity : perImageMeanSensitivity)
+        {
+            const double difference =
+                imageSensitivity
+                -
+                summary.meanImageSensitivity;
+
+
+            squaredDeviationSum +=
+                difference
+                *
+                difference;
+        }
+
+
+        summary.stdImageSensitivity =
+            std::sqrt(
+                squaredDeviationSum
+                /
+                imageDivisor
+            );
+
+
+        if (
+            summary.meanImageSensitivity
+            >
+            kEpsilon
+        )
+        {
+            summary.cvImageSensitivity =
+                summary.stdImageSensitivity
+                /
+                summary.meanImageSensitivity;
+        }
+        else
+        {
+            summary.cvImageSensitivity =
+                0.0;
+        }
 
 
         report.nodeSummaries.push_back(

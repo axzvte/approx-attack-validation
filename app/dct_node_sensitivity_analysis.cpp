@@ -190,6 +190,70 @@ void writeDetailCsv(
 }
 
 
+void writePerImageCsv(
+    const std::filesystem::path& path,
+    const analysis::DctNodeSensitivityReport& report
+)
+{
+    std::ofstream file(
+        path
+    );
+
+
+    if (!file.is_open())
+    {
+        throw std::runtime_error(
+            "Unable to open DCT per-image sensitivity CSV."
+        );
+    }
+
+
+    file
+        << "image_index,node_id,node_name,attack_unit,"
+        << "local_mse,output_mse,roi_mse,non_roi_mse,"
+        << "sensitivity,roi_sensitivity,roi_to_non_roi_ratio,"
+        << "local_sample_count\n";
+
+
+    file
+        << std::setprecision(12);
+
+
+    for (const auto& result : report.perImageUnitResults)
+    {
+        file
+            << (result.imageIndex + 1)
+            << ","
+            << result.nodeId
+            << ","
+            << applications::Dct8FixedGraph::nodeName(
+                result.nodeId
+            )
+            << ","
+            << unitName(
+                result.attackUnit
+            )
+            << ","
+            << result.localMse
+            << ","
+            << result.outputMse
+            << ","
+            << result.roiMse
+            << ","
+            << result.nonRoiMse
+            << ","
+            << result.sensitivity
+            << ","
+            << result.roiSensitivity
+            << ","
+            << result.roiToNonRoiRatio
+            << ","
+            << result.localSampleCount
+            << "\n";
+    }
+}
+
+
 void writeSummaryCsv(
     const std::filesystem::path& path,
     const std::vector<
@@ -213,7 +277,9 @@ void writeSummaryCsv(
     file
         << "rank,node_id,node_name,"
         << "mean_sensitivity,max_sensitivity,max_unit,"
-        << "mean_roi_sensitivity,mean_roi_to_non_roi_ratio\n";
+        << "mean_roi_sensitivity,mean_roi_to_non_roi_ratio,"
+        << "mean_image_sensitivity,std_image_sensitivity,"
+        << "cv_image_sensitivity\n";
 
 
     file
@@ -250,6 +316,12 @@ void writeSummaryCsv(
             << summary.meanRoiSensitivity
             << ","
             << summary.meanRoiToNonRoiRatio
+            << ","
+            << summary.meanImageSensitivity
+            << ","
+            << summary.stdImageSensitivity
+            << ","
+            << summary.cvImageSensitivity
             << "\n";
     }
 }
@@ -629,6 +701,9 @@ int main(
                 report.nodeSummaries;
 
 
+        // 继续沿用原来的 meanSensitivity 排名，
+        // 新增的跨图片统计先作为筛选依据展示，
+        // 不在这里擅自改变排名规则。
         std::sort(
             rankedSummaries.begin(),
             rankedSummaries.end(),
@@ -681,15 +756,21 @@ int main(
             << "Node"
             << std::setw(22)
             << "Name"
-            << std::setw(16)
+            << std::setw(12)
             << "Mean S"
-            << std::setw(16)
+            << std::setw(12)
+            << "ImgMean"
+            << std::setw(12)
+            << "ImgStd"
+            << std::setw(12)
+            << "ImgCV"
+            << std::setw(12)
             << "Max S"
             << std::setw(10)
             << "Unit"
-            << std::setw(16)
+            << std::setw(12)
             << "ROI S"
-            << "ROI/NIR"
+            << "ROI/NonROI"
             << "\n";
 
 
@@ -718,15 +799,21 @@ int main(
                 << applications::Dct8FixedGraph::nodeName(
                     summary.nodeId
                 )
-                << std::setw(16)
+                << std::setw(12)
                 << summary.meanSensitivity
-                << std::setw(16)
+                << std::setw(12)
+                << summary.meanImageSensitivity
+                << std::setw(12)
+                << summary.stdImageSensitivity
+                << std::setw(12)
+                << summary.cvImageSensitivity
+                << std::setw(12)
                 << summary.maxSensitivity
                 << std::setw(10)
                 << unitName(
                     summary.maxSensitivityUnit
                 )
-                << std::setw(16)
+                << std::setw(12)
                 << summary.meanRoiSensitivity
                 << summary.meanRoiToNonRoiRatio
                 << "\n";
@@ -737,6 +824,12 @@ int main(
             outputDirectory
             /
             "dct_node_sensitivity_details.csv";
+
+
+        const std::filesystem::path perImagePath =
+            outputDirectory
+            /
+            "dct_node_sensitivity_per_image.csv";
 
 
         const std::filesystem::path summaryPath =
@@ -751,6 +844,12 @@ int main(
         );
 
 
+        writePerImageCsv(
+            perImagePath,
+            report
+        );
+
+
         writeSummaryCsv(
             summaryPath,
             rankedSummaries
@@ -760,6 +859,9 @@ int main(
         std::cout
             << "\nDetail CSV: "
             << detailPath.string()
+            << "\n"
+            << "Per-image CSV: "
+            << perImagePath.string()
             << "\n"
             << "Summary CSV: "
             << summaryPath.string()

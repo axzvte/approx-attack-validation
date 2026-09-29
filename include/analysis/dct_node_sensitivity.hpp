@@ -64,12 +64,42 @@ struct DctNodeUnitSensitivity
 };
 
 
+struct DctNodeImageUnitSensitivity
+{
+    std::size_t imageIndex = 0;
+
+    int nodeId = -1;
+
+    approximate::ApproxUnitId
+        attackUnit =
+            approximate::ApproxUnitId::Add12se5RP;
+
+
+    double localMse = 0.0;
+
+    double outputMse = 0.0;
+
+    double roiMse = 0.0;
+
+    double nonRoiMse = 0.0;
+
+    double sensitivity = 0.0;
+
+    double roiSensitivity = 0.0;
+
+    double roiToNonRoiRatio = 0.0;
+
+    std::uint64_t localSampleCount = 0;
+};
+
+
 struct DctNodeSensitivitySummary
 {
     int nodeId = -1;
 
 
     // 对所有攻击近似加法器的 sensitivity 取平均。
+    // 这里保留原有“全部图片汇总后”的统计方式。
     double meanSensitivity = 0.0;
 
 
@@ -85,13 +115,36 @@ struct DctNodeSensitivitySummary
     double meanRoiSensitivity = 0.0;
 
     double meanRoiToNonRoiRatio = 0.0;
+
+
+    // 跨图片稳定性：
+    //
+    // 第一步：
+    // 对每张图片，先对所有攻击单元的 sensitivity 取平均，
+    // 得到该节点在这张图片上的 S_i^(m)。
+    //
+    // 第二步：
+    // 再对所有图片的 S_i^(m) 计算均值、标准差和 CV。
+    double meanImageSensitivity = 0.0;
+
+    double stdImageSensitivity = 0.0;
+
+    double cvImageSensitivity = 0.0;
 };
 
 
 struct DctNodeSensitivityReport
 {
+    // 原有结果：
+    // 每个节点 × 每个攻击单元，所有图片汇总后的指标。
     std::vector<DctNodeUnitSensitivity>
         unitResults;
+
+
+    // 新增结果：
+    // 每张图片 × 每个节点 × 每个攻击单元的独立指标。
+    std::vector<DctNodeImageUnitSensitivity>
+        perImageUnitResults;
 
 
     std::vector<DctNodeSensitivitySummary>
@@ -151,6 +204,9 @@ public:
     // localMse 使用 Baseline 运行时采集到的真实节点输入计算，
     // 因此不会把攻击已经传播到后续输入后的变化再次算入
     // “局部误差”。
+    //
+    // 除原有的全数据集汇总结果外，还会保留逐图片结果，
+    // 用于评价节点的跨图片稳定性。
     static DctNodeSensitivityReport analyze(
         const applications::DctApplication& application,
         const std::vector<cv::Mat>& inputImages,
