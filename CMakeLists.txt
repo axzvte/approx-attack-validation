@@ -52,6 +52,7 @@ add_library(
     src/analysis/stage1_screening.cpp
     src/analysis/dct_stage1_evaluator.cpp
     src/analysis/dct_node_sensitivity.cpp
+    src/analysis/dct_monitor_input_analyzer.cpp
     src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
@@ -321,6 +322,26 @@ add_test(
 )
 
 
+add_executable(
+    test_dct_monitor_input_analyzer
+
+    tests/test_dct_monitor_input_analyzer.cpp
+)
+
+
+target_link_libraries(
+    test_dct_monitor_input_analyzer
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_monitor_input_analyzer
+    COMMAND test_dct_monitor_input_analyzer
+)
+
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -369,6 +390,24 @@ add_executable(
 
 target_link_libraries(
     dct_node_sensitivity_analysis
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# DCT monitor-input regional separability analysis
+# =========================================================
+
+add_executable(
+    dct_monitor_input_analysis
+
+    app/dct_monitor_input_analysis.cpp
+)
+
+
+target_link_libraries(
+    dct_monitor_input_analysis
     PRIVATE
         approx_framework
 )
