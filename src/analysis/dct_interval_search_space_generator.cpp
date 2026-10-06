@@ -1,7 +1,5 @@
 #include "analysis/dct_interval_search_space_generator.hpp"
 
-#include "core/add_sample.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -90,12 +88,6 @@ buildFromSortedUniqueValues(
     );
 
 
-    // 每一对 i <= j 对应一个连续闭区间：
-    //
-    // [values[i], values[j]]
-    //
-    // 因为边界只取实际出现过的值，
-    // 不会重复枚举那些触发集合完全相同的空档边界。
     for (std::size_t lowerIndex = 0;
          lowerIndex < values.size();
          ++lowerIndex)
@@ -118,35 +110,6 @@ buildFromSortedUniqueValues(
 }
 
 
-bool containsNodeId(
-    const applications::DctApplication& application,
-    int nodeId
-)
-{
-    const auto& nodes =
-        application.addNodes();
-
-
-    return
-        std::find_if(
-            nodes.begin(),
-            nodes.end(),
-
-            [nodeId](
-                const core::AddNode& node
-            )
-            {
-                return
-                    node.id
-                    ==
-                    nodeId;
-            }
-        )
-        !=
-        nodes.end();
-}
-
-
 int monitoredValue(
     const core::AddSample& sample,
     core::MonitorInput monitorInput
@@ -160,6 +123,103 @@ int monitoredValue(
         sample.input1
         :
         sample.input2;
+}
+
+
+void validateTargets(
+    const std::vector<DctIntervalSearchTarget>& targets
+)
+{
+    if (targets.empty())
+    {
+        throw std::runtime_error(
+            "DCT interval search target list is empty."
+        );
+    }
+
+
+    std::set<
+        std::pair<int, int>
+    >
+        uniqueTargets;
+
+
+    for (const auto& target : targets)
+    {
+        if (target.nodeId < 0)
+        {
+            throw std::runtime_error(
+                "DCT interval search target contains a negative node ID."
+            );
+        }
+
+
+        const std::pair<int, int>
+            key =
+            {
+                target.nodeId,
+                static_cast<int>(
+                    target.monitorInput
+                )
+            };
+
+
+        if (
+            !uniqueTargets.insert(
+                key
+            ).second
+        )
+        {
+            throw std::runtime_error(
+                "Duplicate DCT interval search target."
+            );
+        }
+    }
+}
+
+
+void validateTargetsAgainstApplication(
+    const applications::DctApplication& application,
+    const std::vector<DctIntervalSearchTarget>& targets
+)
+{
+    validateTargets(
+        targets
+    );
+
+
+    const auto& nodes =
+        application.addNodes();
+
+
+    for (const auto& target : targets)
+    {
+        const bool found =
+            std::find_if(
+                nodes.begin(),
+                nodes.end(),
+
+                [&target](
+                    const core::AddNode& node
+                )
+                {
+                    return
+                        node.id
+                        ==
+                        target.nodeId;
+                }
+            )
+            !=
+            nodes.end();
+
+
+        if (!found)
+        {
+            throw std::runtime_error(
+                "DCT interval search target contains an invalid node ID."
+            );
+        }
+    }
 }
 
 }
@@ -180,33 +240,17 @@ DctIntervalSearchSpaceGenerator::countIntervals(
     }
 
 
-    if (
-        distinctValueCount
-        >
-        static_cast<std::size_t>(
-            std::numeric_limits<std::uint64_t>::max()
-        )
-    )
-    {
-        throw std::overflow_error(
-            "Distinct DCT monitor-value count exceeds uint64_t."
-        );
-    }
-
-
-    std::uint64_t left =
+    const std::uint64_t n =
         static_cast<std::uint64_t>(
             distinctValueCount
         );
 
 
-    std::uint64_t right =
-        left
-        +
-        1;
-
-
-    if (right == 0)
+    if (
+        n
+        ==
+        std::numeric_limits<std::uint64_t>::max()
+    )
     {
         throw std::overflow_error(
             "DCT interval-count addition overflow."
@@ -214,9 +258,14 @@ DctIntervalSearchSpaceGenerator::countIntervals(
     }
 
 
-    // n * (n + 1) / 2
-    //
-    // 先除以 2，降低乘法溢出的风险。
+    std::uint64_t left =
+        n;
+
+
+    std::uint64_t right =
+        n + 1;
+
+
     if ((left % 2) == 0)
     {
         left /=
@@ -271,36 +320,28 @@ DctIntervalSearchSpaceGenerator::buildIntervals(
 
 
 // =========================================================
-// 模块 1：一张图片上的区间搜索空间生成
+// 模块 1 核心：由当前真实动态样本生成区间空间
 // =========================================================
 
 std::vector<DctIntervalSearchSpace>
-DctIntervalSearchSpaceGenerator::generate(
-    const applications::DctApplication& application,
-    const cv::Mat& inputImage,
-    const cv::Mat& roiMask,
+DctIntervalSearchSpaceGenerator::generateFromSamples(
+    const std::vector<core::AddSample>& samples,
     const std::vector<DctIntervalSearchTarget>& targets
 )
 {
-    if (targets.empty())
+    validateTargets(
+        targets
+    );
+
+
+    if (samples.empty())
     {
         throw std::runtime_error(
-            "DCT interval search target list is empty."
+            "DCT interval search received no dynamic samples."
         );
     }
 
 
-    std::set<
-        std::pair<int, int>
-    >
-        uniqueTargets;
-
-
-    // node ID -> 当前节点对应的 target 下标。
-    //
-    // 通常一个节点只会有一个已经确定的 monitor input，
-    // 但这里仍允许同一节点分别生成 input1 / input2，
-    // 便于独立测试。
     std::map<
         int,
         std::vector<std::size_t>
@@ -312,47 +353,10 @@ DctIntervalSearchSpaceGenerator::generate(
          targetIndex < targets.size();
          ++targetIndex)
     {
-        const auto& target =
-            targets[targetIndex];
-
-
-        if (
-            !containsNodeId(
-                application,
-                target.nodeId
-            )
-        )
-        {
-            throw std::runtime_error(
-                "DCT interval search target contains an invalid node ID."
-            );
-        }
-
-
-        const std::pair<int, int>
-            key =
-            {
-                target.nodeId,
-                static_cast<int>(
-                    target.monitorInput
-                )
-            };
-
-
-        if (
-            !uniqueTargets.insert(
-                key
-            ).second
-        )
-        {
-            throw std::runtime_error(
-                "Duplicate DCT interval search target."
-            );
-        }
-
-
         targetIndicesByNode[
-            target.nodeId
+            targets[
+                targetIndex
+            ].nodeId
         ].push_back(
             targetIndex
         );
@@ -374,31 +378,16 @@ DctIntervalSearchSpaceGenerator::generate(
         );
 
 
-    std::vector<core::AddSample>
-        samples;
-
-
-    // 直接复用现有 Baseline 采样逻辑。
-    //
-    // roiMask 在模块 1 中不参与区间好坏判断，
-    // 这里只是 collectBaselineAddSamples 的现有接口所需。
-    application.collectBaselineAddSamples(
-        inputImage,
-        roiMask,
-        samples
-    );
-
-
     for (const auto& sample : samples)
     {
-        const auto targetIterator =
+        const auto iterator =
             targetIndicesByNode.find(
                 sample.nodeId
             );
 
 
         if (
-            targetIterator
+            iterator
             ==
             targetIndicesByNode.end()
         )
@@ -409,7 +398,7 @@ DctIntervalSearchSpaceGenerator::generate(
 
         for (
             const std::size_t targetIndex :
-            targetIterator->second
+            iterator->second
         )
         {
             ++sampleCounts[
@@ -453,7 +442,7 @@ DctIntervalSearchSpaceGenerator::generate(
         )
         {
             throw std::runtime_error(
-                "DCT interval search target has no Baseline samples."
+                "DCT interval search target has no samples in the current circuit state."
             );
         }
 
@@ -503,6 +492,94 @@ DctIntervalSearchSpaceGenerator::generate(
 
 
     return result;
+}
+
+
+// =========================================================
+// 当前攻击配置下重新采样，再生成区间空间
+// =========================================================
+
+std::vector<DctIntervalSearchSpace>
+DctIntervalSearchSpaceGenerator::generateForCurrentConfiguration(
+    const applications::DctApplication& application,
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<core::AttackConfig>& currentConfiguration,
+    const std::vector<DctIntervalSearchTarget>& targets
+)
+{
+    validateTargetsAgainstApplication(
+        application,
+        targets
+    );
+
+
+    std::vector<core::AddSample>
+        samples;
+
+
+    application.collectConfiguredAddSamples(
+        inputImage,
+        roiMask,
+        currentConfiguration,
+        samples
+    );
+
+
+    return
+        generateFromSamples(
+            samples,
+            targets
+        );
+}
+
+
+// =========================================================
+// Baseline 初始化
+// =========================================================
+
+std::vector<DctIntervalSearchSpace>
+DctIntervalSearchSpaceGenerator::generateBaseline(
+    const applications::DctApplication& application,
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<DctIntervalSearchTarget>& targets
+)
+{
+    const std::vector<core::AttackConfig>
+        emptyConfiguration;
+
+
+    return
+        generateForCurrentConfiguration(
+            application,
+            inputImage,
+            roiMask,
+            emptyConfiguration,
+            targets
+        );
+}
+
+
+// =========================================================
+// 旧接口：继续保持 Baseline 语义
+// =========================================================
+
+std::vector<DctIntervalSearchSpace>
+DctIntervalSearchSpaceGenerator::generate(
+    const applications::DctApplication& application,
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<DctIntervalSearchTarget>& targets
+)
+{
+    return
+        generateBaseline(
+            application,
+            inputImage,
+            roiMask,
+            targets
+        );
 }
 
 }

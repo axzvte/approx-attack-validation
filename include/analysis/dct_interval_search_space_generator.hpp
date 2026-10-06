@@ -2,6 +2,7 @@
 
 #include "analysis/brute_force_search.hpp"
 #include "applications/dct.hpp"
+#include "core/add_sample.hpp"
 
 #include <opencv2/core.hpp>
 
@@ -15,9 +16,9 @@ namespace analysis
 
 // 一个已经确定“节点 + monitor input”的区间搜索目标。
 //
-// 注意：这里不包含 approximate unit。
-// 模块 1 只描述“有哪些合法触发区间”，
-// 不评价某个 unit 在区间中的攻击效果。
+// 不包含 approximate unit。
+// 模块 1 只负责描述当前真实运行状态下“有哪些合法区间”，
+// 不负责评价区间好坏。
 struct DctIntervalSearchTarget
 {
     int nodeId = -1;
@@ -27,7 +28,8 @@ struct DctIntervalSearchTarget
 };
 
 
-// 一张图片上，一个节点对应的完整区间搜索空间。
+// 一张图片、一次实际电路运行状态下，
+// 一个节点对应的完整区间搜索空间。
 struct DctIntervalSearchSpace
 {
     int nodeId = -1;
@@ -36,22 +38,20 @@ struct DctIntervalSearchSpace
         core::MonitorInput::Input1;
 
 
-    // 当前节点在正常 5RP Baseline 下的动态调用次数。
+    // 当前实际运行状态下，该节点的动态调用次数。
     std::size_t sampleCount = 0;
 
 
-    // 当前 monitor input 在这张图片上真正出现过的不同整数值。
-    //
-    // 已按从小到大排序且去重。
+    // 当前 monitor input 在这次实际运行中真正出现过的不同整数值。
+    // 已按从小到大排序并去重。
     std::vector<int> observedValues;
 
 
-    // 使用 observedValues 中的真实取值作为区间边界，
+    // 使用 observedValues 中的真实取值作为边界，
     // 枚举全部连续闭区间 [lower, upper]。
     //
-    // 这些区间对应不同的 Baseline 动态触发集合，
-    // 因此不会保留仅因为边界落在“没有样本的空档”
-    // 而造成的重复触发行为。
+    // 对当前动态样本而言，这避免了仅在“无样本空档”
+    // 移动边界而形成的重复触发行为。
     std::vector<TriggerInterval> intervals;
 };
 
@@ -71,31 +71,60 @@ public:
 
 
     // 从任意一组观测值直接生成完整区间集合。
-    //
     // 输入会先排序、去重。
-    // 该接口主要用于测试和后续模块复用。
     static std::vector<TriggerInterval>
     buildIntervals(
         const std::vector<int>& observedValues
     );
 
 
-    // 模块 1：
+    // 模块 1 的核心接口。
     //
-    // 1. 在正常 5RP Baseline 下采集节点动态输入；
-    // 2. 对每个已经确定 monitor input 的目标节点，
-    //    提取该输入在当前图片上的真实取值；
-    // 3. 排序、去重；
-    // 4. 使用真实取值作为上下界，生成全部不重复的
-    //    区间搜索空间。
+    // 输入是“一次真实电路运行已经采集到的动态样本”。
+    // 样本可以来自：
+    // - Baseline；
+    // - 单节点攻击；
+    // - 多节点攻击。
     //
-    // 本模块不做：
-    // - ROI / Non-ROI 效果筛选；
-    // - approximate unit 选择；
-    // - PSNR 评价；
-    // - “最佳区间”选择。
+    // 因此后续 Module 2 每次改变当前攻击配置后，
+    // 都可以重新采样并复用同一套区间生成逻辑。
+    static std::vector<DctIntervalSearchSpace>
+    generateFromSamples(
+        const std::vector<core::AddSample>& samples,
+        const std::vector<DctIntervalSearchTarget>& targets
+    );
+
+
+    // 根据“当前完整攻击配置”真实运行 DCT，
+    // 然后使用实际动态输入生成区间搜索空间。
     //
-    // 这些都留给后续区间优化模块。
+    // 这是后续多节点区间优化应使用的接口。
+    static std::vector<DctIntervalSearchSpace>
+    generateForCurrentConfiguration(
+        const applications::DctApplication& application,
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        const std::vector<core::AttackConfig>& currentConfiguration,
+        const std::vector<DctIntervalSearchTarget>& targets
+    );
+
+
+    // Baseline 初始化接口。
+    //
+    // 空配置意味着全部节点使用正常 Baseline（当前默认 5RP）。
+    // Baseline 只作为首次搜索的初始状态，
+    // 不再被视为多节点搜索全过程唯一的区间来源。
+    static std::vector<DctIntervalSearchSpace>
+    generateBaseline(
+        const applications::DctApplication& application,
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        const std::vector<DctIntervalSearchTarget>& targets
+    );
+
+
+    // 保留旧接口，避免已有调用方失效。
+    // 语义与 generateBaseline 完全相同。
     static std::vector<DctIntervalSearchSpace>
     generate(
         const applications::DctApplication& application,

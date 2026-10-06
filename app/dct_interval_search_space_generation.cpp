@@ -202,10 +202,15 @@ int main(
         };
 
 
+        // 首次搜索从正常 Baseline 状态初始化。
+        //
+        // 后续 Module 2 在当前攻击配置发生变化后，
+        // 会调用 generateForCurrentConfiguration(...)
+        // 根据新的真实动态输入重新生成区间空间。
         const auto searchSpaces =
             analysis::
                 DctIntervalSearchSpaceGenerator::
-                    generate(
+                    generateBaseline(
                         application,
                         inputImage,
                         roiMask,
@@ -221,9 +226,10 @@ int main(
                 imageIndex
             )
             << ".jpg\n"
-            << "Baseline: 5RP\n"
-            << "Interval rule: boundaries use observed monitor values only\n"
-            << "Effect filtering: disabled (Module 2 responsibility)\n\n";
+            << "Initial source: Baseline 5RP\n"
+            << "Interval rule: boundaries use values observed in the current run\n"
+            << "Effect filtering: disabled (Module 2 responsibility)\n"
+            << "Module 2 may regenerate intervals after the current attack configuration changes\n\n";
 
 
         std::cout

@@ -765,4 +765,95 @@ void DctApplication::collectBaselineAddSamples(
     }
 }
 
+
+// =========================================================
+// 当前 AttackConfig 下的近似运行中间数据采集
+//
+// 与 Baseline 采样不同，这里真实执行传入的 configs。
+// 因此上游节点的近似输出变化会继续传播到后级输入；
+// 对 DCT 中重复复用的静态节点，后续动态调用也会反映
+// 当前配置已经造成的输入变化。
+// =========================================================
+
+void DctApplication::collectConfiguredAddSamples(
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<core::AttackConfig>& configs,
+    std::vector<core::AddSample>& samples
+) const
+{
+    validateInput(
+        inputImage
+    );
+
+
+    validateRoiMask(
+        inputImage,
+        roiMask
+    );
+
+
+    const cv::Mat paddedImage =
+        createPaddedImage(
+            inputImage
+        );
+
+
+    const cv::Mat paddedMask =
+        createPaddedMask(
+            roiMask
+        );
+
+
+    const std::size_t blockCount =
+        static_cast<std::size_t>(
+            paddedImage.rows / 8
+        )
+        *
+        static_cast<std::size_t>(
+            paddedImage.cols / 8
+        );
+
+
+    samples.reserve(
+        samples.size()
+        +
+        blockCount
+        *
+        16
+        *
+        Dct8FixedGraph::kAddNodeCount
+    );
+
+
+    for (int blockRow = 0;
+         blockRow < paddedImage.rows;
+         blockRow += 8)
+    {
+        for (int blockCol = 0;
+             blockCol < paddedImage.cols;
+             blockCol += 8)
+        {
+            const double roiWeight =
+                calculateBlockRoiWeight(
+                    paddedMask,
+                    blockRow,
+                    blockCol
+                );
+
+
+            runForwardBlock(
+                paddedImage,
+                blockRow,
+                blockCol,
+
+                &configs,
+
+                roiWeight,
+                &samples
+            );
+        }
+    }
+}
+
 }
