@@ -6,9 +6,12 @@
 #include "io/image_io.hpp"
 #include "region/region_mask.hpp"
 
+#include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -32,6 +35,45 @@ std::string twoDigit(
 
 
     return stream.str();
+}
+
+
+std::string unitName(
+    approximate::ApproxUnitId unit
+)
+{
+    switch (unit)
+    {
+        case approximate::ApproxUnitId::Add12se5L8:
+            return "5L8";
+
+        case approximate::ApproxUnitId::Add12se5PD:
+            return "5PD";
+
+        case approximate::ApproxUnitId::Add12se5PN:
+            return "5PN";
+
+        case approximate::ApproxUnitId::Add12se5QC:
+            return "5QC";
+
+        case approximate::ApproxUnitId::Add12se5QT:
+            return "5QT";
+
+        case approximate::ApproxUnitId::Add12se5RP:
+            return "5RP";
+
+        case approximate::ApproxUnitId::Add12se5TE:
+            return "5TE";
+
+        case approximate::ApproxUnitId::Add12se5SB:
+            return "5SB";
+
+        case approximate::ApproxUnitId::Add12se5Z0:
+            return "5Z0";
+    }
+
+
+    return "UNKNOWN";
 }
 
 
@@ -61,8 +103,72 @@ toIntervals(
 }
 
 
-void printValidationGroup(
-    const std::string& title,
+struct UnitValidationSummary
+{
+    approximate::ApproxUnitId unit =
+        approximate::ApproxUnitId::Add12se5RP;
+
+
+    double maxFastRoiErrorChange = 0.0;
+    double bestActualRoiDelta = 0.0;
+
+    double minFastNonRoiErrorChange = 0.0;
+    double bestActualNonRoiDelta = 0.0;
+
+    double maxFastRedistribution = 0.0;
+    double redistributionTop1RoiDelta = 0.0;
+    double redistributionTop1NonRoiDelta = 0.0;
+};
+
+
+double minimumRoiDelta(
+    const analysis::DctIntervalFullValidationReport& report
+)
+{
+    double value =
+        std::numeric_limits<double>::infinity();
+
+
+    for (const auto& candidate : report.candidates)
+    {
+        value =
+            std::min(
+                value,
+                candidate.roiPsnrDelta
+            );
+    }
+
+
+    return value;
+}
+
+
+double maximumNonRoiDelta(
+    const analysis::DctIntervalFullValidationReport& report
+)
+{
+    double value =
+        -std::numeric_limits<double>::infinity();
+
+
+    for (const auto& candidate : report.candidates)
+    {
+        value =
+            std::max(
+                value,
+                candidate.nonRoiPsnrDelta
+            );
+    }
+
+
+    return value;
+}
+
+
+void writeGroupCsv(
+    std::ofstream& file,
+    const std::string& unit,
+    const std::string& role,
     const std::vector<analysis::DctIntervalFastMetric>& fastMetrics,
     const analysis::DctIntervalFullValidationReport& report
 )
@@ -74,46 +180,9 @@ void printValidationGroup(
     )
     {
         throw std::runtime_error(
-            "Fast and full DCT validation candidate counts do not match."
+            "Fast/full DCT candidate counts do not match."
         );
     }
-
-
-    std::cout
-        << "\n"
-        << title
-        << "\n"
-        << std::string(
-            title.size(),
-            '-'
-        )
-        << "\n";
-
-
-    std::cout
-        << std::left
-        << std::setw(7)
-        << "Rank"
-        << std::setw(10)
-        << "Lower"
-        << std::setw(10)
-        << "Upper"
-        << std::setw(15)
-        << "FastROIErr"
-        << std::setw(17)
-        << "FastNonROIErr"
-        << std::setw(14)
-        << "GlobalPSNR"
-        << std::setw(13)
-        << "dGlobal"
-        << std::setw(14)
-        << "ROIPSNR"
-        << std::setw(13)
-        << "dROI"
-        << std::setw(14)
-        << "NonROIPSNR"
-        << "dNonROI"
-        << "\n";
 
 
     for (std::size_t index = 0;
@@ -128,28 +197,37 @@ void printValidationGroup(
             report.candidates[index];
 
 
-        std::cout
-            << std::left
-            << std::setw(7)
+        file
+            << unit
+            << ","
+            << role
+            << ","
             << (index + 1)
-            << std::setw(10)
+            << ","
             << fast.interval.lower
-            << std::setw(10)
+            << ","
             << fast.interval.upper
-            << std::setw(15)
+            << ","
+            << fast.roiTriggerRate
+            << ","
+            << fast.nonRoiTriggerRate
+            << ","
             << fast.roiErrorChange
-            << std::setw(17)
+            << ","
             << fast.nonRoiErrorChange
-            << std::setw(14)
+            << ","
+            << fast.redistributionScore
+            << ","
             << full.metrics.globalPsnr
-            << std::setw(13)
+            << ","
             << full.globalPsnrDelta
-            << std::setw(14)
+            << ","
             << full.metrics.roiPsnr
-            << std::setw(13)
+            << ","
             << full.roiPsnrDelta
-            << std::setw(14)
+            << ","
             << full.metrics.nonRoiPsnr
+            << ","
             << full.nonRoiPsnrDelta
             << "\n";
     }
@@ -189,6 +267,20 @@ int main(
             )
             :
             1;
+
+
+        const std::filesystem::path outputPath =
+            (
+                argc >= 4
+            )
+            ?
+            std::filesystem::path(
+                argv[3]
+            )
+            :
+            std::filesystem::path(
+                "dct_unit_interval_validation.csv"
+            );
 
 
         if (
@@ -267,162 +359,329 @@ int main(
             core::MonitorInput::Input1;
 
 
-        constexpr approximate::ApproxUnitId attackUnit =
-            approximate::ApproxUnitId::Add12se5L8;
+        const std::vector<approximate::ApproxUnitId>
+            attackUnits =
+        {
+            approximate::ApproxUnitId::Add12se5L8,
+            approximate::ApproxUnitId::Add12se5PD,
+            approximate::ApproxUnitId::Add12se5PN,
+            approximate::ApproxUnitId::Add12se5QC,
+            approximate::ApproxUnitId::Add12se5QT,
+            approximate::ApproxUnitId::Add12se5TE,
+            approximate::ApproxUnitId::Add12se5SB,
+            approximate::ApproxUnitId::Add12se5Z0
+        };
 
 
-        const auto fastEvaluation =
-            analysis::
-                DctIntervalFastEvaluator::
-                    evaluateFromSamples(
-                        samples,
-                        nodeId,
-                        monitorInput,
-                        attackUnit
-                    );
-
-
-        // 先验证每类前 3 个。
+        // 仍然只验证每类快速排名前 3 个。
         //
-        // 这一步的目的不是确定 Top-K，
-        // 而是检查快速局部指标与最终图像 PSNR 方向是否一致。
+        // 当前目的只是判断“不同 unit 的快速方向是否能在完整 DCT 中体现”，
+        // 不是在这里决定正式 Top-K。
         constexpr std::size_t
             validationCount =
                 3;
-
-
-        const auto roiAttack =
-            analysis::
-                DctIntervalFastEvaluator::
-                    selectTopMetrics(
-                        fastEvaluation,
-                        analysis::DctIntervalFastRanking::RoiAttack,
-                        validationCount
-                    );
-
-
-        const auto nonRoiCompensation =
-            analysis::
-                DctIntervalFastEvaluator::
-                    selectTopMetrics(
-                        fastEvaluation,
-                        analysis::DctIntervalFastRanking::NonRoiCompensation,
-                        validationCount
-                    );
-
-
-        const auto redistribution =
-            analysis::
-                DctIntervalFastEvaluator::
-                    selectTopMetrics(
-                        fastEvaluation,
-                        analysis::DctIntervalFastRanking::Redistribution,
-                        validationCount
-                    );
 
 
         const std::vector<core::AttackConfig>
             currentConfiguration;
 
 
-        const auto roiReport =
-            analysis::
-                DctIntervalFullValidator::
-                    validate(
-                        application,
-                        inputImage,
-                        roiMask,
-                        currentConfiguration,
-                        nodeId,
-                        monitorInput,
-                        attackUnit,
-                        toIntervals(
-                            roiAttack
-                        )
-                    );
+        std::ofstream csv(
+            outputPath
+        );
 
 
-        const auto compensationReport =
-            analysis::
-                DctIntervalFullValidator::
-                    validate(
-                        application,
-                        inputImage,
-                        roiMask,
-                        currentConfiguration,
-                        nodeId,
-                        monitorInput,
-                        attackUnit,
-                        toIntervals(
-                            nonRoiCompensation
-                        )
-                    );
+        if (!csv.is_open())
+        {
+            throw std::runtime_error(
+                "Unable to open DCT unit validation CSV."
+            );
+        }
 
 
-        const auto redistributionReport =
-            analysis::
-                DctIntervalFullValidator::
-                    validate(
-                        application,
-                        inputImage,
-                        roiMask,
-                        currentConfiguration,
-                        nodeId,
-                        monitorInput,
-                        attackUnit,
-                        toIntervals(
-                            redistribution
-                        )
-                    );
+        csv
+            << std::setprecision(12)
+            << "unit,role,rank,lower,upper,"
+            << "roi_trigger_rate,non_roi_trigger_rate,"
+            << "fast_roi_error_change,fast_non_roi_error_change,"
+            << "fast_redistribution,"
+            << "global_psnr,d_global,"
+            << "roi_psnr,d_roi,"
+            << "non_roi_psnr,d_non_roi\n";
+
+
+        std::vector<UnitValidationSummary>
+            summaries;
+
+
+        summaries.reserve(
+            attackUnits.size()
+        );
+
+
+        bool baselinePrinted =
+            false;
+
+
+        for (const auto attackUnit : attackUnits)
+        {
+            const auto fastEvaluation =
+                analysis::
+                    DctIntervalFastEvaluator::
+                        evaluateFromSamples(
+                            samples,
+                            nodeId,
+                            monitorInput,
+                            attackUnit
+                        );
+
+
+            const auto roiAttack =
+                analysis::
+                    DctIntervalFastEvaluator::
+                        selectTopMetrics(
+                            fastEvaluation,
+                            analysis::DctIntervalFastRanking::RoiAttack,
+                            validationCount
+                        );
+
+
+            const auto nonRoiCompensation =
+                analysis::
+                    DctIntervalFastEvaluator::
+                        selectTopMetrics(
+                            fastEvaluation,
+                            analysis::DctIntervalFastRanking::NonRoiCompensation,
+                            validationCount
+                        );
+
+
+            const auto redistribution =
+                analysis::
+                    DctIntervalFastEvaluator::
+                        selectTopMetrics(
+                            fastEvaluation,
+                            analysis::DctIntervalFastRanking::Redistribution,
+                            validationCount
+                        );
+
+
+            const auto roiReport =
+                analysis::
+                    DctIntervalFullValidator::
+                        validate(
+                            application,
+                            inputImage,
+                            roiMask,
+                            currentConfiguration,
+                            nodeId,
+                            monitorInput,
+                            attackUnit,
+                            toIntervals(
+                                roiAttack
+                            )
+                        );
+
+
+            const auto compensationReport =
+                analysis::
+                    DctIntervalFullValidator::
+                        validate(
+                            application,
+                            inputImage,
+                            roiMask,
+                            currentConfiguration,
+                            nodeId,
+                            monitorInput,
+                            attackUnit,
+                            toIntervals(
+                                nonRoiCompensation
+                            )
+                        );
+
+
+            const auto redistributionReport =
+                analysis::
+                    DctIntervalFullValidator::
+                        validate(
+                            application,
+                            inputImage,
+                            roiMask,
+                            currentConfiguration,
+                            nodeId,
+                            monitorInput,
+                            attackUnit,
+                            toIntervals(
+                                redistribution
+                            )
+                        );
+
+
+            if (!baselinePrinted)
+            {
+                std::cout
+                    << "DCT unit comparison for interval behavior\n"
+                    << "=========================================\n"
+                    << "Image: image_"
+                    << twoDigit(
+                        imageIndex
+                    )
+                    << ".jpg\n"
+                    << "Node: 6\n"
+                    << "Monitor: input1\n"
+                    << "Reference: exact DCT reconstruction\n"
+                    << "Current configuration: Baseline 5RP\n"
+                    << "Validated candidates per role/unit: "
+                    << validationCount
+                    << "\n\n"
+                    << std::fixed
+                    << std::setprecision(
+                        6
+                    )
+                    << "Baseline Global PSNR: "
+                    << roiReport.currentMetrics.globalPsnr
+                    << "\n"
+                    << "Baseline ROI PSNR: "
+                    << roiReport.currentMetrics.roiPsnr
+                    << "\n"
+                    << "Baseline Non-ROI PSNR: "
+                    << roiReport.currentMetrics.nonRoiPsnr
+                    << "\n\n";
+
+
+                baselinePrinted =
+                    true;
+            }
+
+
+            writeGroupCsv(
+                csv,
+                unitName(
+                    attackUnit
+                ),
+                "roi_attack",
+                roiAttack,
+                roiReport
+            );
+
+
+            writeGroupCsv(
+                csv,
+                unitName(
+                    attackUnit
+                ),
+                "non_roi_compensation",
+                nonRoiCompensation,
+                compensationReport
+            );
+
+
+            writeGroupCsv(
+                csv,
+                unitName(
+                    attackUnit
+                ),
+                "redistribution",
+                redistribution,
+                redistributionReport
+            );
+
+
+            UnitValidationSummary
+                summary;
+
+
+            summary.unit =
+                attackUnit;
+
+
+            summary.maxFastRoiErrorChange =
+                roiAttack.front().roiErrorChange;
+
+
+            summary.bestActualRoiDelta =
+                minimumRoiDelta(
+                    roiReport
+                );
+
+
+            summary.minFastNonRoiErrorChange =
+                nonRoiCompensation.front().nonRoiErrorChange;
+
+
+            summary.bestActualNonRoiDelta =
+                maximumNonRoiDelta(
+                    compensationReport
+                );
+
+
+            summary.maxFastRedistribution =
+                redistribution.front().redistributionScore;
+
+
+            summary.redistributionTop1RoiDelta =
+                redistributionReport.candidates.front().roiPsnrDelta;
+
+
+            summary.redistributionTop1NonRoiDelta =
+                redistributionReport.candidates.front().nonRoiPsnrDelta;
+
+
+            summaries.push_back(
+                summary
+            );
+        }
 
 
         std::cout
-            << "DCT fast-to-full interval validation (Module 2-B)\n"
-            << "================================================\n"
-            << "Image: image_"
-            << twoDigit(
-                imageIndex
-            )
-            << ".jpg\n"
-            << "Node: 6\n"
-            << "Monitor: input1\n"
-            << "Attack unit: 5L8\n"
-            << "Reference: exact DCT reconstruction\n"
-            << "Current configuration: Baseline 5RP\n\n"
-            << std::fixed
-            << std::setprecision(
-                6
-            )
-            << "Baseline Global PSNR: "
-            << roiReport.currentMetrics.globalPsnr
-            << "\n"
-            << "Baseline ROI PSNR: "
-            << roiReport.currentMetrics.roiPsnr
-            << "\n"
-            << "Baseline Non-ROI PSNR: "
-            << roiReport.currentMetrics.nonRoiPsnr
+            << std::left
+            << std::setw(8)
+            << "Unit"
+            << std::setw(16)
+            << "MaxFastROIErr"
+            << std::setw(15)
+            << "Best_dROI"
+            << std::setw(19)
+            << "MinFastNonROIErr"
+            << std::setw(18)
+            << "Best_dNonROI"
+            << std::setw(18)
+            << "MaxFastRedis"
+            << std::setw(18)
+            << "RedisTop1_dROI"
+            << "RedisTop1_dNonROI"
             << "\n";
 
 
-        printValidationGroup(
-            "A. ROI attack candidates",
-            roiAttack,
-            roiReport
-        );
+        for (const auto& summary : summaries)
+        {
+            std::cout
+                << std::left
+                << std::setw(8)
+                << unitName(
+                    summary.unit
+                )
+                << std::setw(16)
+                << summary.maxFastRoiErrorChange
+                << std::setw(15)
+                << summary.bestActualRoiDelta
+                << std::setw(19)
+                << summary.minFastNonRoiErrorChange
+                << std::setw(18)
+                << summary.bestActualNonRoiDelta
+                << std::setw(18)
+                << summary.maxFastRedistribution
+                << std::setw(18)
+                << summary.redistributionTop1RoiDelta
+                << summary.redistributionTop1NonRoiDelta
+                << "\n";
+        }
 
 
-        printValidationGroup(
-            "B. Non-ROI compensation candidates",
-            nonRoiCompensation,
-            compensationReport
-        );
-
-
-        printValidationGroup(
-            "C. Redistribution candidates",
-            redistribution,
-            redistributionReport
-        );
+        std::cout
+            << "\nDetailed CSV: "
+            << outputPath.string()
+            << "\n";
 
 
         return 0;
@@ -430,7 +689,7 @@ int main(
     catch (const std::exception& exception)
     {
         std::cerr
-            << "DCT fast-to-full interval validation failed: "
+            << "DCT unit interval validation failed: "
             << exception.what()
             << "\n";
 
