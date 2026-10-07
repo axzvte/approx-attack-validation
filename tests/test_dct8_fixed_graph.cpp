@@ -163,6 +163,79 @@ int main()
 
 
     // =====================================================
+    // Sparse/exact Baseline configuration test
+    // =====================================================
+
+    const auto exactBaselineConfig =
+        applications::Dct8FixedGraph::
+            createAllExactBaselineConfig();
+
+
+    applications::Dct8FixedGraph
+        exactBaselineGraph(
+            exactBaselineConfig
+        );
+
+
+    applications::Dct8FixedGraph::Trace
+        exactBaselineTrace{};
+
+
+    const auto exactBaselineOutputVector =
+        exactBaselineGraph.runApprox(
+            input,
+            {},
+            &exactBaselineTrace
+        );
+
+
+    if (
+        exactBaselineTrace[0].baselineOutput
+        !=
+        input[0] + input[7]
+        ||
+        exactBaselineOutputVector
+        !=
+        exactOutput
+    )
+    {
+        std::cerr
+            << "Exact DCT baseline configuration is incorrect.\n";
+
+        return 1;
+    }
+
+
+    const auto sparseConfig =
+        applications::Dct8FixedGraph::
+            createSparseApproximateBaselineConfig(
+                {
+                    25,
+                    19,
+                    13
+                },
+                approximate::ApproxUnitId::Add12se5RP
+            );
+
+
+    if (
+        !sparseConfig[0].exact
+        ||
+        sparseConfig[25].exact
+        ||
+        sparseConfig[19].exact
+        ||
+        sparseConfig[13].exact
+    )
+    {
+        std::cerr
+            << "Sparse DCT baseline configuration is incorrect.\n";
+
+        return 1;
+    }
+
+
+    // =====================================================
     // ADD_00 全区间触发 5Z0
     // =====================================================
 

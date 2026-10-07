@@ -218,6 +218,51 @@ int main()
         << "Approximate DCT pipeline completed.\n";
 
 
+
+    // =====================================================
+    // Sparse baseline application test
+    // =====================================================
+
+    const auto sparseBaselineConfig =
+        applications::Dct8FixedGraph::
+            createSparseApproximateBaselineConfig(
+                {
+                    25,
+                    19,
+                    13
+                },
+                approximate::ApproxUnitId::Add12se5RP
+            );
+
+
+    applications::DctApplication
+        sparseApplication(
+            sparseBaselineConfig
+        );
+
+
+    const cv::Mat sparseImage =
+        sparseApplication.runApprox(
+            inputImage,
+            {}
+        );
+
+
+    if (
+        sparseImage.empty()
+        ||
+        sparseApplication.baselineConfig()[25].exact
+        ||
+        !sparseApplication.baselineConfig()[0].exact
+    )
+    {
+        std::cerr
+            << "Sparse baseline application test failed.\n";
+
+        return 1;
+    }
+
+
     std::cout
         << "DctApplication test passed.\n";
 

@@ -303,12 +303,15 @@ cv::Mat runForwardBlock(
     const cv::Mat& paddedImage,
     int blockRow,
     int blockCol,
+    const Dct8FixedGraph::BaselineConfig& baselineConfig,
     const std::vector<core::AttackConfig>* configs,
     double roiWeight,
     std::vector<core::AddSample>* samples
 )
 {
-    Dct8FixedGraph graph;
+    Dct8FixedGraph graph(
+        baselineConfig
+    );
 
 
     std::array<
@@ -426,6 +429,7 @@ cv::Mat runForwardBlock(
 
 cv::Mat runDctImage(
     const cv::Mat& inputImage,
+    const Dct8FixedGraph::BaselineConfig& baselineConfig,
     const std::vector<core::AttackConfig>* configs
 )
 {
@@ -460,6 +464,7 @@ cv::Mat runDctImage(
                     paddedImage,
                     blockRow,
                     blockCol,
+                    baselineConfig,
                     configs,
 
                     0.0,
@@ -531,6 +536,22 @@ cv::Mat runDctImage(
 // =========================================================
 
 DctApplication::DctApplication()
+    :
+    DctApplication(
+        Dct8FixedGraph::
+            createDefaultBaselineConfig()
+    )
+{
+}
+
+
+DctApplication::DctApplication(
+    const Dct8FixedGraph::BaselineConfig& baselineConfig
+)
+    :
+    baselineConfig_(
+        baselineConfig
+    )
 {
     addNodes_.reserve(
         Dct8FixedGraph::kAddNodeCount
@@ -565,6 +586,13 @@ DctApplication::addNodes() const
 }
 
 
+const Dct8FixedGraph::BaselineConfig&
+DctApplication::baselineConfig() const
+{
+    return baselineConfig_;
+}
+
+
 cv::Mat DctApplication::runExact(
     const cv::Mat& inputImage
 ) const
@@ -572,6 +600,7 @@ cv::Mat DctApplication::runExact(
     return
         runDctImage(
             inputImage,
+            baselineConfig_,
             nullptr
         );
 }
@@ -585,6 +614,7 @@ cv::Mat DctApplication::runApprox(
     return
         runDctImage(
             inputImage,
+            baselineConfig_,
             &configs
         );
 }
@@ -664,6 +694,7 @@ void DctApplication::collectExactAddSamples(
                 paddedImage,
                 blockRow,
                 blockCol,
+                baselineConfig_,
 
                 nullptr,
 
@@ -679,7 +710,7 @@ void DctApplication::collectExactAddSamples(
 // 正常近似 Baseline 运行中间数据采集
 //
 // 空 AttackConfig 表示所有节点只使用各自 Baseline。
-// 当前默认整套 Baseline 为 5RP。
+// Baseline 由 DctApplication::baselineConfig_ 指定。
 // =========================================================
 
 void DctApplication::collectBaselineAddSamples(
@@ -756,6 +787,7 @@ void DctApplication::collectBaselineAddSamples(
                 paddedImage,
                 blockRow,
                 blockCol,
+                baselineConfig_,
 
                 &emptyConfigs,
 
@@ -847,6 +879,7 @@ void DctApplication::collectConfiguredAddSamples(
                 paddedImage,
                 blockRow,
                 blockCol,
+                baselineConfig_,
 
                 &configs,
 

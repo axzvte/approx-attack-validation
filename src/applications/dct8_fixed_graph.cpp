@@ -75,12 +75,104 @@ Dct8FixedGraph::baselineConfig() const
 Dct8FixedGraph::BaselineConfig
 Dct8FixedGraph::createDefaultBaselineConfig()
 {
+    return
+        createAllApproximateBaselineConfig(
+            approximate::ApproxUnitId::Add12se5RP
+        );
+}
+
+
+Dct8FixedGraph::BaselineConfig
+Dct8FixedGraph::createAllExactBaselineConfig()
+{
     BaselineConfig config{};
 
 
-    config.fill(
-        approximate::ApproxUnitId::Add12se5RP
-    );
+    for (auto& node : config)
+    {
+        node.exact =
+            true;
+
+
+        node.unit =
+            approximate::ApproxUnitId::Add12se5RP;
+    }
+
+
+    return config;
+}
+
+
+Dct8FixedGraph::BaselineConfig
+Dct8FixedGraph::createAllApproximateBaselineConfig(
+    approximate::ApproxUnitId unit
+)
+{
+    BaselineConfig config{};
+
+
+    for (auto& node : config)
+    {
+        node.exact =
+            false;
+
+
+        node.unit =
+            unit;
+    }
+
+
+    return config;
+}
+
+
+Dct8FixedGraph::BaselineConfig
+Dct8FixedGraph::createSparseApproximateBaselineConfig(
+    const std::vector<int>& approximateNodeIds,
+    approximate::ApproxUnitId unit
+)
+{
+    BaselineConfig config =
+        createAllExactBaselineConfig();
+
+
+    std::array<bool, kAddNodeCount>
+        seen{};
+
+
+    for (const int nodeId : approximateNodeIds)
+    {
+        if (
+            nodeId < 0
+            ||
+            nodeId >= kAddNodeCount
+        )
+        {
+            throw std::runtime_error(
+                "Sparse DCT baseline contains an invalid node ID."
+            );
+        }
+
+
+        if (seen[nodeId])
+        {
+            throw std::runtime_error(
+                "Sparse DCT baseline contains duplicate node IDs."
+            );
+        }
+
+
+        seen[nodeId] =
+            true;
+
+
+        config[nodeId].exact =
+            false;
+
+
+        config[nodeId].unit =
+            unit;
+    }
 
 
     return config;
@@ -176,11 +268,19 @@ Dct8FixedGraph::addApprox(
     //
     // 当前默认 BaselineConfig 为 5RP。
     // 对 BaselineOutput monitor 来说，比较器监测的就是这个值。
+    const auto& baselineNode =
+        baselineConfig_[nodeId];
+
+
     const Value baselineOutput =
+        baselineNode.exact
+        ?
+        input1 + input2
+        :
         approximate::addSigned12(
             input1,
             input2,
-            baselineConfig_[nodeId]
+            baselineNode.unit
         );
 
 

@@ -53,9 +53,20 @@ public:
         >;
 
 
+    struct BaselineNodeConfig
+    {
+        // true  -> 使用精确加法；
+        // false -> 使用 unit 指定的近似加法器。
+        bool exact = true;
+
+        approximate::ApproxUnitId unit =
+            approximate::ApproxUnitId::Add12se5RP;
+    };
+
+
     using BaselineConfig =
         std::array<
-            approximate::ApproxUnitId,
+            BaselineNodeConfig,
             kAddNodeCount
         >;
 
@@ -77,8 +88,28 @@ public:
     baselineConfig() const;
 
 
+    // 当前验证阶段暂时保持旧默认：全部 5RP。
+    // 稀疏 Baseline 验证完成后再正式切换默认配置。
     static BaselineConfig
     createDefaultBaselineConfig();
+
+
+    static BaselineConfig
+    createAllExactBaselineConfig();
+
+
+    static BaselineConfig
+    createAllApproximateBaselineConfig(
+        approximate::ApproxUnitId unit
+    );
+
+
+    static BaselineConfig
+    createSparseApproximateBaselineConfig(
+        const std::vector<int>& approximateNodeIds,
+        approximate::ApproxUnitId unit =
+            approximate::ApproxUnitId::Add12se5RP
+    );
 
 
     Vector runExact(
