@@ -55,6 +55,7 @@ add_library(
     src/analysis/dct_monitor_input_analyzer.cpp
     src/analysis/dct_interval_search_space_generator.cpp
     src/analysis/dct_interval_fast_evaluator.cpp
+    src/analysis/dct_interval_full_validator.cpp
     src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
@@ -384,6 +385,26 @@ add_test(
 )
 
 
+add_executable(
+    test_dct_interval_full_validator
+
+    tests/test_dct_interval_full_validator.cpp
+)
+
+
+target_link_libraries(
+    test_dct_interval_full_validator
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_interval_full_validator
+    COMMAND test_dct_interval_full_validator
+)
+
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -486,6 +507,24 @@ add_executable(
 
 target_link_libraries(
     dct_interval_fast_evaluation
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# DCT fast-to-full interval validation (Module 2-B)
+# =========================================================
+
+add_executable(
+    dct_interval_full_validation
+
+    app/dct_interval_full_validation.cpp
+)
+
+
+target_link_libraries(
+    dct_interval_full_validation
     PRIVATE
         approx_framework
 )
