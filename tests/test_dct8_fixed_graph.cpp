@@ -211,6 +211,52 @@ int main()
     }
 
 
+    // =====================================================
+    // ADD_00 使用 Baseline 5RP 输出作为 monitor signal
+    // =====================================================
+
+    const std::vector<core::AttackConfig>
+        outputMonitorConfigs =
+    {
+        {
+            0,
+            approximate::ApproxUnitId::Add12se5Z0,
+            core::MonitorSignal::BaselineOutput,
+            expectedBaseline,
+            expectedBaseline
+        }
+    };
+
+
+    applications::Dct8FixedGraph::Trace
+        outputMonitorTrace{};
+
+
+    graph.runApprox(
+        input,
+        outputMonitorConfigs,
+        &outputMonitorTrace
+    );
+
+
+    if (
+        outputMonitorTrace[0].baselineOutput
+        !=
+        expectedBaseline
+        ||
+        outputMonitorTrace[0].output
+        !=
+        expectedAttack
+    )
+    {
+        std::cerr
+            << "Baseline-output monitor did not trigger the configured unit.\n";
+
+        return 1;
+    }
+
+
+
     // 未配置的 ADD_01 仍应使用5RP
     const int expectedNode1 =
         approximate::addSigned12(

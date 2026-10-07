@@ -45,9 +45,10 @@ int signalValue(
             return sample.input2;
 
         case DctMonitorSignal::BaselineOutput:
-            // collectBaselineAddSamples(...) 运行的是正常 5RP 路径，
-            // 因此 sample.output 就是当前节点 5RP 的实际动态输出。
-            return sample.output;
+            // 明确读取原 Baseline 路径输出。
+            // 即使未来样本来自已启用其它攻击节点的当前配置，
+            // 该值仍表示目标节点在当前输入下的正常路径输出。
+            return sample.baselineOutput;
     }
 
 

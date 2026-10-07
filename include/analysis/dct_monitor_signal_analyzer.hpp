@@ -1,6 +1,7 @@
 #pragma once
 
 #include "applications/dct.hpp"
+#include "core/attack_config.hpp"
 
 #include <opencv2/core.hpp>
 
@@ -11,16 +12,10 @@
 namespace analysis
 {
 
-// 仅用于第一阶段“监控信号选择”实验。
-//
-// BaselineOutput 指当前正常 5RP 路径在 MUX 之前的输出。
-// 它不是最终 MUX 输出，因此不会形成组合反馈。
-enum class DctMonitorSignal
-{
-    Input1,
-    Input2,
-    BaselineOutput
-};
+// 第一阶段监控信号分析与最终 AttackConfig 使用同一个类型。
+// 这样实验结论可以直接进入后续静态硬件结构搜索。
+using DctMonitorSignal =
+    core::MonitorSignal;
 
 
 enum class DctMonitorSignalBias

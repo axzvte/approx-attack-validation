@@ -217,7 +217,8 @@ void appendTraceSamples(
                 item.input1,
                 item.input2,
                 item.output,
-                roiWeight
+                roiWeight,
+                item.baselineOutput
             }
         );
     }

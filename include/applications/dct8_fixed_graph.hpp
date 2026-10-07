@@ -29,6 +29,11 @@ public:
 
         Value input1 = 0;
         Value input2 = 0;
+
+        // 原 Baseline 单元在当前输入下的输出。
+        Value baselineOutput = 0;
+
+        // 当前配置真正送往后续电路的输出。
         Value output = 0;
     };
 

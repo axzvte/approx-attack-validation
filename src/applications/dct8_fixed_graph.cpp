@@ -126,6 +126,9 @@ Dct8FixedGraph::addExact(
         (*trace)[nodeId].input2 =
             input2;
 
+        (*trace)[nodeId].baselineOutput =
+            output;
+
         (*trace)[nodeId].output =
             output;
     }
@@ -142,9 +145,10 @@ Dct8FixedGraph::addExact(
 // 使用 baselineConfig_[nodeId]
 //
 // 攻击触发：
-// 根据 AttackConfig 选择监测 input1 / input2，
-// 当监测值落入 [lower, upper] 时，
-// 切换到攻击近似加法器。
+// 每个节点只选择一个 MonitorSignal：
+// input1 / input2 / BaselineOutput。
+// 当该信号落入 [lower, upper] 时，
+// 最终 MUX 选择新增近似加法器输出。
 // =========================================================
 
 Dct8FixedGraph::Value
@@ -168,8 +172,20 @@ Dct8FixedGraph::addApprox(
     }
 
 
-    approximate::ApproxUnitId selectedUnit =
-        baselineConfig_[nodeId];
+    // 原正常路径始终存在。
+    //
+    // 当前默认 BaselineConfig 为 5RP。
+    // 对 BaselineOutput monitor 来说，比较器监测的就是这个值。
+    const Value baselineOutput =
+        approximate::addSigned12(
+            input1,
+            input2,
+            baselineConfig_[nodeId]
+        );
+
+
+    Value output =
+        baselineOutput;
 
 
     for (const auto& config : configs)
@@ -188,14 +204,27 @@ Dct8FixedGraph::addApprox(
         }
 
 
-        const Value monitorValue =
-            config.monitorInput
-                ==
-                core::MonitorInput::Input1
-            ?
-            input1
-            :
-            input2;
+        Value monitorValue =
+            0;
+
+
+        switch (config.monitorInput)
+        {
+            case core::MonitorSignal::Input1:
+                monitorValue =
+                    input1;
+                break;
+
+            case core::MonitorSignal::Input2:
+                monitorValue =
+                    input2;
+                break;
+
+            case core::MonitorSignal::BaselineOutput:
+                monitorValue =
+                    baselineOutput;
+                break;
+        }
 
 
         if (
@@ -204,27 +233,27 @@ Dct8FixedGraph::addApprox(
             monitorValue <= config.upper
         )
         {
-            selectedUnit =
-                config.unit;
+            // 软件仿真只在触发时计算新增单元，
+            // 但硬件语义对应于：
+            //
+            // Baseline unit  ----\
+            //                    MUX -> output
+            // Attack unit    ----/
+            //
+            // BaselineOutput -> comparator -> MUX select
+            //
+            // 即两个算术分支可并行存在，比较器只决定最终 MUX。
+            output =
+                approximate::addSigned12(
+                    input1,
+                    input2,
+                    config.unit
+                );
         }
 
 
         break;
     }
-
-
-    // addSigned12 会检查输入是否超出：
-    //
-    // [-2048, 2047]
-    //
-    // 如果超出，直接判定当前计算无效，
-    // 不进行人为截断或饱和。
-    const Value output =
-        approximate::addSigned12(
-            input1,
-            input2,
-            selectedUnit
-        );
 
 
     if (trace != nullptr)
@@ -237,6 +266,9 @@ Dct8FixedGraph::addApprox(
 
         (*trace)[nodeId].input2 =
             input2;
+
+        (*trace)[nodeId].baselineOutput =
+            baselineOutput;
 
         (*trace)[nodeId].output =
             output;
