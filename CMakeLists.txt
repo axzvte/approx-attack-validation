@@ -53,6 +53,7 @@ add_library(
     src/analysis/dct_stage1_evaluator.cpp
     src/analysis/dct_node_sensitivity.cpp
     src/analysis/dct_monitor_input_analyzer.cpp
+    src/analysis/dct_monitor_signal_analyzer.cpp
     src/analysis/dct_interval_search_space_generator.cpp
     src/analysis/dct_interval_fast_evaluator.cpp
     src/analysis/dct_interval_full_validator.cpp
@@ -426,6 +427,26 @@ add_test(
 )
 
 
+add_executable(
+    test_dct_monitor_signal_analyzer
+
+    tests/test_dct_monitor_signal_analyzer.cpp
+)
+
+
+target_link_libraries(
+    test_dct_monitor_signal_analyzer
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_monitor_signal_analyzer
+    COMMAND test_dct_monitor_signal_analyzer
+)
+
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -582,6 +603,25 @@ add_executable(
 
 target_link_libraries(
     dct_multi_node_interval_optimization
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# DCT monitor-signal comparison:
+# input1 / input2 / baseline 5RP output
+# =========================================================
+
+add_executable(
+    dct_monitor_signal_analysis
+
+    app/dct_monitor_signal_analysis.cpp
+)
+
+
+target_link_libraries(
+    dct_monitor_signal_analysis
     PRIVATE
         approx_framework
 )
