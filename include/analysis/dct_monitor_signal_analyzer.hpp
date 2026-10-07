@@ -91,7 +91,7 @@ public:
     //
     // 1. input1
     // 2. input2
-    // 3. Baseline 5RP output
+    // 3. Baseline output
     //
     // 三种信号完全使用相同的：
     // - 10 张 Stage 1 图片；
