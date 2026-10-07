@@ -625,3 +625,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# DCT sparse baseline validation
+# =========================================================
+
+add_executable(
+    dct_sparse_baseline_validation
+
+    app/dct_sparse_baseline_validation.cpp
+)
+
+
+target_link_libraries(
+    dct_sparse_baseline_validation
+    PRIVATE
+        approx_framework
+)
