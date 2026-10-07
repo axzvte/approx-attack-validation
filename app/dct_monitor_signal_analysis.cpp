@@ -2,6 +2,7 @@
 
 #include "applications/dct.hpp"
 #include "applications/dct8_fixed_graph.hpp"
+#include "approximate/evoapprox_adapter.hpp"
 #include "io/image_io.hpp"
 #include "region/region_mask.hpp"
 
