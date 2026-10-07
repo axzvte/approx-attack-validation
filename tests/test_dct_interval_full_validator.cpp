@@ -1,6 +1,7 @@
 #include "analysis/dct_interval_full_validator.hpp"
 
 #include "applications/dct.hpp"
+#include "applications/dct8_fixed_graph.hpp"
 #include "approximate/evoapprox_adapter.hpp"
 
 #include <opencv2/core.hpp>
@@ -12,8 +13,17 @@
 
 int main()
 {
+    const auto allFiveRpBaseline =
+        applications::Dct8FixedGraph::
+            createAllApproximateBaselineConfig(
+                approximate::ApproxUnitId::Add12se5RP
+            );
+
+
     applications::DctApplication
-        application;
+        application(
+            allFiveRpBaseline
+        );
 
 
     cv::Mat inputImage(

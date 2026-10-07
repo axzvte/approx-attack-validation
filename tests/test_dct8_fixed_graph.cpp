@@ -123,7 +123,7 @@ int main()
 
 
     // =====================================================
-    // 检查默认基准是否为5RP
+    // 检查默认工作 Baseline 是否为 Sparse-3
     // =====================================================
 
     applications::Dct8FixedGraph::Trace
@@ -141,12 +141,12 @@ int main()
     );
 
 
+    // Node 0 不在 Sparse-3 的近似节点列表中，
+    // 因此默认 Baseline 应为精确加法。
     const int expectedBaseline =
-        approximate::addSigned12(
-            input[0],
-            input[7],
-            approximate::ApproxUnitId::Add12se5RP
-        );
+        input[0]
+        +
+        input[7];
 
 
     if (
@@ -156,7 +156,7 @@ int main()
     )
     {
         std::cerr
-            << "Baseline approximate unit is incorrect.\n";
+            << "Default Sparse-3 baseline is incorrect.\n";
 
         return 1;
     }
@@ -330,13 +330,12 @@ int main()
 
 
 
-    // 未配置的 ADD_01 仍应使用5RP
+    // ADD_01 也不在 Sparse-3 近似节点列表中，
+    // 未攻击时应继续使用精确 Baseline。
     const int expectedNode1 =
-        approximate::addSigned12(
-            input[1],
-            input[6],
-            approximate::ApproxUnitId::Add12se5RP
-        );
+        input[1]
+        +
+        input[6];
 
 
     if (
@@ -346,7 +345,7 @@ int main()
     )
     {
         std::cerr
-            << "Unconfigured node did not use baseline unit.\n";
+            << "Unconfigured node did not use Sparse-3 baseline.\n";
 
         return 1;
     }

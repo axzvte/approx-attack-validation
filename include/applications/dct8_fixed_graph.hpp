@@ -88,8 +88,11 @@ public:
     baselineConfig() const;
 
 
-    // 当前验证阶段暂时保持旧默认：全部 5RP。
-    // 稀疏 Baseline 验证完成后再正式切换默认配置。
+    // 当前工作 Baseline：
+    // Node 25、19、13 使用 5RP，其余节点 Exact。
+    //
+    // 该配置用于先跑通完整攻击搜索流程；
+    // 后续可再单独研究 Baseline DSE。
     static BaselineConfig
     createDefaultBaselineConfig();
 

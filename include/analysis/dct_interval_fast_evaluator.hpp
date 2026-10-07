@@ -14,7 +14,7 @@ namespace analysis
 
 // 模块 2-A 的快速区间指标。
 //
-// 这里只根据当前真实动态样本，估计把目标节点从 Baseline 5RP
+// 这里只根据当前真实动态样本，估计把目标节点从“当前正常 Baseline 单元”
 // 切换到指定 approximate unit 后，区间内的局部误差变化。
 //
 // 不运行完整 DCT，不计算 PSNR，也不直接决定最终区间。
@@ -28,7 +28,7 @@ struct DctIntervalFastMetric
     double nonRoiTriggerRate = 0.0;
 
 
-    // 相对 Baseline 5RP 的加权局部平方误差变化。
+    // 相对该节点当前 Baseline 单元的加权局部平方误差变化。
     //
     // > 0 : 切换到 attackUnit 后局部误差增大
     // < 0 : 切换到 attackUnit 后局部误差减小
@@ -122,7 +122,7 @@ public:
     //
     // 计算过程：
     // 1. 对目标节点每条动态样本计算：
-    //      Baseline 5RP 相对精确加法的平方误差；
+    //      当前 Baseline 输出相对精确加法的平方误差；
     //      attackUnit 相对精确加法的平方误差；
     //      二者差值；
     // 2. 按 monitor value 聚合；
