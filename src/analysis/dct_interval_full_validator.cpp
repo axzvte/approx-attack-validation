@@ -273,6 +273,40 @@ replaceTargetConfiguration(
 
 
 // =========================================================
+// 任意当前配置的完整 DCT 指标
+// =========================================================
+
+DctImageQualityMetrics
+DctIntervalFullValidator::evaluateConfiguration(
+    const applications::DctApplication& application,
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<core::AttackConfig>& configuration
+)
+{
+    const cv::Mat exactReference =
+        application.runExact(
+            inputImage
+        );
+
+
+    const cv::Mat testImage =
+        application.runApprox(
+            inputImage,
+            configuration
+        );
+
+
+    return
+        calculateMetrics(
+            exactReference,
+            testImage,
+            roiMask
+        );
+}
+
+
+// =========================================================
 // Module 2-B：真实完整 DCT 区间验证
 // =========================================================
 

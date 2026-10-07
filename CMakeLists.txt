@@ -56,6 +56,7 @@ add_library(
     src/analysis/dct_interval_search_space_generator.cpp
     src/analysis/dct_interval_fast_evaluator.cpp
     src/analysis/dct_interval_full_validator.cpp
+    src/analysis/dct_multi_node_interval_optimizer.cpp
     src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
@@ -405,6 +406,26 @@ add_test(
 )
 
 
+add_executable(
+    test_dct_multi_node_interval_optimizer
+
+    tests/test_dct_multi_node_interval_optimizer.cpp
+)
+
+
+target_link_libraries(
+    test_dct_multi_node_interval_optimizer
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_multi_node_interval_optimizer
+    COMMAND test_dct_multi_node_interval_optimizer
+)
+
+
 # =========================================================
 # DCT structural propagation analysis
 # =========================================================
@@ -543,6 +564,24 @@ add_executable(
 
 target_link_libraries(
     dct_unit_cross_image_validation
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# DCT single-image multi-node interval optimization
+# =========================================================
+
+add_executable(
+    dct_multi_node_interval_optimization
+
+    app/dct_multi_node_interval_optimization.cpp
+)
+
+
+target_link_libraries(
+    dct_multi_node_interval_optimization
     PRIVATE
         approx_framework
 )

@@ -54,6 +54,17 @@ class DctIntervalFullValidator
 {
 public:
 
+    // 对任意当前配置计算统一的完整图像指标。
+    //
+    // 参考始终为精确 DCT 重建结果。
+    static DctImageQualityMetrics evaluateConfiguration(
+        const applications::DctApplication& application,
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        const std::vector<core::AttackConfig>& configuration
+    );
+
+
     // Module 2-B：
     //
     // 对 Module 2-A 留下的少量区间真正运行完整 DCT。
