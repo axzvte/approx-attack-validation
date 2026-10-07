@@ -521,6 +521,7 @@ int main(int argc, char** argv)
             approximate::ApproxUnitId::Add12se5PN,
             approximate::ApproxUnitId::Add12se5QC,
             approximate::ApproxUnitId::Add12se5QT,
+            approximate::ApproxUnitId::Add12se5RP,
             approximate::ApproxUnitId::Add12se5TE,
             approximate::ApproxUnitId::Add12se5SB,
             approximate::ApproxUnitId::Add12se5Z0
