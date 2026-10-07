@@ -58,6 +58,7 @@ add_library(
     src/analysis/dct_interval_fast_evaluator.cpp
     src/analysis/dct_interval_full_validator.cpp
     src/analysis/dct_multi_node_interval_optimizer.cpp
+    src/analysis/dct_multi_state_joint_search.cpp
     src/analysis/search_space_statistics.cpp
     src/analysis/propagation_analyzer.cpp
 
@@ -444,6 +445,26 @@ target_link_libraries(
 add_test(
     NAME dct_monitor_signal_analyzer
     COMMAND test_dct_monitor_signal_analyzer
+)
+
+
+add_executable(
+    test_dct_multi_state_joint_search
+
+    tests/test_dct_multi_state_joint_search.cpp
+)
+
+
+target_link_libraries(
+    test_dct_multi_state_joint_search
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME dct_multi_state_joint_search
+    COMMAND test_dct_multi_state_joint_search
 )
 
 
