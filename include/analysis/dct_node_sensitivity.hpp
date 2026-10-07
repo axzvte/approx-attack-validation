@@ -22,16 +22,16 @@ struct DctNodeUnitSensitivity
             approximate::ApproxUnitId::Add12se5RP;
 
 
-    // 在正常 5RP Baseline 的真实节点输入上，
+    // 在当前 Baseline 的真实节点输入上，
     // 将当前节点替换成 attackUnit 后产生的局部误差：
     //
-    // e = attackUnit(a, b) - baseline5RP(a, b)
+    // e = attackUnit(a, b) - baseline(a, b)
     //
     // localMse = mean(e^2)
     double localMse = 0.0;
 
 
-    // 最终重建图像相对正常 5RP Baseline 图像的 MSE。
+    // 最终重建图像相对当前 Baseline 图像的 MSE。
     double outputMse = 0.0;
 
 
@@ -194,7 +194,9 @@ public:
     // 进行“单节点、全触发”敏感性分析。
     //
     // Baseline:
-    //     所有节点均使用默认 5RP。
+    //     使用 DctApplication 当前持有的 BaselineConfig。
+    //     当前节点筛选实验固定为 Sparse-3：
+    //     Node 25、19、13 使用 5RP，其余节点使用 Exact。
     //
     // 单节点攻击:
     //     仅当前节点切换到 attackUnit，
