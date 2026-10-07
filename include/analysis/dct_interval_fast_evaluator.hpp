@@ -66,6 +66,24 @@ enum class DctIntervalFastRanking
 };
 
 
+struct DctIntervalRepresentativeSelection
+{
+    std::size_t totalMetricCount = 0;
+
+    // 在“ROIErrorChange 越大越好、NonROIErrorChange 越小越好”
+    // 这两个方向上，没有被其它区间同时压制的候选数量。
+    std::size_t paretoMetricCount = 0;
+
+
+    // 从非支配前沿中挑出的少量代表区间。
+    //
+    // 它们不是最终最佳区间，只是为了给完整 DCT 保留
+    // 不同“ROI 破坏 / Non-ROI 代价”权衡。
+    std::vector<DctIntervalFastMetric>
+        representatives;
+};
+
+
 struct DctIntervalFastEvaluation
 {
     int nodeId = -1;
@@ -137,6 +155,32 @@ public:
         const DctIntervalFastEvaluation& evaluation,
         DctIntervalFastRanking ranking,
         std::size_t count
+    );
+
+
+    // Module 3-A：代表区间选择。
+    //
+    // 目标不是找“单节点最佳区间”，而是为后续多节点联合搜索
+    // 保留一组不同误差权衡的区间。
+    //
+    // 第一步：构造二维非支配前沿。
+    //
+    // 对区间 A、B，如果 A 同时满足：
+    //   A.roiErrorChange    >= B.roiErrorChange
+    //   A.nonRoiErrorChange <= B.nonRoiErrorChange
+    // 且至少一个严格更好，
+    // 那么 B 被 A 全面压制，可以删除。
+    //
+    // 第二步：如果前沿仍超过 maxCount，
+    // 在归一化后的二维误差空间中保留两端极值，
+    // 再逐个选择离已有代表点最远的候选，
+    // 让代表区间覆盖不同的 ROI / Non-ROI 权衡位置。
+    //
+    // 这里仍然不运行完整 DCT。
+    static DctIntervalRepresentativeSelection
+    selectRepresentativeMetrics(
+        const DctIntervalFastEvaluation& evaluation,
+        std::size_t maxCount
     );
 };
 

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <map>
 #include <stdexcept>
 #include <vector>
@@ -688,6 +689,511 @@ DctIntervalFastEvaluator::selectTopMetrics(
 
 
     return ranked;
+}
+
+
+namespace
+{
+
+std::vector<DctIntervalFastMetric>
+buildParetoFront(
+    const DctIntervalFastEvaluation& evaluation
+)
+{
+    std::vector<DctIntervalFastMetric>
+        ranked =
+            evaluation.metrics;
+
+
+    // ROIErrorChange：越大越好。
+    // NonROIErrorChange：越小越好。
+    //
+    // 先按 ROI 从大到小排；
+    // ROI 相同时让 Non-ROI 更小的排前面。
+    std::sort(
+        ranked.begin(),
+        ranked.end(),
+
+        [](
+            const DctIntervalFastMetric& first,
+            const DctIntervalFastMetric& second
+        )
+        {
+            if (
+                first.roiErrorChange
+                !=
+                second.roiErrorChange
+            )
+            {
+                return
+                    first.roiErrorChange
+                    >
+                    second.roiErrorChange;
+            }
+
+
+            if (
+                first.nonRoiErrorChange
+                !=
+                second.nonRoiErrorChange
+            )
+            {
+                return
+                    first.nonRoiErrorChange
+                    <
+                    second.nonRoiErrorChange;
+            }
+
+
+            if (
+                first.interval.lower
+                !=
+                second.interval.lower
+            )
+            {
+                return
+                    first.interval.lower
+                    <
+                    second.interval.lower;
+            }
+
+
+            return
+                first.interval.upper
+                <
+                second.interval.upper;
+        }
+    );
+
+
+    std::vector<DctIntervalFastMetric>
+        front;
+
+
+    front.reserve(
+        ranked.size()
+    );
+
+
+    double bestNonRoiErrorChange =
+        std::numeric_limits<double>::infinity();
+
+
+    bool hasFrontPoint =
+        false;
+
+
+    for (const auto& metric : ranked)
+    {
+        // 当前 metric 的 ROI 已经不会优于前面候选。
+        //
+        // 只有它把 Non-ROIErrorChange 进一步降到更小，
+        // 才形成新的非支配权衡点。
+        if (
+            !hasFrontPoint
+            ||
+            metric.nonRoiErrorChange
+                <
+                bestNonRoiErrorChange
+        )
+        {
+            front.push_back(
+                metric
+            );
+
+
+            bestNonRoiErrorChange =
+                metric.nonRoiErrorChange;
+
+
+            hasFrontPoint =
+                true;
+        }
+    }
+
+
+    return front;
+}
+
+
+double normalizedDistanceSquared(
+    const DctIntervalFastMetric& first,
+    const DctIntervalFastMetric& second,
+    double minRoi,
+    double maxRoi,
+    double minNonRoi,
+    double maxNonRoi
+)
+{
+    const double roiRange =
+        maxRoi
+        -
+        minRoi;
+
+
+    const double nonRoiRange =
+        maxNonRoi
+        -
+        minNonRoi;
+
+
+    const double firstRoi =
+        roiRange > 0.0
+        ?
+        (
+            first.roiErrorChange
+            -
+            minRoi
+        )
+        /
+        roiRange
+        :
+        0.0;
+
+
+    const double secondRoi =
+        roiRange > 0.0
+        ?
+        (
+            second.roiErrorChange
+            -
+            minRoi
+        )
+        /
+        roiRange
+        :
+        0.0;
+
+
+    const double firstNonRoi =
+        nonRoiRange > 0.0
+        ?
+        (
+            first.nonRoiErrorChange
+            -
+            minNonRoi
+        )
+        /
+        nonRoiRange
+        :
+        0.0;
+
+
+    const double secondNonRoi =
+        nonRoiRange > 0.0
+        ?
+        (
+            second.nonRoiErrorChange
+            -
+            minNonRoi
+        )
+        /
+        nonRoiRange
+        :
+        0.0;
+
+
+    const double roiDifference =
+        firstRoi
+        -
+        secondRoi;
+
+
+    const double nonRoiDifference =
+        firstNonRoi
+        -
+        secondNonRoi;
+
+
+    return
+        roiDifference
+        *
+        roiDifference
+        +
+        nonRoiDifference
+        *
+        nonRoiDifference;
+}
+
+}
+
+
+// =========================================================
+// Module 3-A：非支配前沿 + 代表区间
+// =========================================================
+
+DctIntervalRepresentativeSelection
+DctIntervalFastEvaluator::selectRepresentativeMetrics(
+    const DctIntervalFastEvaluation& evaluation,
+    std::size_t maxCount
+)
+{
+    DctIntervalRepresentativeSelection
+        result;
+
+
+    result.totalMetricCount =
+        evaluation.metrics.size();
+
+
+    if (
+        maxCount == 0
+        ||
+        evaluation.metrics.empty()
+    )
+    {
+        return result;
+    }
+
+
+    const auto front =
+        buildParetoFront(
+            evaluation
+        );
+
+
+    result.paretoMetricCount =
+        front.size();
+
+
+    if (
+        front.size()
+        <=
+        maxCount
+    )
+    {
+        result.representatives =
+            front;
+
+
+        return result;
+    }
+
+
+    double minRoi =
+        front.front().roiErrorChange;
+
+
+    double maxRoi =
+        front.front().roiErrorChange;
+
+
+    double minNonRoi =
+        front.front().nonRoiErrorChange;
+
+
+    double maxNonRoi =
+        front.front().nonRoiErrorChange;
+
+
+    for (const auto& metric : front)
+    {
+        minRoi =
+            std::min(
+                minRoi,
+                metric.roiErrorChange
+            );
+
+
+        maxRoi =
+            std::max(
+                maxRoi,
+                metric.roiErrorChange
+            );
+
+
+        minNonRoi =
+            std::min(
+                minNonRoi,
+                metric.nonRoiErrorChange
+            );
+
+
+        maxNonRoi =
+            std::max(
+                maxNonRoi,
+                metric.nonRoiErrorChange
+            );
+    }
+
+
+    std::vector<bool>
+        selected(
+            front.size(),
+            false
+        );
+
+
+    std::vector<std::size_t>
+        selectedIndices;
+
+
+    selectedIndices.reserve(
+        maxCount
+    );
+
+
+    // 前沿第一端：
+    // ROIErrorChange 最大，偏“攻击能力”。
+    selected[0] =
+        true;
+
+
+    selectedIndices.push_back(
+        0
+    );
+
+
+    if (maxCount > 1)
+    {
+        // 前沿另一端：
+        // NonROIErrorChange 最小，偏“补偿能力”。
+        const std::size_t lastIndex =
+            front.size()
+            -
+            1;
+
+
+        if (!selected[lastIndex])
+        {
+            selected[lastIndex] =
+                true;
+
+
+            selectedIndices.push_back(
+                lastIndex
+            );
+        }
+    }
+
+
+    // 在归一化二维误差空间中做最远点补充。
+    //
+    // 这样不会只保留某一个极端附近的大量相似区间，
+    // 而是尽量覆盖整条“ROI破坏 - Non-ROI代价”前沿。
+    while (
+        selectedIndices.size()
+        <
+        maxCount
+    )
+    {
+        std::size_t bestIndex =
+            front.size();
+
+
+        double bestMinimumDistance =
+            -1.0;
+
+
+        for (std::size_t candidateIndex = 0;
+             candidateIndex < front.size();
+             ++candidateIndex)
+        {
+            if (selected[candidateIndex])
+            {
+                continue;
+            }
+
+
+            double minimumDistance =
+                std::numeric_limits<double>::infinity();
+
+
+            for (const auto selectedIndex : selectedIndices)
+            {
+                minimumDistance =
+                    std::min(
+                        minimumDistance,
+                        normalizedDistanceSquared(
+                            front[candidateIndex],
+                            front[selectedIndex],
+                            minRoi,
+                            maxRoi,
+                            minNonRoi,
+                            maxNonRoi
+                        )
+                    );
+            }
+
+
+            if (
+                minimumDistance
+                >
+                bestMinimumDistance
+            )
+            {
+                bestMinimumDistance =
+                    minimumDistance;
+
+
+                bestIndex =
+                    candidateIndex;
+            }
+        }
+
+
+        if (bestIndex == front.size())
+        {
+            break;
+        }
+
+
+        selected[bestIndex] =
+            true;
+
+
+        selectedIndices.push_back(
+            bestIndex
+        );
+    }
+
+
+    result.representatives.reserve(
+        selectedIndices.size()
+    );
+
+
+    for (const auto index : selectedIndices)
+    {
+        result.representatives.push_back(
+            front[index]
+        );
+    }
+
+
+    // 仅为了输出和后续调试更直观：
+    // 从“ROI攻击端”排到“Non-ROI补偿端”。
+    std::sort(
+        result.representatives.begin(),
+        result.representatives.end(),
+
+        [](
+            const DctIntervalFastMetric& first,
+            const DctIntervalFastMetric& second
+        )
+        {
+            if (
+                first.roiErrorChange
+                !=
+                second.roiErrorChange
+            )
+            {
+                return
+                    first.roiErrorChange
+                    >
+                    second.roiErrorChange;
+            }
+
+
+            return
+                first.nonRoiErrorChange
+                <
+                second.nonRoiErrorChange;
+        }
+    );
+
+
+    return result;
 }
 
 }

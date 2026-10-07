@@ -377,6 +377,146 @@ int main()
     }
 
 
+    // =====================================================
+    // Module 3-A：非支配前沿 + 代表区间
+    // =====================================================
+
+    analysis::DctIntervalFastEvaluation
+        representativeEvaluation;
+
+
+    representativeEvaluation.metrics =
+    {
+        // 非支配：ROI 最强端
+        {
+            {10, 10},
+            0.0,
+            0.0,
+            10.0,
+            10.0,
+            0.0
+        },
+
+        // 非支配
+        {
+            {20, 20},
+            0.0,
+            0.0,
+            8.0,
+            6.0,
+            2.0
+        },
+
+        // 被 [20,20] 全面压制：
+        // ROI 更小，Non-ROI 代价反而更大。
+        {
+            {30, 30},
+            0.0,
+            0.0,
+            7.0,
+            7.0,
+            0.0
+        },
+
+        // 非支配
+        {
+            {40, 40},
+            0.0,
+            0.0,
+            5.0,
+            2.0,
+            3.0
+        },
+
+        // 被 [40,40] 全面压制。
+        {
+            {50, 50},
+            0.0,
+            0.0,
+            4.0,
+            3.0,
+            1.0
+        },
+
+        // 非支配：Non-ROI 补偿端
+        {
+            {60, 60},
+            0.0,
+            0.0,
+            2.0,
+            -2.0,
+            4.0
+        }
+    };
+
+
+    const auto allFront =
+        analysis::
+            DctIntervalFastEvaluator::
+                selectRepresentativeMetrics(
+                    representativeEvaluation,
+                    10
+                );
+
+
+    if (
+        allFront.totalMetricCount != 6
+        ||
+        allFront.paretoMetricCount != 4
+        ||
+        allFront.representatives.size() != 4
+    )
+    {
+        std::cerr
+            << "Representative interval Pareto filtering is incorrect.\n";
+
+
+        return 1;
+    }
+
+
+    for (const auto& metric : allFront.representatives)
+    {
+        if (
+            metric.interval.lower == 30
+            ||
+            metric.interval.lower == 50
+        )
+        {
+            std::cerr
+                << "Dominated interval survived representative selection.\n";
+
+
+            return 1;
+        }
+    }
+
+
+    const auto limited =
+        analysis::
+            DctIntervalFastEvaluator::
+                selectRepresentativeMetrics(
+                    representativeEvaluation,
+                    3
+                );
+
+
+    if (
+        limited.representatives.size() != 3
+        ||
+        limited.representatives.front().interval.lower != 10
+        ||
+        limited.representatives.back().interval.lower != 60
+    )
+    {
+        std::cerr
+            << "Representative interval coverage is incorrect.\n";
+
+
+        return 1;
+    }
+
+
     std::cout
         << "DCT interval fast evaluator test passed.\n";
 

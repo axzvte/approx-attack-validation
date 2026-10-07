@@ -9,11 +9,9 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
 
 
@@ -252,8 +250,8 @@ int main(
             6;
 
 
-        constexpr core::MonitorInput monitorInput =
-            core::MonitorInput::Input1;
+        constexpr core::MonitorSignal monitorSignal =
+            core::MonitorSignal::Input1;
 
 
         constexpr approximate::ApproxUnitId attackUnit =
@@ -266,88 +264,27 @@ int main(
                     evaluateFromSamples(
                         samples,
                         nodeId,
-                        monitorInput,
+                        monitorSignal,
                         attackUnit
                     );
 
 
         constexpr std::size_t
-            topCount =
-                10;
+            representativeCount =
+                20;
 
 
-        const auto roiAttack =
+        const auto selection =
             analysis::
                 DctIntervalFastEvaluator::
-                    selectTopMetrics(
+                    selectRepresentativeMetrics(
                         evaluation,
-                        analysis::DctIntervalFastRanking::RoiAttack,
-                        topCount
+                        representativeCount
                     );
-
-
-        const auto nonRoiCompensation =
-            analysis::
-                DctIntervalFastEvaluator::
-                    selectTopMetrics(
-                        evaluation,
-                        analysis::DctIntervalFastRanking::NonRoiCompensation,
-                        topCount
-                    );
-
-
-        const auto redistribution =
-            analysis::
-                DctIntervalFastEvaluator::
-                    selectTopMetrics(
-                        evaluation,
-                        analysis::DctIntervalFastRanking::Redistribution,
-                        topCount
-                    );
-
-
-        std::set<
-            std::pair<int, int>
-        >
-            uniqueIntervals;
-
-
-        const auto addToUnion =
-            [&uniqueIntervals](
-                const std::vector<
-                    analysis::DctIntervalFastMetric
-                >& metrics
-            )
-            {
-                for (const auto& metric : metrics)
-                {
-                    uniqueIntervals.insert(
-                        {
-                            metric.interval.lower,
-                            metric.interval.upper
-                        }
-                    );
-                }
-            };
-
-
-        addToUnion(
-            roiAttack
-        );
-
-
-        addToUnion(
-            nonRoiCompensation
-        );
-
-
-        addToUnion(
-            redistribution
-        );
 
 
         std::cout
-            << "DCT fast interval evaluation (Module 2-A)\n"
+            << "DCT representative interval selection (Module 3-A)\n"
             << "=========================================\n"
             << "Image: image_"
             << twoDigit(
@@ -369,14 +306,14 @@ int main(
             << "Distinct monitor values: "
             << evaluation.distinctMonitorValueCount
             << "\n"
-            << "Intervals evaluated without full DCT: "
-            << evaluation.metrics.size()
+            << "All fast-evaluated intervals: "
+            << selection.totalMetricCount
             << "\n"
-            << "Top intervals per ranking: "
-            << topCount
+            << "Non-dominated intervals: "
+            << selection.paretoMetricCount
             << "\n"
-            << "Unique intervals in three-group union: "
-            << uniqueIntervals.size()
+            << "Representative intervals kept: "
+            << selection.representatives.size()
             << "\n";
 
 
@@ -386,20 +323,8 @@ int main(
 
 
         printGroup(
-            "A. ROI attack candidates (largest ROIErrorChange)",
-            roiAttack
-        );
-
-
-        printGroup(
-            "B. Non-ROI compensation candidates (smallest NonROIErrorChange)",
-            nonRoiCompensation
-        );
-
-
-        printGroup(
-            "C. Redistribution candidates (largest ROIErrorChange - NonROIErrorChange)",
-            redistribution
+            "Representative intervals from ROI-attack end to Non-ROI-compensation end",
+            selection.representatives
         );
 
 
