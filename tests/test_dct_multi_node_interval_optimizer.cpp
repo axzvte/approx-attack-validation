@@ -77,12 +77,12 @@ int main()
         {
             6,
             approximate::ApproxUnitId::Add12se5RP,
-            core::MonitorInput::Input1
+            core::MonitorSignal::Input1
         },
         {
             20,
             approximate::ApproxUnitId::Add12se5RP,
-            core::MonitorInput::Input2
+            core::MonitorSignal::BaselineOutput
         }
     };
 
