@@ -1342,7 +1342,8 @@ DctMultiStateJointSearch::search(
                 nodeIndex,
                 true,
                 beam,
-                result.layers
+                result.layers,
+                progressCallback
             );
         }
     }
