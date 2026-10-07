@@ -112,17 +112,24 @@ buildFromSortedUniqueValues(
 
 int monitoredValue(
     const core::AddSample& sample,
-    core::MonitorInput monitorInput
+    core::MonitorSignal monitorSignal
 )
 {
-    return
-        monitorInput
-            ==
-            core::MonitorInput::Input1
-        ?
-        sample.input1
-        :
-        sample.input2;
+    switch (monitorSignal)
+    {
+        case core::MonitorSignal::Input1:
+            return sample.input1;
+
+        case core::MonitorSignal::Input2:
+            return sample.input2;
+
+        case core::MonitorSignal::BaselineOutput:
+            return sample.baselineOutput;
+    }
+
+    throw std::runtime_error(
+        "Unknown DCT monitor signal."
+    );
 }
 
 

@@ -33,11 +33,7 @@ long double localDelta(
 )
 {
     const int baselineOutput =
-        approximate::addSigned12(
-            sample.input1,
-            sample.input2,
-            approximate::ApproxUnitId::Add12se5RP
-        );
+        sample.baselineOutput;
 
 
     const int attackedOutput =
@@ -133,7 +129,7 @@ int main()
                 evaluateFromSamples(
                     samples,
                     6,
-                    core::MonitorInput::Input1,
+                    core::MonitorSignal::Input1,
                     unit
                 );
 
@@ -267,6 +263,29 @@ int main()
         return 1;
     }
 
+
+
+    // BaselineOutput 也必须能作为 monitor signal。
+    const auto outputMonitoredResult =
+        analysis::
+            DctIntervalFastEvaluator::
+                evaluateFromSamples(
+                    samples,
+                    6,
+                    core::MonitorSignal::BaselineOutput,
+                    unit
+                );
+
+    if (
+        outputMonitoredResult.sampleCount != 3
+        ||
+        outputMonitoredResult.metrics.empty()
+    )
+    {
+        std::cerr
+            << "Baseline-output fast interval evaluation failed.\n";
+        return 1;
+    }
 
 
     // =====================================================

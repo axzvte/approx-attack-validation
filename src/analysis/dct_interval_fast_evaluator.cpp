@@ -28,17 +28,24 @@ struct AggregatedValue
 
 int monitoredValue(
     const core::AddSample& sample,
-    core::MonitorInput monitorInput
+    core::MonitorSignal monitorSignal
 )
 {
-    return
-        monitorInput
-            ==
-            core::MonitorInput::Input1
-        ?
-        sample.input1
-        :
-        sample.input2;
+    switch (monitorSignal)
+    {
+        case core::MonitorSignal::Input1:
+            return sample.input1;
+
+        case core::MonitorSignal::Input2:
+            return sample.input2;
+
+        case core::MonitorSignal::BaselineOutput:
+            return sample.baselineOutput;
+    }
+
+    throw std::runtime_error(
+        "Unknown DCT monitor signal."
+    );
 }
 
 
@@ -63,7 +70,7 @@ DctIntervalFastEvaluation
 DctIntervalFastEvaluator::evaluateFromSamples(
     const std::vector<core::AddSample>& samples,
     int nodeId,
-    core::MonitorInput monitorInput,
+    core::MonitorSignal monitorInput,
     approximate::ApproxUnitId attackUnit
 )
 {
@@ -126,18 +133,10 @@ DctIntervalFastEvaluator::evaluateFromSamples(
             );
 
 
-        // 当前项目的正常 Baseline 固定为 5RP。
-        //
-        // 这里重新计算 Baseline 输出，而不是直接使用 sample.output，
-        // 是为了让快速评价与 samples 来自哪一种当前配置解耦。
-        // 即使 samples 是从多节点当前状态中采集的，
-        // 目标节点的候选 unit 仍统一与 5RP 比较。
+        // 使用 trace 中保存的原 Baseline 路径输出。
+        // 其它上游节点造成的输入变化已经体现在这个值里。
         const int baselineOutput =
-            approximate::addSigned12(
-                sample.input1,
-                sample.input2,
-                approximate::ApproxUnitId::Add12se5RP
-            );
+            sample.baselineOutput;
 
 
         const int attackedOutput =

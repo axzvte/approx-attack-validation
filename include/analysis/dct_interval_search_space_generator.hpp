@@ -14,7 +14,7 @@
 namespace analysis
 {
 
-// 一个已经确定“节点 + monitor input”的区间搜索目标。
+// 一个已经确定“节点 + monitor signal”的区间搜索目标。
 //
 // 不包含 approximate unit。
 // 模块 1 只负责描述当前真实运行状态下“有哪些合法区间”，
@@ -23,8 +23,8 @@ struct DctIntervalSearchTarget
 {
     int nodeId = -1;
 
-    core::MonitorInput monitorInput =
-        core::MonitorInput::Input1;
+    core::MonitorSignal monitorInput =
+        core::MonitorSignal::Input1;
 };
 
 
@@ -34,15 +34,15 @@ struct DctIntervalSearchSpace
 {
     int nodeId = -1;
 
-    core::MonitorInput monitorInput =
-        core::MonitorInput::Input1;
+    core::MonitorSignal monitorInput =
+        core::MonitorSignal::Input1;
 
 
     // 当前实际运行状态下，该节点的动态调用次数。
     std::size_t sampleCount = 0;
 
 
-    // 当前 monitor input 在这次实际运行中真正出现过的不同整数值。
+    // 当前 monitor signal 在这次实际运行中真正出现过的不同整数值。
     // 已按从小到大排序并去重。
     std::vector<int> observedValues;
 

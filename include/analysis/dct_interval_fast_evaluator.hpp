@@ -70,8 +70,8 @@ struct DctIntervalFastEvaluation
 {
     int nodeId = -1;
 
-    core::MonitorInput monitorInput =
-        core::MonitorInput::Input1;
+    core::MonitorSignal monitorInput =
+        core::MonitorSignal::Input1;
 
     approximate::ApproxUnitId attackUnit =
         approximate::ApproxUnitId::Add12se5RP;
@@ -98,7 +98,7 @@ public:
     // 使用当前真实运行采集到的 samples，
     // 对一个固定：
     //
-    // node + monitor input + attack unit
+    // node + monitor signal + attack unit
     //
     // 的全部合法区间做快速评价。
     //
@@ -118,7 +118,7 @@ public:
     static DctIntervalFastEvaluation evaluateFromSamples(
         const std::vector<core::AddSample>& samples,
         int nodeId,
-        core::MonitorInput monitorInput,
+        core::MonitorSignal monitorInput,
         approximate::ApproxUnitId attackUnit
     );
 

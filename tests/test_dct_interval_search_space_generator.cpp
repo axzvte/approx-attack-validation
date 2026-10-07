@@ -183,7 +183,7 @@ int main()
     {
         {
             6,
-            core::MonitorInput::Input1
+            core::MonitorSignal::Input1
         }
     };
 
@@ -219,6 +219,39 @@ int main()
             << "DCT sample-driven interval generation is incorrect.\n";
 
 
+        return 1;
+    }
+
+
+    const std::vector<
+        analysis::DctIntervalSearchTarget
+    >
+        outputTargets =
+    {
+        {
+            6,
+            core::MonitorSignal::BaselineOutput
+        }
+    };
+
+    const auto outputSpaces =
+        analysis::
+            DctIntervalSearchSpaceGenerator::
+                generateFromSamples(
+                    syntheticSamples,
+                    outputTargets
+                );
+
+    if (
+        outputSpaces.size() != 1
+        ||
+        outputSpaces[0].observedValues.empty()
+        ||
+        outputSpaces[0].intervals.empty()
+    )
+    {
+        std::cerr
+            << "Baseline-output interval search-space generation failed.\n";
         return 1;
     }
 
@@ -292,7 +325,7 @@ int main()
     {
         {
             20,
-            core::MonitorInput::Input2
+            core::MonitorSignal::Input2
         }
     };
 
@@ -355,7 +388,7 @@ int main()
         {
             0,
             approximate::ApproxUnitId::Add12se5L8,
-            core::MonitorInput::Input1,
+            core::MonitorSignal::Input1,
             -2048,
             2047
         }
