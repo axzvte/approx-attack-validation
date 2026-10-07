@@ -528,3 +528,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# DCT cross-image unit / interval validation
+# =========================================================
+
+add_executable(
+    dct_unit_cross_image_validation
+
+    app/dct_unit_cross_image_validation.cpp
+)
+
+
+target_link_libraries(
+    dct_unit_cross_image_validation
+    PRIVATE
+        approx_framework
+)
