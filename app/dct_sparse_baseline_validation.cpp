@@ -91,7 +91,8 @@ toIntervals(
 const analysis::DctIntervalFullValidationResult*
 findBestFeasibleAttack(
     const analysis::DctIntervalFullValidationReport& report,
-    double globalPsnrThreshold
+    double globalPsnrThreshold,
+    double baselineRoiPsnr
 )
 {
     const analysis::DctIntervalFullValidationResult*
@@ -105,6 +106,10 @@ findBestFeasibleAttack(
             candidate.metrics.globalPsnr
             <
             globalPsnrThreshold
+            ||
+            candidate.metrics.roiPsnr
+            >=
+            baselineRoiPsnr
         )
         {
             continue;
@@ -241,7 +246,7 @@ int main(
             << "\n"
             << "Final attack feasibility: Global PSNR >= "
             << globalPsnrThreshold
-            << " dB\n\n";
+            << " dB and ROI PSNR < its own baseline\n\n";
 
 
         std::cout
@@ -403,7 +408,8 @@ int main(
                 const auto* bestAttack =
                     findBestFeasibleAttack(
                         fullReport,
-                        globalPsnrThreshold
+                        globalPsnrThreshold,
+                        baselineMetrics.roiPsnr
                     );
 
 
