@@ -39,7 +39,7 @@ struct AttackStructureNode
     approximate::ApproxUnitId
         unit;
 
-    core::MonitorInput
+    core::MonitorSignal
         monitorInput;
 };
 
@@ -82,7 +82,7 @@ public:
 
     // Stage 1：
     // 完整搜索
-    // 节点位置 × 攻击近似加法器 × monitor input × 区间
+    // 节点位置 × 攻击近似加法器 × monitor signal × 区间
     static std::uint64_t countStage1Configurations(
         const BruteForceSearchSpace& stage1SearchSpace
     );
@@ -117,7 +117,7 @@ public:
     // 1. 节点数量
     // 2. 节点位置
     // 3. 攻击近似加法器
-    // 4. monitor input
+    // 4. monitor signal
     //
     // 只重新搜索各节点的触发区间。
     static BruteForceSearchSpace

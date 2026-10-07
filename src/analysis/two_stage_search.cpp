@@ -55,7 +55,7 @@ findNodeSearchSpace(
 const MonitorSearchSpace&
 findMonitorSearchSpace(
     const NodeSearchSpace& node,
-    core::MonitorInput monitorInput
+    core::MonitorSignal monitorInput
 )
 {
     const auto iterator =
@@ -82,7 +82,7 @@ findMonitorSearchSpace(
     )
     {
         throw std::runtime_error(
-            "Selected Stage 2 monitor input does not exist in Stage 1 search space."
+            "Selected Stage 2 monitor signal does not exist in Stage 1 search space."
         );
     }
 
@@ -484,7 +484,7 @@ TwoStageSearch::buildStage2SearchSpace(
         };
 
 
-        // Stage 2 固定 monitor input，
+        // Stage 2 固定 monitor signal，
         // 只保留该输入对应的全部区间候选。
         stage2Node.monitorSpaces =
         {

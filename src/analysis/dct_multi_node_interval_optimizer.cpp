@@ -29,7 +29,7 @@ struct TargetCurrentState
     core::AttackConfig config{
         -1,
         approximate::ApproxUnitId::Add12se5RP,
-        core::MonitorInput::Input1,
+        core::MonitorSignal::Input1,
         0,
         0
     };

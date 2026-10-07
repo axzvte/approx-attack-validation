@@ -20,7 +20,7 @@ struct TriggerInterval
 
 struct MonitorSearchSpace
 {
-    core::MonitorInput monitorInput;
+    core::MonitorSignal monitorInput;
 
     std::vector<TriggerInterval>
         intervals;

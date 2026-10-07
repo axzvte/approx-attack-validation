@@ -88,7 +88,7 @@ public:
         const cv::Mat& roiMask,
         const std::vector<core::AttackConfig>& currentConfiguration,
         int nodeId,
-        core::MonitorInput monitorInput,
+        core::MonitorSignal monitorInput,
         approximate::ApproxUnitId attackUnit,
         const std::vector<TriggerInterval>& candidateIntervals
     );
