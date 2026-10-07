@@ -512,4 +512,183 @@ DctIntervalFastEvaluator::evaluateFromSamples(
     return result;
 }
 
+
+namespace
+{
+
+bool fastMetricComesFirst(
+    const DctIntervalFastMetric& first,
+    const DctIntervalFastMetric& second,
+    DctIntervalFastRanking ranking
+)
+{
+    if (
+        ranking
+        ==
+        DctIntervalFastRanking::RoiAttack
+    )
+    {
+        if (
+            first.roiErrorChange
+            !=
+            second.roiErrorChange
+        )
+        {
+            return
+                first.roiErrorChange
+                >
+                second.roiErrorChange;
+        }
+
+
+        if (
+            first.nonRoiErrorChange
+            !=
+            second.nonRoiErrorChange
+        )
+        {
+            return
+                first.nonRoiErrorChange
+                <
+                second.nonRoiErrorChange;
+        }
+
+
+        return
+            first.redistributionScore
+            >
+            second.redistributionScore;
+    }
+
+
+    if (
+        ranking
+        ==
+        DctIntervalFastRanking::NonRoiCompensation
+    )
+    {
+        if (
+            first.nonRoiErrorChange
+            !=
+            second.nonRoiErrorChange
+        )
+        {
+            return
+                first.nonRoiErrorChange
+                <
+                second.nonRoiErrorChange;
+        }
+
+
+        if (
+            first.roiErrorChange
+            !=
+            second.roiErrorChange
+        )
+        {
+            return
+                first.roiErrorChange
+                >
+                second.roiErrorChange;
+        }
+
+
+        return
+            first.redistributionScore
+            >
+            second.redistributionScore;
+    }
+
+
+    if (
+        first.redistributionScore
+        !=
+        second.redistributionScore
+    )
+    {
+        return
+            first.redistributionScore
+            >
+            second.redistributionScore;
+    }
+
+
+    if (
+        first.roiErrorChange
+        !=
+        second.roiErrorChange
+    )
+    {
+        return
+            first.roiErrorChange
+            >
+            second.roiErrorChange;
+    }
+
+
+    return
+        first.nonRoiErrorChange
+        <
+        second.nonRoiErrorChange;
+}
+
+}
+
+
+// =========================================================
+// Module 2-A：三类候选区间排序
+// =========================================================
+
+std::vector<DctIntervalFastMetric>
+DctIntervalFastEvaluator::selectTopMetrics(
+    const DctIntervalFastEvaluation& evaluation,
+    DctIntervalFastRanking ranking,
+    std::size_t count
+)
+{
+    if (
+        count == 0
+        ||
+        evaluation.metrics.empty()
+    )
+    {
+        return {};
+    }
+
+
+    std::vector<DctIntervalFastMetric>
+        ranked =
+            evaluation.metrics;
+
+
+    std::sort(
+        ranked.begin(),
+        ranked.end(),
+
+        [ranking](
+            const DctIntervalFastMetric& first,
+            const DctIntervalFastMetric& second
+        )
+        {
+            return
+                fastMetricComesFirst(
+                    first,
+                    second,
+                    ranking
+                );
+        }
+    );
+
+
+    if (ranked.size() > count)
+    {
+        ranked.resize(
+            count
+        );
+    }
+
+
+    return ranked;
+}
+
 }

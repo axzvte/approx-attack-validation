@@ -53,6 +53,19 @@ struct DctIntervalFastMetric
 };
 
 
+enum class DctIntervalFastRanking
+{
+    // ROI 局部误差增加越多越靠前。
+    RoiAttack,
+
+    // Non-ROI 局部误差降低越多越靠前。
+    NonRoiCompensation,
+
+    // ROIErrorChange - NonROIErrorChange 越大越靠前。
+    Redistribution
+};
+
+
 struct DctIntervalFastEvaluation
 {
     int nodeId = -1;
@@ -107,6 +120,23 @@ public:
         int nodeId,
         core::MonitorInput monitorInput,
         approximate::ApproxUnitId attackUnit
+    );
+
+
+    // 从已经完成快速评价的全部区间中，按指定方向取前 count 个。
+    //
+    // 这里只做排序，不改变 DctIntervalFastEvaluation::metrics，
+    // 也不代表最终区间已经确定。
+    //
+    // 三种排序分别服务于后续完整 DCT 验证：
+    // 1. RoiAttack：寻找可能明显增加 ROI 误差的区间；
+    // 2. NonRoiCompensation：寻找可能降低 Non-ROI 误差的区间；
+    // 3. Redistribution：寻找局部误差更倾向 ROI 的区间。
+    static std::vector<DctIntervalFastMetric>
+    selectTopMetrics(
+        const DctIntervalFastEvaluation& evaluation,
+        DctIntervalFastRanking ranking,
+        std::size_t count
     );
 };
 

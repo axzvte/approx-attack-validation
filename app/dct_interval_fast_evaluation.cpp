@@ -9,9 +9,11 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 
@@ -71,6 +73,72 @@ std::string unitName(
 
 
     return "UNKNOWN";
+}
+
+
+void printGroup(
+    const std::string& title,
+    const std::vector<analysis::DctIntervalFastMetric>& metrics
+)
+{
+    std::cout
+        << "\n"
+        << title
+        << "\n"
+        << std::string(
+            title.size(),
+            '-'
+        )
+        << "\n";
+
+
+    std::cout
+        << std::left
+        << std::setw(7)
+        << "Rank"
+        << std::setw(10)
+        << "Lower"
+        << std::setw(10)
+        << "Upper"
+        << std::setw(14)
+        << "ROITrig"
+        << std::setw(14)
+        << "NonROITrig"
+        << std::setw(18)
+        << "ROIErrorChange"
+        << std::setw(20)
+        << "NonROIErrorChange"
+        << "Redistribution"
+        << "\n";
+
+
+    for (std::size_t index = 0;
+         index < metrics.size();
+         ++index)
+    {
+        const auto& metric =
+            metrics[index];
+
+
+        std::cout
+            << std::left
+            << std::setw(7)
+            << (index + 1)
+            << std::setw(10)
+            << metric.interval.lower
+            << std::setw(10)
+            << metric.interval.upper
+            << std::setw(14)
+            << metric.roiTriggerRate
+            << std::setw(14)
+            << metric.nonRoiTriggerRate
+            << std::setw(18)
+            << metric.roiErrorChange
+            << std::setw(20)
+            << metric.nonRoiErrorChange
+            << metric.redistributionScore
+            << "\n";
+    }
 }
 
 }
@@ -170,11 +238,9 @@ int main(
             samples;
 
 
-        // 这里先用 Baseline 作为 Module 2-A 的第一轮验证。
-        //
-        // 后续 Module 2 正式实现时，会在“其他节点当前区间固定”
-        // 的状态下调用 collectConfiguredAddSamples(...)
-        // 重新获取同样格式的真实动态样本。
+        // 第一轮仍以 Baseline 作为当前状态。
+        // 后续正式的多节点区间优化会改用
+        // collectConfiguredAddSamples(...) 获取当前配置下的真实样本。
         application.collectBaselineAddSamples(
             inputImage,
             roiMask,
@@ -194,7 +260,7 @@ int main(
             approximate::ApproxUnitId::Add12se5L8;
 
 
-        auto evaluation =
+        const auto evaluation =
             analysis::
                 DctIntervalFastEvaluator::
                     evaluateFromSamples(
@@ -205,61 +271,84 @@ int main(
                     );
 
 
-        // 这里只为了检查快速分数的分布，打印前 20 名。
-        // 核心模块本身没有做 Top-K 删除。
-        std::sort(
-            evaluation.metrics.begin(),
-            evaluation.metrics.end(),
+        constexpr std::size_t
+            topCount =
+                10;
 
-            [](
-                const auto& first,
-                const auto& second
+
+        const auto roiAttack =
+            analysis::
+                DctIntervalFastEvaluator::
+                    selectTopMetrics(
+                        evaluation,
+                        analysis::DctIntervalFastRanking::RoiAttack,
+                        topCount
+                    );
+
+
+        const auto nonRoiCompensation =
+            analysis::
+                DctIntervalFastEvaluator::
+                    selectTopMetrics(
+                        evaluation,
+                        analysis::DctIntervalFastRanking::NonRoiCompensation,
+                        topCount
+                    );
+
+
+        const auto redistribution =
+            analysis::
+                DctIntervalFastEvaluator::
+                    selectTopMetrics(
+                        evaluation,
+                        analysis::DctIntervalFastRanking::Redistribution,
+                        topCount
+                    );
+
+
+        std::set<
+            std::pair<int, int>
+        >
+            uniqueIntervals;
+
+
+        const auto addToUnion =
+            [&uniqueIntervals](
+                const std::vector<
+                    analysis::DctIntervalFastMetric
+                >& metrics
             )
             {
-                if (
-                    first.redistributionScore
-                    !=
-                    second.redistributionScore
-                )
+                for (const auto& metric : metrics)
                 {
-                    return
-                        first.redistributionScore
-                        >
-                        second.redistributionScore;
+                    uniqueIntervals.insert(
+                        {
+                            metric.interval.lower,
+                            metric.interval.upper
+                        }
+                    );
                 }
+            };
 
 
-                if (
-                    first.roiErrorChange
-                    !=
-                    second.roiErrorChange
-                )
-                {
-                    return
-                        first.roiErrorChange
-                        >
-                        second.roiErrorChange;
-                }
-
-
-                return
-                    first.nonRoiErrorChange
-                    <
-                    second.nonRoiErrorChange;
-            }
+        addToUnion(
+            roiAttack
         );
 
 
-        const std::size_t showCount =
-            std::min<std::size_t>(
-                20,
-                evaluation.metrics.size()
-            );
+        addToUnion(
+            nonRoiCompensation
+        );
+
+
+        addToUnion(
+            redistribution
+        );
 
 
         std::cout
-            << "DCT fast interval evaluation (Module 2-A core)\n"
-            << "==============================================\n"
+            << "DCT fast interval evaluation (Module 2-A)\n"
+            << "=========================================\n"
             << "Image: image_"
             << twoDigit(
                 imageIndex
@@ -282,26 +371,12 @@ int main(
             << "\n"
             << "Intervals evaluated without full DCT: "
             << evaluation.metrics.size()
-            << "\n\n";
-
-
-        std::cout
-            << std::left
-            << std::setw(7)
-            << "Rank"
-            << std::setw(10)
-            << "Lower"
-            << std::setw(10)
-            << "Upper"
-            << std::setw(14)
-            << "ROITrig"
-            << std::setw(14)
-            << "NonROITrig"
-            << std::setw(18)
-            << "ROIErrorChange"
-            << std::setw(20)
-            << "NonROIErrorChange"
-            << "Redistribution"
+            << "\n"
+            << "Top intervals per ranking: "
+            << topCount
+            << "\n"
+            << "Unique intervals in three-group union: "
+            << uniqueIntervals.size()
             << "\n";
 
 
@@ -310,35 +385,22 @@ int main(
             << std::setprecision(6);
 
 
-        for (std::size_t index = 0;
-             index < showCount;
-             ++index)
-        {
-            const auto& metric =
-                evaluation.metrics[
-                    index
-                ];
+        printGroup(
+            "A. ROI attack candidates (largest ROIErrorChange)",
+            roiAttack
+        );
 
 
-            std::cout
-                << std::left
-                << std::setw(7)
-                << (index + 1)
-                << std::setw(10)
-                << metric.interval.lower
-                << std::setw(10)
-                << metric.interval.upper
-                << std::setw(14)
-                << metric.roiTriggerRate
-                << std::setw(14)
-                << metric.nonRoiTriggerRate
-                << std::setw(18)
-                << metric.roiErrorChange
-                << std::setw(20)
-                << metric.nonRoiErrorChange
-                << metric.redistributionScore
-                << "\n";
-        }
+        printGroup(
+            "B. Non-ROI compensation candidates (smallest NonROIErrorChange)",
+            nonRoiCompensation
+        );
+
+
+        printGroup(
+            "C. Redistribution candidates (largest ROIErrorChange - NonROIErrorChange)",
+            redistribution
+        );
 
 
         return 0;

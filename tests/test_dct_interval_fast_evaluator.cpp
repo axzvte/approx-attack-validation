@@ -268,6 +268,96 @@ int main()
     }
 
 
+
+    // =====================================================
+    // 三类候选排序测试
+    // =====================================================
+
+    analysis::DctIntervalFastEvaluation
+        rankingEvaluation;
+
+
+    rankingEvaluation.metrics =
+    {
+        {
+            {0, 0},
+            0.0,
+            0.0,
+            5.0,
+            4.0,
+            1.0
+        },
+        {
+            {1, 1},
+            0.0,
+            0.0,
+            3.0,
+            -6.0,
+            9.0
+        },
+        {
+            {2, 2},
+            0.0,
+            0.0,
+            8.0,
+            2.0,
+            6.0
+        }
+    };
+
+
+    const auto topRoi =
+        analysis::
+            DctIntervalFastEvaluator::
+                selectTopMetrics(
+                    rankingEvaluation,
+                    analysis::DctIntervalFastRanking::RoiAttack,
+                    1
+                );
+
+
+    const auto topCompensation =
+        analysis::
+            DctIntervalFastEvaluator::
+                selectTopMetrics(
+                    rankingEvaluation,
+                    analysis::DctIntervalFastRanking::NonRoiCompensation,
+                    1
+                );
+
+
+    const auto topRedistribution =
+        analysis::
+            DctIntervalFastEvaluator::
+                selectTopMetrics(
+                    rankingEvaluation,
+                    analysis::DctIntervalFastRanking::Redistribution,
+                    1
+                );
+
+
+    if (
+        topRoi.size() != 1
+        ||
+        topRoi[0].interval.lower != 2
+        ||
+        topCompensation.size() != 1
+        ||
+        topCompensation[0].interval.lower != 1
+        ||
+        topRedistribution.size() != 1
+        ||
+        topRedistribution[0].interval.lower != 1
+    )
+    {
+        std::cerr
+            << "DCT fast interval ranking is incorrect.\n";
+
+
+        return 1;
+    }
+
+
     std::cout
         << "DCT interval fast evaluator test passed.\n";
 
