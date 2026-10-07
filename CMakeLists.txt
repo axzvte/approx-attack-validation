@@ -664,3 +664,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# DCT multi-state joint interval search (Module 3-B)
+# =========================================================
+
+add_executable(
+    dct_multi_state_joint_search
+
+    app/dct_multi_state_joint_search.cpp
+)
+
+
+target_link_libraries(
+    dct_multi_state_joint_search
+    PRIVATE
+        approx_framework
+)

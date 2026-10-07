@@ -1100,7 +1100,8 @@ void processNodeLayer(
     std::size_t nodeIndex,
     bool refinement,
     std::vector<DctMultiStateSearchState>& beam,
-    std::vector<DctMultiStateSearchLayer>& layers
+    std::vector<DctMultiStateSearchLayer>& layers,
+    const DctMultiStateJointSearchProgressCallback& progressCallback
 )
 {
     std::vector<DctMultiStateSearchState>
@@ -1111,14 +1112,16 @@ void processNodeLayer(
         beam.size();
 
 
-    for (const auto& state : beam)
+    for (std::size_t stateIndex = 0;
+         stateIndex < beam.size();
+         ++stateIndex)
     {
         auto stateExpansions =
             expandStateOnNode(
                 application,
                 inputImage,
                 roiMask,
-                state,
+                beam[stateIndex],
                 node,
                 options
             );
@@ -1129,6 +1132,21 @@ void processNodeLayer(
             stateExpansions.begin(),
             stateExpansions.end()
         );
+
+
+        if (progressCallback)
+        {
+            progressCallback(
+                DctMultiStateJointSearchProgress{
+                    passIndex,
+                    nodeIndex,
+                    node.nodeId,
+                    refinement,
+                    stateIndex + 1,
+                    beam.size()
+                }
+            );
+        }
     }
 
 
@@ -1239,7 +1257,8 @@ DctMultiStateJointSearch::search(
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const AttackStructure& structure,
-    const DctMultiStateJointSearchOptions& options
+    const DctMultiStateJointSearchOptions& options,
+    const DctMultiStateJointSearchProgressCallback& progressCallback
 )
 {
     validateStructure(
@@ -1296,7 +1315,8 @@ DctMultiStateJointSearch::search(
             nodeIndex,
             false,
             beam,
-            result.layers
+            result.layers,
+            progressCallback
         );
     }
 

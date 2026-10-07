@@ -349,6 +349,45 @@ int main(
         }
 
 
+        const analysis::DctMultiStateJointSearchProgressCallback
+            progressCallback =
+                [](
+                    const analysis::DctMultiStateJointSearchProgress& progress
+                )
+                {
+                    std::cout
+                        << "\r[joint-search] pass "
+                        << progress.passIndex
+                        << " / node "
+                        << progress.nodeId
+                        << " / "
+                        << (
+                            progress.refinement
+                            ?
+                            "refine"
+                            :
+                            "forward"
+                        )
+                        << " / state "
+                        << progress.completedStates
+                        << "/"
+                        << progress.totalStates
+                        << "                    "
+                        << std::flush;
+
+
+                    if (
+                        progress.completedStates
+                        ==
+                        progress.totalStates
+                    )
+                    {
+                        std::cout
+                            << "\n";
+                    }
+                };
+
+
         const auto result =
             analysis::
                 DctMultiStateJointSearch::
@@ -357,7 +396,8 @@ int main(
                         inputImage,
                         roiMask,
                         structure,
-                        options
+                        options,
+                        progressCallback
                     );
 
 

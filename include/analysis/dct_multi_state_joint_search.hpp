@@ -5,6 +5,7 @@
 #include "applications/dct.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <vector>
 
 
@@ -62,6 +63,28 @@ struct DctMultiStateSearchLayer
 };
 
 
+struct DctMultiStateJointSearchProgress
+{
+    std::size_t passIndex = 0;
+    std::size_t nodeIndex = 0;
+
+    int nodeId = -1;
+
+    bool refinement = false;
+
+    std::size_t completedStates = 0;
+    std::size_t totalStates = 0;
+};
+
+
+using DctMultiStateJointSearchProgressCallback =
+    std::function<
+        void(
+            const DctMultiStateJointSearchProgress&
+        )
+    >;
+
+
 struct DctMultiStateJointSearchResult
 {
     DctImageQualityMetrics initialMetrics;
@@ -110,7 +133,9 @@ public:
         const cv::Mat& roiMask,
         const AttackStructure& structure,
         const DctMultiStateJointSearchOptions& options =
-            DctMultiStateJointSearchOptions{}
+            DctMultiStateJointSearchOptions{},
+        const DctMultiStateJointSearchProgressCallback& progressCallback =
+            {}
     );
 };
 
