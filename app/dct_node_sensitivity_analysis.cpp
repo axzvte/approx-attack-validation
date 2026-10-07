@@ -459,8 +459,18 @@ int main(
         };
 
 
+        const auto baselineConfig =
+            applications::Dct8FixedGraph::
+                createSparseApproximateBaselineConfig(
+                    {25, 19, 13},
+                    approximate::ApproxUnitId::Add12se5RP
+                );
+
+
         applications::DctApplication
-            application;
+            application(
+                baselineConfig
+            );
 
 
         using Clock =
@@ -737,7 +747,7 @@ int main(
         std::cout
             << "DCT single-node sensitivity analysis\n"
             << "====================================\n"
-            << "Baseline: 5RP\n"
+            << "Baseline: Sparse-3 (nodes 25, 19, 13 = 5RP; others exact)\n"
             << "Stage 1 images: "
             << inputImages.size()
             << "\n"
@@ -745,7 +755,7 @@ int main(
             << attackUnits.size()
             << "\n"
             << "Trigger: full signed-12 Input1 range [-2048, 2047]\n"
-            << "Output reference: normal 5RP baseline image\n\n";
+            << "Output reference: Sparse-3 baseline image\n\n";
 
 
         std::cout
@@ -816,6 +826,44 @@ int main(
                 << std::setw(12)
                 << summary.meanRoiSensitivity
                 << summary.meanRoiToNonRoiRatio
+                << "\n";
+        }
+
+
+        const std::size_t candidateCount =
+            std::min<std::size_t>(
+                12,
+                rankedSummaries.size()
+            );
+
+
+        std::cout
+            << "\nCandidate nodes (Top "
+            << candidateCount
+            << " by Mean S; ImgCV is kept as the stability check):\n";
+
+
+        for (std::size_t index = 0;
+             index < candidateCount;
+             ++index)
+        {
+            const auto& summary =
+                rankedSummaries[index];
+
+
+            std::cout
+                << "  "
+                << (index + 1)
+                << ". Node "
+                << summary.nodeId
+                << " / "
+                << applications::Dct8FixedGraph::nodeName(
+                    summary.nodeId
+                )
+                << " | Mean S = "
+                << summary.meanSensitivity
+                << " | ImgCV = "
+                << summary.cvImageSensitivity
                 << "\n";
         }
 
