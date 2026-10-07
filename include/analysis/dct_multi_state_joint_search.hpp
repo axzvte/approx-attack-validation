@@ -14,6 +14,14 @@ namespace analysis
 
 struct DctMultiStateJointSearchOptions
 {
+    // Candidate approximate implementations used for error redistribution.
+    //
+    // Empty: keep the legacy behavior and use AttackStructureNode::unit only.
+    // Non-empty: each node jointly searches implementation x interval.
+    std::vector<approximate::ApproxUnitId>
+        redistributionUnits;
+
+
     // 每个“当前状态 + 目标节点”最多保留多少个快速代表区间，
     // 再交给完整 DCT。
     std::size_t representativeIntervalCount = 20;
@@ -109,11 +117,11 @@ class DctMultiStateJointSearch
 public:
 
     // Module 3-B：
-    // 给定固定静态硬件结构：
+    // 给定节点与 MonitorSignal，在单张图片上联合搜索
+    // 各节点的误差重分布配置。
     //
-    //   Node + MonitorSignal + Unit
-    //
-    // 在单张图片上联合搜索各节点区间。
+    // 当 redistributionUnits 非空时，每个节点同时搜索
+    // “近似实现 + 区间”，无需预先固定某一个近似实现。
     //
     // 与旧贪心优化器不同：
     //

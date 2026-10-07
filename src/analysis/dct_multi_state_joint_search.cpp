@@ -87,6 +87,29 @@ void validateOptions(
     }
 
 
+    {
+        std::set<int>
+            seenUnits;
+
+
+        for (const auto unit : options.redistributionUnits)
+        {
+            const int key =
+                static_cast<int>(
+                    unit
+                );
+
+
+            if (!seenUnits.insert(key).second)
+            {
+                throw std::runtime_error(
+                    "redistributionUnits contains duplicate implementations."
+                );
+            }
+        }
+    }
+
+
     if (
         !std::isfinite(
             options.globalPsnrThreshold
@@ -315,20 +338,16 @@ expandStateOnNode(
         expanded;
 
 
-    // “保持当前状态”永远是一条合法分支。
-    //
-    // 这样搜索不会被迫启用每一个结构节点，
-    // 也不会因为代表区间预筛而丢掉当前已有好配置。
+    // Keeping the current state is always legal.
+    // The search therefore does not have to activate every candidate node.
     expanded.push_back(
         currentState
     );
 
 
-    // 目标节点先暂时移除。
-    //
-    // 其它节点的当前配置保留，
-    // 因此上游/其它节点造成的真实输入变化会被保留；
-    // 同时避免目标节点自己的旧区间锁死新的区间空间。
+    // Remove the target node temporarily and keep all other current
+    // redistribution settings. Samples therefore reflect the real current
+    // state before this node is reconfigured.
     const AttackConfiguration
         withoutTarget =
             removeTarget(
@@ -349,88 +368,116 @@ expandStateOnNode(
     );
 
 
-    const auto fastEvaluation =
-        DctIntervalFastEvaluator::
-            evaluateFromSamples(
-                samples,
-                node.nodeId,
-                node.monitorInput,
-                node.unit
-            );
+    std::vector<approximate::ApproxUnitId>
+        unitsToTry;
 
 
-    const auto representativeSelection =
-        DctIntervalFastEvaluator::
-            selectRepresentativeMetrics(
-                fastEvaluation,
-                options.representativeIntervalCount
-            );
-
-
-    if (
-        representativeSelection.
-            representatives.empty()
-    )
+    if (options.redistributionUnits.empty())
     {
-        return expanded;
+        unitsToTry.push_back(
+            node.unit
+        );
+    }
+    else
+    {
+        unitsToTry =
+            options.redistributionUnits;
     }
 
 
-    const auto fullReport =
-        DctIntervalFullValidator::
-            validate(
-                application,
-                inputImage,
-                roiMask,
-                withoutTarget,
-                node.nodeId,
-                node.monitorInput,
-                node.unit,
-                toIntervals(
-                    representativeSelection
-                )
+    for (const auto unit : unitsToTry)
+    {
+        const auto fastEvaluation =
+            DctIntervalFastEvaluator::
+                evaluateFromSamples(
+                    samples,
+                    node.nodeId,
+                    node.monitorInput,
+                    unit
+                );
+
+
+        const auto representativeSelection =
+            DctIntervalFastEvaluator::
+                selectRepresentativeMetrics(
+                    fastEvaluation,
+                    options.representativeIntervalCount
+                );
+
+
+        if (
+            representativeSelection.
+                representatives.empty()
+        )
+        {
+            continue;
+        }
+
+
+        const auto fullReport =
+            DctIntervalFullValidator::
+                validate(
+                    application,
+                    inputImage,
+                    roiMask,
+                    withoutTarget,
+                    node.nodeId,
+                    node.monitorInput,
+                    unit,
+                    toIntervals(
+                        representativeSelection
+                    )
+                );
+
+
+        AttackStructureNode
+            implementationNode =
+                node;
+
+
+        implementationNode.unit =
+            unit;
+
+
+        expanded.reserve(
+            expanded.size()
+            +
+            fullReport.candidates.size()
+        );
+
+
+        for (const auto& candidate : fullReport.candidates)
+        {
+            DctMultiStateSearchState
+                state;
+
+
+            state.configuration =
+                withoutTarget;
+
+
+            setTarget(
+                state.configuration,
+                implementationNode,
+                candidate.interval
             );
 
 
-    expanded.reserve(
-        expanded.size()
-        +
-        fullReport.candidates.size()
-    );
+            state.metrics =
+                candidate.metrics;
 
 
-    for (const auto& candidate : fullReport.candidates)
-    {
-        DctMultiStateSearchState
-            state;
-
-
-        state.configuration =
-            withoutTarget;
-
-
-        setTarget(
-            state.configuration,
-            node,
-            candidate.interval
-        );
-
-
-        state.metrics =
-            candidate.metrics;
-
-
-        expanded.push_back(
-            std::move(
-                state
-            )
-        );
+            expanded.push_back(
+                std::move(
+                    state
+                )
+            );
+        }
     }
 
 
     return expanded;
 }
-
 
 std::vector<DctMultiStateSearchState>
 deduplicateStates(
