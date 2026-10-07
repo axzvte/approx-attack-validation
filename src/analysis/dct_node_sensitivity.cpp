@@ -586,7 +586,9 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
     // =====================================================
-    // 先跑正常 5RP Baseline。
+    // 先跑 DctApplication 当前持有的 Baseline。
+    // 当前节点筛选程序显式传入 Sparse-3：
+    // Node 25、19、13 = 5RP，其余节点 = Exact。
     //
     // 同时分别保留：
     // 1. 全部图片汇总后的局部误差；
