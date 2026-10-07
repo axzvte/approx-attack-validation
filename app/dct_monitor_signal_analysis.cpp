@@ -50,7 +50,7 @@ std::string signalName(
             return "input2";
 
         case analysis::DctMonitorSignal::BaselineOutput:
-            return "5RP_output";
+            return "baseline_output";
     }
 
 
@@ -264,6 +264,138 @@ void writeSummaryCsv(
     }
 }
 
+
+
+std::vector<int> loadCandidateNodes(
+    const std::filesystem::path& sensitivitySummaryPath,
+    std::size_t topCount
+)
+{
+    if (topCount == 0)
+    {
+        throw std::runtime_error(
+            "Candidate node count must be greater than zero."
+        );
+    }
+
+
+    std::ifstream file(
+        sensitivitySummaryPath
+    );
+
+
+    if (!file.is_open())
+    {
+        throw std::runtime_error(
+            "Unable to open node-sensitivity summary CSV: "
+            +
+            sensitivitySummaryPath.string()
+            +
+            ". Run dct_node_sensitivity_analysis first."
+        );
+    }
+
+
+    std::string line;
+
+
+    // 跳过表头。
+    if (!std::getline(file, line))
+    {
+        throw std::runtime_error(
+            "Node-sensitivity summary CSV is empty."
+        );
+    }
+
+
+    std::vector<int>
+        candidateNodeIds;
+
+
+    candidateNodeIds.reserve(
+        topCount
+    );
+
+
+    while (
+        candidateNodeIds.size() < topCount
+        &&
+        std::getline(file, line)
+    )
+    {
+        if (line.empty())
+        {
+            continue;
+        }
+
+
+        std::stringstream stream(
+            line
+        );
+
+
+        std::string rankField;
+        std::string nodeIdField;
+
+
+        if (
+            !std::getline(
+                stream,
+                rankField,
+                ','
+            )
+            ||
+            !std::getline(
+                stream,
+                nodeIdField,
+                ','
+            )
+        )
+        {
+            throw std::runtime_error(
+                "Malformed node-sensitivity summary CSV row."
+            );
+        }
+
+
+        const int nodeId =
+            std::stoi(
+                nodeIdField
+            );
+
+
+        if (
+            nodeId < 0
+            ||
+            nodeId
+                >=
+                applications::Dct8FixedGraph::kAddNodeCount
+        )
+        {
+            throw std::runtime_error(
+                "Node-sensitivity summary CSV contains an invalid node ID."
+            );
+        }
+
+
+        candidateNodeIds.push_back(
+            nodeId
+        );
+    }
+
+
+    if (candidateNodeIds.empty())
+    {
+        throw std::runtime_error(
+            "Node-sensitivity summary CSV contains no candidate nodes."
+        );
+    }
+
+
+    return candidateNodeIds;
+}
+
+
 }
 
 
@@ -300,6 +432,20 @@ int main(
             std::filesystem::path(
                 "."
             );
+
+
+        const std::size_t candidateCount =
+            (
+                argc >= 4
+            )
+            ?
+            static_cast<std::size_t>(
+                std::stoul(
+                    argv[3]
+                )
+            )
+            :
+            12;
 
 
         std::filesystem::create_directories(
@@ -375,26 +521,35 @@ int main(
         }
 
 
-        applications::DctApplication application;
+        const auto baselineConfig =
+            applications::Dct8FixedGraph::
+                createSparseApproximateBaselineConfig(
+                    {25, 19, 13},
+                    approximate::ApproxUnitId::Add12se5RP
+                );
 
 
-        // 当前节点敏感性筛选后保留的 12 个候选节点。
+        applications::DctApplication
+            application(
+                baselineConfig
+            );
+
+
+        const std::filesystem::path
+            sensitivitySummaryPath =
+                outputDirectory
+                /
+                "dct_node_sensitivity_summary.csv";
+
+
+        // 直接读取节点敏感性分析已经排好序的结果。
+        // 默认取前 12 个节点；可用第 3 个命令行参数调整数量。
         const std::vector<int>
             candidateNodeIds =
-        {
-            6,
-            7,
-            0,
-            5,
-            4,
-            20,
-            26,
-            2,
-            1,
-            27,
-            28,
-            21
-        };
+                loadCandidateNodes(
+                    sensitivitySummaryPath,
+                    candidateCount
+                );
 
 
         const auto start =
@@ -424,8 +579,14 @@ int main(
             << "DCT monitor-signal comparison\n"
             << "=============================\n"
             << "Images: 10\n"
-            << "Candidate nodes: 12\n"
-            << "Signals: input1 / input2 / 5RP_output\n"
+            << "Baseline: Sparse-3 (nodes 25, 19, 13 = 5RP; others exact)\n"
+            << "Candidate source: "
+            << sensitivitySummaryPath.string()
+            << "\n"
+            << "Candidate nodes: "
+            << candidateNodeIds.size()
+            << "\n"
+            << "Signals: input1 / input2 / baseline_output\n"
             << "Interval boundaries: exact observed integer values\n"
             << "Metric: maximum ROI/Non-ROI trigger-rate gap per image\n"
             << "Elapsed: "
