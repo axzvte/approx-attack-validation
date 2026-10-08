@@ -170,36 +170,24 @@ int main()
     }
 
 
-    bool downstreamChanged =
-        false;
-
-
-    for (std::size_t index = 0;
-         index < baselineSamples.size();
-         ++index)
+    // 每个像素的样本顺序固定为 A1, A2, A3, A4。
+    // 检查 A2 的真实 input1 是否确实来自当前配置下的 A1 输出，
+    // 从而验证联合搜索重新采样时能够看到上游配置造成的真实传播。
+    for (std::size_t base = 0;
+         base < configuredSamples.size();
+         base += applications::SharpenApplication::kAddNodeCount)
     {
         if (
-            baselineSamples[index].nodeId == 1
-            &&
-            configuredSamples[index].input1
-                !=
-                baselineSamples[index].input1
+            configuredSamples[base + 1].input1
+            !=
+            configuredSamples[base].output
         )
         {
-            downstreamChanged =
-                true;
+            std::cerr
+                << "Configured sharpening downstream input is not the current upstream output.\n";
 
-            break;
+            return 1;
         }
-    }
-
-
-    if (!downstreamChanged)
-    {
-        std::cerr
-            << "Upstream sharpening error did not propagate to downstream samples.\n";
-
-        return 1;
     }
 
 
