@@ -59,7 +59,7 @@ int signalValue(
 
 
 void validateCandidateNodes(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const std::vector<int>& candidateNodeIds
 )
 {
@@ -573,7 +573,7 @@ DctMonitorSignalSummary summarize(
 
 DctMonitorSignalReport
 DctMonitorSignalAnalyzer::analyze(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const std::vector<cv::Mat>& inputImages,
     const std::vector<cv::Mat>& roiMasks,
     const std::vector<int>& candidateNodeIds
