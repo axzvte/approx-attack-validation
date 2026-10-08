@@ -524,10 +524,7 @@ int main(
 
         const auto baselineConfig =
             applications::Dct8FixedGraph::
-                createSparseApproximateBaselineConfig(
-                    {25, 19, 13},
-                    approximate::ApproxUnitId::Add12se5RP
-                );
+                createDefaultBaselineConfig();
 
 
         applications::DctApplication
@@ -580,7 +577,7 @@ int main(
             << "DCT monitor-signal comparison\n"
             << "=============================\n"
             << "Images: 10\n"
-            << "Baseline: Sparse-3 (nodes 25, 19, 13 = 5RP; others exact)\n"
+            << "Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)\n"
             << "Candidate source: "
             << sensitivitySummaryPath.string()
             << "\n"
