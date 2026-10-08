@@ -38,9 +38,15 @@ struct DctMultiStateJointSearchOptions
     std::size_t refinementRounds = 1;
 
 
-    // 只用于最终“可行解”判断以及 beam 代表点保护。
-    // 中间状态不会因为低于该阈值而直接删除。
+    // 最终“可行解”的全图质量下限。
+    // 中间状态不会因为低于该阈值而直接删除，
+    // 以保留后续节点补偿回来的可能性。
     double globalPsnrThreshold = 30.0;
+
+
+    // 最终“可行解”的 Non-ROI 质量下限。
+    // 该约束用于避免“全图一起恶化”却仍因 ROI 较低而被选中。
+    double nonRoiPsnrThreshold = 30.0;
 
 
     double comparisonEpsilon = 1.0e-9;
@@ -125,7 +131,7 @@ public:
     //
     // 与旧贪心优化器不同：
     //
-    // 1. 每一步保留多个 Global / ROI 不同权衡状态；
+    // 1. 每一步保留多个 Global / ROI / Non-ROI 不同权衡状态；
     // 2. 中间状态不强制 Global PSNR >= threshold；
     // 3. 每扩展一个节点，都基于“该状态当前真实运行”
     //    重新采集目标节点 monitor signal；
