@@ -629,7 +629,6 @@ int main(int argc, char** argv)
             << std::setw(14) << "Global"
             << std::setw(14) << "ROI"
             << std::setw(14) << "NonROI"
-            << std::setw(14) << "Gap"
             << "ActiveNodes\n";
 
 
@@ -646,12 +645,6 @@ int main(int argc, char** argv)
                 << std::setw(14) << state.metrics.globalPsnr
                 << std::setw(14) << state.metrics.roiPsnr
                 << std::setw(14) << state.metrics.nonRoiPsnr
-                << std::setw(14)
-                << (
-                    state.metrics.nonRoiPsnr
-                    -
-                    state.metrics.roiPsnr
-                )
                 << state.configuration.size()
                 << "\n";
         }
@@ -683,13 +676,6 @@ int main(int argc, char** argv)
             << "Non-ROI PSNR: "
             << best.metrics.nonRoiPsnr
             << "\n"
-            << "Regional gap (Non-ROI - ROI): "
-            << (
-                best.metrics.nonRoiPsnr
-                -
-                best.metrics.roiPsnr
-            )
-            << " dB\n"
             << "Active redistribution nodes: "
             << best.configuration.size()
             << "\n";
