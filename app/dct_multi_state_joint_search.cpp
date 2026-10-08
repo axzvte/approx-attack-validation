@@ -483,17 +483,14 @@ int main(int argc, char** argv)
             );
 
 
-        const auto sparseBaseline =
+        const auto workingBaseline =
             applications::Dct8FixedGraph::
-                createSparseApproximateBaselineConfig(
-                    {25, 19, 13},
-                    approximate::ApproxUnitId::Add12se5RP
-                );
+                createDefaultBaselineConfig();
 
 
         applications::DctApplication
             application(
-                sparseBaseline
+                workingBaseline
             );
 
 
@@ -558,7 +555,7 @@ int main(int argc, char** argv)
             << "Image: image_"
             << twoDigit(imageIndex)
             << ".jpg\n"
-            << "Baseline: Sparse-3 (nodes 25, 19, 13 = 5RP; others exact)\n"
+            << "Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)\n"
             << "Node source: "
             << sensitivitySummaryPath.string()
             << "\n"
