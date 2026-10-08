@@ -657,14 +657,223 @@ buildParetoFront(
 }
 
 
-double regionalGap(
-    const DctMultiStateSearchState& state
+bool satisfiesQualityThresholds(
+    const DctMultiStateSearchState& state,
+    const DctMultiStateJointSearchOptions& options
 )
 {
     return
+        state.metrics.globalPsnr
+            >=
+            options.globalPsnrThreshold
+        &&
         state.metrics.nonRoiPsnr
+            >=
+            options.nonRoiPsnrThreshold;
+}
+
+
+double qualityThresholdDeficit(
+    const DctMultiStateSearchState& state,
+    const DctMultiStateJointSearchOptions& options
+)
+{
+    const double globalDeficit =
+        std::max(
+            0.0,
+            options.globalPsnrThreshold
+            -
+            state.metrics.globalPsnr
+        );
+
+
+    const double nonRoiDeficit =
+        std::max(
+            0.0,
+            options.nonRoiPsnrThreshold
+            -
+            state.metrics.nonRoiPsnr
+        );
+
+
+    return
+        globalDeficit
+        +
+        nonRoiDeficit;
+}
+
+
+bool betterFeasibleState(
+    const DctMultiStateSearchState& first,
+    const DctMultiStateSearchState& second,
+    double epsilon
+)
+{
+    // Global 与 Non-ROI 只负责满足质量约束。
+    // 一旦两者均在正常范围内，首要目标就是让 ROI 尽可能差。
+    if (
+        first.metrics.roiPsnr
+        <
+        second.metrics.roiPsnr
         -
-        state.metrics.roiPsnr;
+        epsilon
+    )
+    {
+        return true;
+    }
+
+
+    if (
+        std::abs(
+            first.metrics.roiPsnr
+            -
+            second.metrics.roiPsnr
+        )
+        >
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
+    // ROI 近似相同时，才优先保护 Non-ROI。
+    if (
+        first.metrics.nonRoiPsnr
+        >
+        second.metrics.nonRoiPsnr
+        +
+        epsilon
+    )
+    {
+        return true;
+    }
+
+
+    if (
+        std::abs(
+            first.metrics.nonRoiPsnr
+            -
+            second.metrics.nonRoiPsnr
+        )
+        >
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
+    // 最后再比较整体质量。
+    return
+        first.metrics.globalPsnr
+        >
+        second.metrics.globalPsnr
+        +
+        epsilon;
+}
+
+
+bool beamStateComesFirst(
+    const DctMultiStateSearchState& first,
+    const DctMultiStateSearchState& second,
+    const DctMultiStateJointSearchOptions& options
+)
+{
+    const bool firstFeasible =
+        satisfiesQualityThresholds(
+            first,
+            options
+        );
+
+
+    const bool secondFeasible =
+        satisfiesQualityThresholds(
+            second,
+            options
+        );
+
+
+    if (firstFeasible != secondFeasible)
+    {
+        return firstFeasible;
+    }
+
+
+    if (firstFeasible)
+    {
+        return
+            betterFeasibleState(
+                first,
+                second,
+                options.comparisonEpsilon
+            );
+    }
+
+
+    // 尚未达到正常范围的中间状态，优先保留离两个质量阈值更近的。
+    const double firstDeficit =
+        qualityThresholdDeficit(
+            first,
+            options
+        );
+
+
+    const double secondDeficit =
+        qualityThresholdDeficit(
+            second,
+            options
+        );
+
+
+    if (
+        std::abs(
+            firstDeficit
+            -
+            secondDeficit
+        )
+        >
+        options.comparisonEpsilon
+    )
+    {
+        return
+            firstDeficit
+            <
+            secondDeficit;
+    }
+
+
+    // 距离阈值相近时，仍然优先更低的 ROI。
+    if (
+        first.metrics.roiPsnr
+        !=
+        second.metrics.roiPsnr
+    )
+    {
+        return
+            first.metrics.roiPsnr
+            <
+            second.metrics.roiPsnr;
+    }
+
+
+    if (
+        first.metrics.nonRoiPsnr
+        !=
+        second.metrics.nonRoiPsnr
+    )
+    {
+        return
+            first.metrics.nonRoiPsnr
+            >
+            second.metrics.nonRoiPsnr;
+    }
+
+
+    return
+        first.metrics.globalPsnr
+        >
+        second.metrics.globalPsnr;
 }
 
 
@@ -882,62 +1091,17 @@ BeamReductionResult reduceBeam(
             front.begin(),
             front.end(),
 
-            [](
+            [&options](
                 const auto& first,
                 const auto& second
             )
             {
-                const double firstGap =
-                    regionalGap(
-                        first
-                    );
-
-
-                const double secondGap =
-                    regionalGap(
-                        second
-                    );
-
-
-                if (firstGap != secondGap)
-                {
-                    return
-                        firstGap
-                        >
-                        secondGap;
-                }
-
-
-                if (
-                    first.metrics.roiPsnr
-                    !=
-                    second.metrics.roiPsnr
-                )
-                {
-                    return
-                        first.metrics.roiPsnr
-                        <
-                        second.metrics.roiPsnr;
-                }
-
-
-                if (
-                    first.metrics.nonRoiPsnr
-                    !=
-                    second.metrics.nonRoiPsnr
-                )
-                {
-                    return
-                        first.metrics.nonRoiPsnr
-                        >
-                        second.metrics.nonRoiPsnr;
-                }
-
-
                 return
-                    first.metrics.globalPsnr
-                    >
-                    second.metrics.globalPsnr;
+                    beamStateComesFirst(
+                        first,
+                        second,
+                        options
+                    );
             }
         );
 
@@ -985,10 +1149,6 @@ BeamReductionResult reduceBeam(
 
 
     std::size_t maxNonRoiIndex =
-        0;
-
-
-    std::size_t maxGapIndex =
         0;
 
 
@@ -1093,31 +1253,11 @@ BeamReductionResult reduceBeam(
         }
 
 
-        if (
-            regionalGap(
-                front[index]
-            )
-            >
-            regionalGap(
-                front[
-                    maxGapIndex
-                ]
-            )
-        )
-        {
-            maxGapIndex =
-                index;
-        }
-
-
         const bool feasible =
-            metrics.globalPsnr
-                >=
-                options.globalPsnrThreshold
-            &&
-            metrics.nonRoiPsnr
-                >=
-                options.nonRoiPsnrThreshold;
+            satisfiesQualityThresholds(
+                front[index],
+                options
+            );
 
 
         if (feasible)
@@ -1125,15 +1265,13 @@ BeamReductionResult reduceBeam(
             if (
                 bestFeasibleIndex == front.size()
                 ||
-                regionalGap(
-                    front[index]
+                betterFeasibleState(
+                    front[index],
+                    front[
+                        bestFeasibleIndex
+                    ],
+                    options.comparisonEpsilon
                 )
-                    >
-                    regionalGap(
-                        front[
-                            bestFeasibleIndex
-                        ]
-                    )
             )
             {
                 bestFeasibleIndex =
@@ -1142,28 +1280,11 @@ BeamReductionResult reduceBeam(
         }
         else
         {
-            const double globalDeficit =
-                std::max(
-                    0.0,
-                    options.globalPsnrThreshold
-                    -
-                    metrics.globalPsnr
-                );
-
-
-            const double nonRoiDeficit =
-                std::max(
-                    0.0,
-                    options.nonRoiPsnrThreshold
-                    -
-                    metrics.nonRoiPsnr
-                );
-
-
             const double totalDeficit =
-                globalDeficit
-                +
-                nonRoiDeficit;
+                qualityThresholdDeficit(
+                    front[index],
+                    options
+                );
 
 
             if (
@@ -1203,9 +1324,8 @@ BeamReductionResult reduceBeam(
     // 1. Global 最高；
     // 2. ROI 最低；
     // 3. Non-ROI 最高；
-    // 4. Non-ROI - ROI 区域差异最大；
-    // 5. 当前同时满足 Global / Non-ROI 阈值时区域差异最大的状态；
-    // 6. 尚未可行但距离两个阈值最近、后续可能补偿回来的状态。
+    // 4. 当前同时满足 Global / Non-ROI 阈值时 ROI 最低的状态；
+    // 5. 尚未可行但距离两个阈值最近、后续可能补偿回来的状态。
     addSeedIndex(
         maxGlobalIndex,
         selected,
@@ -1222,13 +1342,6 @@ BeamReductionResult reduceBeam(
 
     addSeedIndex(
         maxNonRoiIndex,
-        selected,
-        selectedIndices
-    );
-
-
-    addSeedIndex(
-        maxGapIndex,
         selected,
         selectedIndices
     );
@@ -1354,62 +1467,17 @@ BeamReductionResult reduceBeam(
         result.states.begin(),
         result.states.end(),
 
-        [](
+        [&options](
             const auto& first,
             const auto& second
         )
         {
-            const double firstGap =
-                regionalGap(
-                    first
-                );
-
-
-            const double secondGap =
-                regionalGap(
-                    second
-                );
-
-
-            if (firstGap != secondGap)
-            {
-                return
-                    firstGap
-                    >
-                    secondGap;
-            }
-
-
-            if (
-                first.metrics.roiPsnr
-                !=
-                second.metrics.roiPsnr
-            )
-            {
-                return
-                    first.metrics.roiPsnr
-                    <
-                    second.metrics.roiPsnr;
-            }
-
-
-            if (
-                first.metrics.nonRoiPsnr
-                !=
-                second.metrics.nonRoiPsnr
-            )
-            {
-                return
-                    first.metrics.nonRoiPsnr
-                    >
-                    second.metrics.nonRoiPsnr;
-            }
-
-
             return
-                first.metrics.globalPsnr
-                >
-                second.metrics.globalPsnr;
+                beamStateComesFirst(
+                    first,
+                    second,
+                    options
+                );
         }
     );
 
@@ -1537,107 +1605,12 @@ bool isBetterFeasibleFinal(
     double epsilon
 )
 {
-    const double candidateGap =
-        regionalGap(
-            candidate
-        );
-
-
-    const double currentGap =
-        regionalGap(
-            currentBest
-        );
-
-
-    // 首要目标：让最终 Non-ROI 与 ROI 的绝对质量差尽可能大，
-    // 即把误差尽可能集中到 ROI，而不是让整幅图共同恶化。
-    if (
-        candidateGap
-        >
-        currentGap
-        +
-        epsilon
-    )
-    {
-        return true;
-    }
-
-
-    if (
-        std::abs(
-            candidateGap
-            -
-            currentGap
-        )
-        >
-        epsilon
-    )
-    {
-        return false;
-    }
-
-
-    // 区域差异近似相同时，优先更低的 ROI。
-    if (
-        candidate.metrics.roiPsnr
-        <
-        currentBest.metrics.roiPsnr
-        -
-        epsilon
-    )
-    {
-        return true;
-    }
-
-
-    if (
-        std::abs(
-            candidate.metrics.roiPsnr
-            -
-            currentBest.metrics.roiPsnr
-        )
-        >
-        epsilon
-    )
-    {
-        return false;
-    }
-
-
-    // ROI 也近似相同时，优先更高的 Non-ROI。
-    if (
-        candidate.metrics.nonRoiPsnr
-        >
-        currentBest.metrics.nonRoiPsnr
-        +
-        epsilon
-    )
-    {
-        return true;
-    }
-
-
-    if (
-        std::abs(
-            candidate.metrics.nonRoiPsnr
-            -
-            currentBest.metrics.nonRoiPsnr
-        )
-        >
-        epsilon
-    )
-    {
-        return false;
-    }
-
-
-    // 最后再比较整体质量。
     return
-        candidate.metrics.globalPsnr
-        >
-        currentBest.metrics.globalPsnr
-        +
-        epsilon;
+        betterFeasibleState(
+            candidate,
+            currentBest,
+            epsilon
+        );
 }
 
 }
