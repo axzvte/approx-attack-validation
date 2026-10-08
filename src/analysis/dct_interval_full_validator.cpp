@@ -30,7 +30,7 @@ double calculateNonRoiPsnr(
     )
     {
         throw std::runtime_error(
-            "DCT Non-ROI PSNR input is empty."
+            "Application Non-ROI PSNR input is empty."
         );
     }
 
@@ -44,7 +44,7 @@ double calculateNonRoiPsnr(
     )
     {
         throw std::runtime_error(
-            "DCT Non-ROI PSNR requires CV_8UC1 images and mask."
+            "Application Non-ROI PSNR requires CV_8UC1 images and mask."
         );
     }
 
@@ -60,7 +60,7 @@ double calculateNonRoiPsnr(
     )
     {
         throw std::runtime_error(
-            "DCT Non-ROI PSNR dimensions do not match."
+            "Application Non-ROI PSNR dimensions do not match."
         );
     }
 
@@ -123,7 +123,7 @@ double calculateNonRoiPsnr(
     if (pixelCount == 0)
     {
         throw std::runtime_error(
-            "DCT Non-ROI PSNR mask contains no Non-ROI pixels."
+            "Application Non-ROI PSNR mask contains no Non-ROI pixels."
         );
     }
 
@@ -278,7 +278,7 @@ replaceTargetConfiguration(
 
 DctImageQualityMetrics
 DctIntervalFullValidator::evaluateConfiguration(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const std::vector<core::AttackConfig>& configuration
@@ -312,7 +312,7 @@ DctIntervalFullValidator::evaluateConfiguration(
 
 DctIntervalFullValidationReport
 DctIntervalFullValidator::validate(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const std::vector<core::AttackConfig>& currentConfiguration,
@@ -325,7 +325,7 @@ DctIntervalFullValidator::validate(
     if (candidateIntervals.empty())
     {
         throw std::runtime_error(
-            "DCT full interval validator received no candidate intervals."
+            "Full interval validator received no candidate intervals."
         );
     }
 
@@ -333,7 +333,7 @@ DctIntervalFullValidator::validate(
     if (nodeId < 0)
     {
         throw std::runtime_error(
-            "DCT full interval validator received a negative node ID."
+            "Full interval validator received a negative node ID."
         );
     }
 
@@ -343,7 +343,7 @@ DctIntervalFullValidator::validate(
         if (interval.lower > interval.upper)
         {
             throw std::runtime_error(
-                "DCT full interval validator received an invalid interval."
+                "Full interval validator received an invalid interval."
             );
         }
     }
