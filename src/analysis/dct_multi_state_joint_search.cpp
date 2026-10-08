@@ -657,13 +657,26 @@ buildParetoFront(
 }
 
 
+double regionalGap(
+    const DctMultiStateSearchState& state
+)
+{
+    return
+        state.metrics.nonRoiPsnr
+        -
+        state.metrics.roiPsnr;
+}
+
+
 double normalizedDistanceSquared(
     const DctMultiStateSearchState& first,
     const DctMultiStateSearchState& second,
     double minGlobal,
     double maxGlobal,
     double minRoi,
-    double maxRoi
+    double maxRoi,
+    double minNonRoi,
+    double maxNonRoi
 )
 {
     const double globalRange =
@@ -676,6 +689,12 @@ double normalizedDistanceSquared(
         maxRoi
         -
         minRoi;
+
+
+    const double nonRoiRange =
+        maxNonRoi
+        -
+        minNonRoi;
 
 
     const double firstGlobal =
@@ -734,6 +753,34 @@ double normalizedDistanceSquared(
         0.0;
 
 
+    const double firstNonRoi =
+        nonRoiRange > 0.0
+        ?
+        (
+            first.metrics.nonRoiPsnr
+            -
+            minNonRoi
+        )
+        /
+        nonRoiRange
+        :
+        0.0;
+
+
+    const double secondNonRoi =
+        nonRoiRange > 0.0
+        ?
+        (
+            second.metrics.nonRoiPsnr
+            -
+            minNonRoi
+        )
+        /
+        nonRoiRange
+        :
+        0.0;
+
+
     const double globalDifference =
         firstGlobal
         -
@@ -746,6 +793,12 @@ double normalizedDistanceSquared(
         secondRoi;
 
 
+    const double nonRoiDifference =
+        firstNonRoi
+        -
+        secondNonRoi;
+
+
     return
         globalDifference
         *
@@ -753,7 +806,11 @@ double normalizedDistanceSquared(
         +
         roiDifference
         *
-        roiDifference;
+        roiDifference
+        +
+        nonRoiDifference
+        *
+        nonRoiDifference;
 }
 
 
