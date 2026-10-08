@@ -385,6 +385,14 @@ int main()
         representativeEvaluation;
 
 
+    representativeEvaluation.totalRoiWeight =
+        1.0;
+
+
+    representativeEvaluation.totalNonRoiWeight =
+        1.0;
+
+
     representativeEvaluation.metrics =
     {
         // 非支配：ROI 最强端
@@ -408,7 +416,7 @@ int main()
         },
 
         // 被 [20,20] 全面压制：
-        // ROI 更小，Non-ROI 代价反而更大。
+        // ROI 更小，Global 代价也没有更低。
         {
             {30, 30},
             0.0,
@@ -438,7 +446,7 @@ int main()
             1.0
         },
 
-        // 非支配：Non-ROI 补偿端
+        // 非支配：Global 代价最低端
         {
             {60, 60},
             0.0,
@@ -468,7 +476,7 @@ int main()
     )
     {
         std::cerr
-            << "Representative interval Pareto filtering is incorrect.\n";
+            << "ROI/Global representative interval filtering is incorrect.\n";
 
 
         return 1;
