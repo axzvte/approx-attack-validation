@@ -131,6 +131,26 @@ add_test(
     COMMAND test_dct_application
 )
 
+
+add_executable(
+    test_sharpen_application
+
+    tests/test_sharpen_application.cpp
+)
+
+
+target_link_libraries(
+    test_sharpen_application
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME sharpen_application
+    COMMAND test_sharpen_application
+)
+
 add_executable(
     test_add_sample_collector
 
