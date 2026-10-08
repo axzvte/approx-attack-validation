@@ -887,23 +887,57 @@ BeamReductionResult reduceBeam(
                 const auto& second
             )
             {
+                const double firstGap =
+                    regionalGap(
+                        first
+                    );
+
+
+                const double secondGap =
+                    regionalGap(
+                        second
+                    );
+
+
+                if (firstGap != secondGap)
+                {
+                    return
+                        firstGap
+                        >
+                        secondGap;
+                }
+
+
                 if (
-                    first.metrics.globalPsnr
+                    first.metrics.roiPsnr
                     !=
-                    second.metrics.globalPsnr
+                    second.metrics.roiPsnr
                 )
                 {
                     return
-                        first.metrics.globalPsnr
+                        first.metrics.roiPsnr
+                        <
+                        second.metrics.roiPsnr;
+                }
+
+
+                if (
+                    first.metrics.nonRoiPsnr
+                    !=
+                    second.metrics.nonRoiPsnr
+                )
+                {
+                    return
+                        first.metrics.nonRoiPsnr
                         >
-                        second.metrics.globalPsnr;
+                        second.metrics.nonRoiPsnr;
                 }
 
 
                 return
-                    first.metrics.roiPsnr
-                    <
-                    second.metrics.roiPsnr;
+                    first.metrics.globalPsnr
+                    >
+                    second.metrics.globalPsnr;
             }
         );
 
@@ -934,6 +968,14 @@ BeamReductionResult reduceBeam(
         front.front().metrics.roiPsnr;
 
 
+    double minNonRoi =
+        front.front().metrics.nonRoiPsnr;
+
+
+    double maxNonRoi =
+        front.front().metrics.nonRoiPsnr;
+
+
     std::size_t maxGlobalIndex =
         0;
 
@@ -942,12 +984,24 @@ BeamReductionResult reduceBeam(
         0;
 
 
+    std::size_t maxNonRoiIndex =
+        0;
+
+
+    std::size_t maxGapIndex =
+        0;
+
+
     std::size_t bestFeasibleIndex =
         front.size();
 
 
-    std::size_t closestBelowThresholdIndex =
+    std::size_t closestToFeasibleIndex =
         front.size();
+
+
+    double closestDeficit =
+        std::numeric_limits<double>::infinity();
 
 
     for (std::size_t index = 0;
@@ -986,6 +1040,20 @@ BeamReductionResult reduceBeam(
             );
 
 
+        minNonRoi =
+            std::min(
+                minNonRoi,
+                metrics.nonRoiPsnr
+            );
+
+
+        maxNonRoi =
+            std::max(
+                maxNonRoi,
+                metrics.nonRoiPsnr
+            );
+
+
         if (
             metrics.globalPsnr
             >
@@ -1013,19 +1081,59 @@ BeamReductionResult reduceBeam(
 
 
         if (
-            metrics.globalPsnr
-            >=
-            options.globalPsnrThreshold
+            metrics.nonRoiPsnr
+            >
+            front[
+                maxNonRoiIndex
+            ].metrics.nonRoiPsnr
         )
+        {
+            maxNonRoiIndex =
+                index;
+        }
+
+
+        if (
+            regionalGap(
+                front[index]
+            )
+            >
+            regionalGap(
+                front[
+                    maxGapIndex
+                ]
+            )
+        )
+        {
+            maxGapIndex =
+                index;
+        }
+
+
+        const bool feasible =
+            metrics.globalPsnr
+                >=
+                options.globalPsnrThreshold
+            &&
+            metrics.nonRoiPsnr
+                >=
+                options.nonRoiPsnrThreshold;
+
+
+        if (feasible)
         {
             if (
                 bestFeasibleIndex == front.size()
                 ||
-                metrics.roiPsnr
-                    <
-                    front[
-                        bestFeasibleIndex
-                    ].metrics.roiPsnr
+                regionalGap(
+                    front[index]
+                )
+                    >
+                    regionalGap(
+                        front[
+                            bestFeasibleIndex
+                        ]
+                    )
             )
             {
                 bestFeasibleIndex =
@@ -1034,17 +1142,41 @@ BeamReductionResult reduceBeam(
         }
         else
         {
+            const double globalDeficit =
+                std::max(
+                    0.0,
+                    options.globalPsnrThreshold
+                    -
+                    metrics.globalPsnr
+                );
+
+
+            const double nonRoiDeficit =
+                std::max(
+                    0.0,
+                    options.nonRoiPsnrThreshold
+                    -
+                    metrics.nonRoiPsnr
+                );
+
+
+            const double totalDeficit =
+                globalDeficit
+                +
+                nonRoiDeficit;
+
+
             if (
-                closestBelowThresholdIndex == front.size()
-                ||
-                metrics.globalPsnr
-                    >
-                    front[
-                        closestBelowThresholdIndex
-                    ].metrics.globalPsnr
+                totalDeficit
+                <
+                closestDeficit
             )
             {
-                closestBelowThresholdIndex =
+                closestDeficit =
+                    totalDeficit;
+
+
+                closestToFeasibleIndex =
                     index;
             }
         }
