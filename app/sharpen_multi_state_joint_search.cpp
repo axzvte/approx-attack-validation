@@ -524,6 +524,10 @@ int main(
             30.0;
 
 
+        options.nonRoiPsnrThreshold =
+            30.0;
+
+
         const analysis::DctMultiStateJointSearchProgressCallback
             progressCallback =
                 [](
@@ -597,7 +601,8 @@ int main(
         {
             std::cout
                 << "\nNo feasible sharpening state satisfies "
-                << "Global >= 30 dB and ROI < baseline ROI.\n";
+                << "Global >= 30 dB, Non-ROI >= 30 dB "
+                << "and ROI < baseline ROI.\n";
 
             return 0;
         }
@@ -619,6 +624,13 @@ int main(
             << "Non-ROI PSNR: "
             << best.metrics.nonRoiPsnr
             << "\n"
+            << "Regional gap (Non-ROI - ROI): "
+            << (
+                best.metrics.nonRoiPsnr
+                -
+                best.metrics.roiPsnr
+            )
+            << " dB\n"
             << "Active redistribution nodes: "
             << best.configuration.size()
             << "\n";
