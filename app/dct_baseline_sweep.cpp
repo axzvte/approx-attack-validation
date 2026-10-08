@@ -243,6 +243,38 @@ int main(
             },
 
             {
+                "Balanced-10",
+                {
+                    8,
+                    10,
+                    11,
+                    13,
+                    16,
+                    19,
+                    22,
+                    25,
+                    28,
+                    31
+                },
+                applications::Dct8FixedGraph::
+                    createSparseApproximateBaselineConfig(
+                        {
+                            8,
+                            10,
+                            11,
+                            13,
+                            16,
+                            19,
+                            22,
+                            25,
+                            28,
+                            31
+                        },
+                        approximate::ApproxUnitId::Add12se5RP
+                    )
+            },
+
+            {
                 "Balanced-12",
                 {
                     8,
