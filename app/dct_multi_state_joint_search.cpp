@@ -837,9 +837,69 @@ int main(int argc, char** argv)
         );
 
 
+        // =====================================================
+        // 保存 Baseline 与最终最佳重建图像，便于直接观察视觉效果。
+        // =====================================================
+
+        const cv::Mat baselineImage =
+            application.runApprox(
+                inputImage,
+                {}
+            );
+
+
+        const cv::Mat bestImage =
+            application.runApprox(
+                inputImage,
+                best.configuration
+            );
+
+
+        const auto baselineImagePath =
+            analysisDirectory
+            /
+            (
+                "dct_baseline_image_"
+                +
+                twoDigit(imageIndex)
+                +
+                ".png"
+            );
+
+
+        const auto bestImagePath =
+            analysisDirectory
+            /
+            (
+                "dct_joint_search_best_image_"
+                +
+                twoDigit(imageIndex)
+                +
+                ".png"
+            );
+
+
+        image_io::saveImage(
+            baselineImagePath.string(),
+            baselineImage
+        );
+
+
+        image_io::saveImage(
+            bestImagePath.string(),
+            bestImage
+        );
+
+
         std::cout
             << "\nBest-result CSV: "
             << bestCsvPath.string()
+            << "\n"
+            << "Baseline image: "
+            << baselineImagePath.string()
+            << "\n"
+            << "Best final image: "
+            << bestImagePath.string()
             << "\n";
 
 
