@@ -11,8 +11,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <utility>
-#include <vector>
 
 
 namespace
@@ -250,67 +248,37 @@ int main(
             );
 
 
-        // -----------------------------------------------------
-        // 使用同一组 10 张 Stage-1 图片自动选择各节点 monitor。
-        // Sharpening 只有 4 个 ADD/SUB 节点，因此第一版全部进入
-        // 联合搜索，不做 DCT 风格的 Top-N 节点裁剪。
-        // -----------------------------------------------------
-
-        std::vector<cv::Mat>
-            stage1Images;
-
-        std::vector<cv::Mat>
-            stage1Masks;
-
-
-        for (int index = 1;
-             index <= 10;
-             ++index)
-        {
-            cv::Mat image =
-                image_io::loadGrayImage(
+        const cv::Mat inputImage =
+            image_io::loadGrayImage(
+                (
+                    dataRoot
+                    /
+                    "stage1"
+                    /
+                    "input"
+                    /
                     (
-                        dataRoot
-                        /
-                        "stage1"
-                        /
-                        "input"
-                        /
-                        (
-                            "image_"
-                            +
-                            twoDigit(
-                                index
-                            )
-                            +
-                            ".jpg"
+                        "image_"
+                        +
+                        twoDigit(
+                            imageIndex
                         )
-                    ).string()
-                );
-
-
-            cv::Mat mask =
-                region_mask::resizeMaskToImage(
-                    sharedRoiMask,
-                    image
-                );
-
-
-            stage1Images.push_back(
-                std::move(
-                    image
-                )
+                        +
+                        ".jpg"
+                    )
+                ).string()
             );
 
 
-            stage1Masks.push_back(
-                std::move(
-                    mask
-                )
+        const cv::Mat roiMask =
+            region_mask::resizeMaskToImage(
+                sharedRoiMask,
+                inputImage
             );
-        }
 
 
+        // Sharpening 只有 4 个 ADD/SUB 节点，因此全部进入联合搜索。
+        // monitor signal 不再预筛，直接在联合搜索中共同搜索。
         const std::vector<int>
             candidateNodes =
         {
@@ -350,22 +318,6 @@ int main(
                 )
                 << "\n";
         }
-
-
-        const cv::Mat inputImage =
-            stage1Images.at(
-                static_cast<std::size_t>(
-                    imageIndex - 1
-                )
-            );
-
-
-        const cv::Mat roiMask =
-            stage1Masks.at(
-                static_cast<std::size_t>(
-                    imageIndex - 1
-                )
-            );
 
 
         analysis::DctMultiStateJointSearchOptions
