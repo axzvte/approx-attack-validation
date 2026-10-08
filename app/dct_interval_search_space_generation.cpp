@@ -226,7 +226,7 @@ int main(
                 imageIndex
             )
             << ".jpg\n"
-            << "Initial source: Baseline 5RP\n"
+            << "Initial source: Balanced-10 baseline\n"
             << "Interval rule: boundaries use values observed in the current run\n"
             << "Effect filtering: disabled (Module 2 responsibility)\n"
             << "Module 2 may regenerate intervals after the current attack configuration changes\n\n";
