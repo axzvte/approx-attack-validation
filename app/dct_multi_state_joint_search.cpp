@@ -587,7 +587,7 @@ int main(int argc, char** argv)
             << "Final Non-ROI PSNR threshold: "
             << options.nonRoiPsnrThreshold
             << " dB\n"
-            << "Final ranking: maximize (Non-ROI PSNR - ROI PSNR)\n\n";
+            << "Final ranking: minimize ROI PSNR after Global / Non-ROI constraints\n\n";
 
 
         std::cout
@@ -737,43 +737,74 @@ int main(int argc, char** argv)
         std::sort(
             finalStates.begin(),
             finalStates.end(),
-            [](
+            [&options](
                 const auto& first,
                 const auto& second
             )
             {
-                const double firstGap =
+                const bool firstFeasible =
+                    first.metrics.globalPsnr
+                        >=
+                        options.globalPsnrThreshold
+                    &&
                     first.metrics.nonRoiPsnr
-                    -
-                    first.metrics.roiPsnr;
+                        >=
+                        options.nonRoiPsnrThreshold;
 
 
-                const double secondGap =
+                const bool secondFeasible =
+                    second.metrics.globalPsnr
+                        >=
+                        options.globalPsnrThreshold
+                    &&
                     second.metrics.nonRoiPsnr
-                    -
-                    second.metrics.roiPsnr;
+                        >=
+                        options.nonRoiPsnrThreshold;
 
 
-                if (firstGap != secondGap)
+                if (firstFeasible != secondFeasible)
+                {
+                    return firstFeasible;
+                }
+
+
+                if (
+                    first.metrics.roiPsnr
+                    !=
+                    second.metrics.roiPsnr
+                )
                 {
                     return
-                        firstGap
+                        first.metrics.roiPsnr
+                        <
+                        second.metrics.roiPsnr;
+                }
+
+
+                if (
+                    first.metrics.nonRoiPsnr
+                    !=
+                    second.metrics.nonRoiPsnr
+                )
+                {
+                    return
+                        first.metrics.nonRoiPsnr
                         >
-                        secondGap;
+                        second.metrics.nonRoiPsnr;
                 }
 
 
                 return
-                    first.metrics.roiPsnr
-                    <
-                    second.metrics.roiPsnr;
+                    first.metrics.globalPsnr
+                    >
+                    second.metrics.globalPsnr;
             }
         );
 
 
         std::cout
-            << "\nFinal beam states (largest regional gap first)\n"
-            << "----------------------------------------------\n"
+            << "\nFinal beam states (feasible states, lowest ROI first)\n"
+            << "-----------------------------------------------------\n"
             << std::left
             << std::setw(7) << "Rank"
             << std::setw(14) << "Global"
