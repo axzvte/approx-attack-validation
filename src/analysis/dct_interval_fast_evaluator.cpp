@@ -548,9 +548,15 @@ bool fastMetricComesFirst(
         )
         {
             return
-                first.nonRoiErrorChange
+                globalErrorChange(
+                    evaluation,
+                    first
+                )
                 <
-                second.nonRoiErrorChange;
+                globalErrorChange(
+                    evaluation,
+                    second
+                );
         }
 
 
@@ -695,6 +701,40 @@ DctIntervalFastEvaluator::selectTopMetrics(
 namespace
 {
 
+double globalErrorChange(
+    const DctIntervalFastEvaluation& evaluation,
+    const DctIntervalFastMetric& metric
+)
+{
+    const double totalWeight =
+        evaluation.totalRoiWeight
+        +
+        evaluation.totalNonRoiWeight;
+
+
+    if (totalWeight <= 0.0)
+    {
+        throw std::runtime_error(
+            "Fast interval evaluator has zero total weight."
+        );
+    }
+
+
+    return
+        (
+            metric.roiErrorChange
+            *
+            evaluation.totalRoiWeight
+            +
+            metric.nonRoiErrorChange
+            *
+            evaluation.totalNonRoiWeight
+        )
+        /
+        totalWeight;
+}
+
+
 std::vector<DctIntervalFastMetric>
 buildParetoFront(
     const DctIntervalFastEvaluation& evaluation
@@ -705,16 +745,17 @@ buildParetoFront(
             evaluation.metrics;
 
 
-    // ROIErrorChange：越大越好。
-    // NonROIErrorChange：越小越好。
+    // 当前搜索目标只有两个方向：
+    // 1. ROIErrorChange 越大越好；
+    // 2. GlobalErrorChange 越小越好。
     //
-    // 先按 ROI 从大到小排；
-    // ROI 相同时让 Non-ROI 更小的排前面。
+    // Non-ROI 只参与 GlobalErrorChange 的组成，
+    // 不再作为独立筛选目标。
     std::sort(
         ranked.begin(),
         ranked.end(),
 
-        [](
+        [&evaluation](
             const DctIntervalFastMetric& first,
             const DctIntervalFastMetric& second
         )
@@ -732,16 +773,26 @@ buildParetoFront(
             }
 
 
-            if (
-                first.nonRoiErrorChange
-                !=
-                second.nonRoiErrorChange
-            )
+            const double firstGlobal =
+                globalErrorChange(
+                    evaluation,
+                    first
+                );
+
+
+            const double secondGlobal =
+                globalErrorChange(
+                    evaluation,
+                    second
+                );
+
+
+            if (firstGlobal != secondGlobal)
             {
                 return
-                    first.nonRoiErrorChange
+                    firstGlobal
                     <
-                    second.nonRoiErrorChange;
+                    secondGlobal;
             }
 
 
@@ -775,7 +826,7 @@ buildParetoFront(
     );
 
 
-    double bestNonRoiErrorChange =
+    double bestGlobalErrorChange =
         std::numeric_limits<double>::infinity();
 
 
@@ -785,16 +836,19 @@ buildParetoFront(
 
     for (const auto& metric : ranked)
     {
-        // 当前 metric 的 ROI 已经不会优于前面候选。
-        //
-        // 只有它把 Non-ROIErrorChange 进一步降到更小，
-        // 才形成新的非支配权衡点。
+        const double currentGlobal =
+            globalErrorChange(
+                evaluation,
+                metric
+            );
+
+
         if (
             !hasFrontPoint
             ||
-            metric.nonRoiErrorChange
+            currentGlobal
                 <
-                bestNonRoiErrorChange
+                bestGlobalErrorChange
         )
         {
             front.push_back(
@@ -802,8 +856,8 @@ buildParetoFront(
             );
 
 
-            bestNonRoiErrorChange =
-                metric.nonRoiErrorChange;
+            bestGlobalErrorChange =
+                currentGlobal;
 
 
             hasFrontPoint =
@@ -817,12 +871,13 @@ buildParetoFront(
 
 
 double normalizedDistanceSquared(
+    const DctIntervalFastEvaluation& evaluation,
     const DctIntervalFastMetric& first,
     const DctIntervalFastMetric& second,
     double minRoi,
     double maxRoi,
-    double minNonRoi,
-    double maxNonRoi
+    double minGlobal,
+    double maxGlobal
 )
 {
     const double roiRange =
@@ -831,10 +886,10 @@ double normalizedDistanceSquared(
         minRoi;
 
 
-    const double nonRoiRange =
-        maxNonRoi
+    const double globalRange =
+        maxGlobal
         -
-        minNonRoi;
+        minGlobal;
 
 
     const double firstRoi =
@@ -865,30 +920,36 @@ double normalizedDistanceSquared(
         0.0;
 
 
-    const double firstNonRoi =
-        nonRoiRange > 0.0
+    const double firstGlobal =
+        globalRange > 0.0
         ?
         (
-            first.nonRoiErrorChange
+            globalErrorChange(
+                evaluation,
+                first
+            )
             -
-            minNonRoi
+            minGlobal
         )
         /
-        nonRoiRange
+        globalRange
         :
         0.0;
 
 
-    const double secondNonRoi =
-        nonRoiRange > 0.0
+    const double secondGlobal =
+        globalRange > 0.0
         ?
         (
-            second.nonRoiErrorChange
+            globalErrorChange(
+                evaluation,
+                second
+            )
             -
-            minNonRoi
+            minGlobal
         )
         /
-        nonRoiRange
+        globalRange
         :
         0.0;
 
@@ -899,10 +960,10 @@ double normalizedDistanceSquared(
         secondRoi;
 
 
-    const double nonRoiDifference =
-        firstNonRoi
+    const double globalDifference =
+        firstGlobal
         -
-        secondNonRoi;
+        secondGlobal;
 
 
     return
@@ -910,9 +971,9 @@ double normalizedDistanceSquared(
         *
         roiDifference
         +
-        nonRoiDifference
+        globalDifference
         *
-        nonRoiDifference;
+        globalDifference;
 }
 
 }
@@ -978,12 +1039,15 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
         front.front().roiErrorChange;
 
 
-    double minNonRoi =
-        front.front().nonRoiErrorChange;
+    double minGlobal =
+        globalErrorChange(
+            evaluation,
+            front.front()
+        );
 
 
-    double maxNonRoi =
-        front.front().nonRoiErrorChange;
+    double maxGlobal =
+        minGlobal;
 
 
     for (const auto& metric : front)
@@ -1002,17 +1066,24 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
             );
 
 
-        minNonRoi =
-            std::min(
-                minNonRoi,
-                metric.nonRoiErrorChange
+        const double currentGlobal =
+            globalErrorChange(
+                evaluation,
+                metric
             );
 
 
-        maxNonRoi =
+        minGlobal =
+            std::min(
+                minGlobal,
+                currentGlobal
+            );
+
+
+        maxGlobal =
             std::max(
-                maxNonRoi,
-                metric.nonRoiErrorChange
+                maxGlobal,
+                currentGlobal
             );
     }
 
@@ -1047,7 +1118,7 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     if (maxCount > 1)
     {
         // 前沿另一端：
-        // NonROIErrorChange 最小，偏“补偿能力”。
+        // GlobalErrorChange 最小，偏“整体质量保护”。
         const std::size_t lastIndex =
             front.size()
             -
@@ -1070,7 +1141,7 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     // 在归一化二维误差空间中做最远点补充。
     //
     // 这样不会只保留某一个极端附近的大量相似区间，
-    // 而是尽量覆盖整条“ROI破坏 - Non-ROI代价”前沿。
+    // 而是尽量覆盖整条“ROI破坏 - Global代价”前沿。
     while (
         selectedIndices.size()
         <
@@ -1105,12 +1176,13 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
                     std::min(
                         minimumDistance,
                         normalizedDistanceSquared(
+                            evaluation,
                             front[candidateIndex],
                             front[selectedIndex],
                             minRoi,
                             maxRoi,
-                            minNonRoi,
-                            maxNonRoi
+                            minGlobal,
+                            maxGlobal
                         )
                     );
             }
@@ -1162,12 +1234,12 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
 
     // 仅为了输出和后续调试更直观：
-    // 从“ROI攻击端”排到“Non-ROI补偿端”。
+    // 从“ROI攻击端”排到“整体质量保护端”。
     std::sort(
         result.representatives.begin(),
         result.representatives.end(),
 
-        [](
+        [&evaluation](
             const DctIntervalFastMetric& first,
             const DctIntervalFastMetric& second
         )
