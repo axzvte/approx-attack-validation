@@ -1,6 +1,6 @@
 #pragma once
 
-#include "applications/dct.hpp"
+#include "core/application.hpp"
 #include "core/attack_config.hpp"
 
 #include <opencv2/core.hpp>
@@ -101,9 +101,9 @@ public:
     // - ROI / Non-ROI trigger-rate gap。
     //
     // 因而结果只反映“监控信号自身的区域区分能力”，
-    // 不混入 attack unit 或最终 DCT PSNR。
+    // 不混入 attack unit 或最终应用指标。
     static DctMonitorSignalReport analyze(
-        const applications::DctApplication& application,
+        const core::Application& application,
         const std::vector<cv::Mat>& inputImages,
         const std::vector<cv::Mat>& roiMasks,
         const std::vector<int>& candidateNodeIds
