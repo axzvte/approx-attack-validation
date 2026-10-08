@@ -88,11 +88,12 @@ public:
     baselineConfig() const;
 
 
-    // 当前工作 Baseline：
-    // Node 25、19、13 使用 5RP，其余节点 Exact。
+    // 当前工作 Baseline：Balanced-10。
+    // Node 8、10、11、13、16、19、22、25、28、31
+    // 使用 5RP，其余节点 Exact。
     //
-    // 该配置用于先跑通完整攻击搜索流程；
-    // 后续可再单独研究 Baseline DSE。
+    // 该配置由 baseline sweep 在当前候选中选作后续搜索的
+    // 工作 Baseline。
     static BaselineConfig
     createDefaultBaselineConfig();
 
