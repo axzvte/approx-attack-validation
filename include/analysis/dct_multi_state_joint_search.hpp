@@ -2,7 +2,7 @@
 
 #include "analysis/dct_interval_full_validator.hpp"
 #include "analysis/two_stage_search.hpp"
-#include "applications/dct.hpp"
+#include "core/application.hpp"
 
 #include <cstddef>
 #include <functional>
@@ -23,7 +23,7 @@ struct DctMultiStateJointSearchOptions
 
 
     // 每个“当前状态 + 目标节点”最多保留多少个快速代表区间，
-    // 再交给完整 DCT。
+    // 再交给完整应用。
     std::size_t representativeIntervalCount = 20;
 
 
@@ -132,11 +132,11 @@ public:
     // 4. 目标节点已有区间时，refinement 会暂时移除它，
     //    保留其它节点后重新生成区间候选；
     // 5. Module 3-A 的代表区间只负责预筛，
-    //    所有保留候选最终都真正跑完整 DCT。
+    //    所有保留候选最终都真正跑完整应用。
     //
     // structure 可包含任意数量节点；当前课题后续主要使用 1~5 个。
     static DctMultiStateJointSearchResult search(
-        const applications::DctApplication& application,
+        const core::Application& application,
         const cv::Mat& inputImage,
         const cv::Mat& roiMask,
         const AttackStructure& structure,
