@@ -1,7 +1,7 @@
 #pragma once
 
 #include "analysis/brute_force_search.hpp"
-#include "applications/dct.hpp"
+#include "core/application.hpp"
 
 #include <opencv2/core.hpp>
 
@@ -56,9 +56,9 @@ public:
 
     // 对任意当前配置计算统一的完整图像指标。
     //
-    // 参考始终为精确 DCT 重建结果。
+    // 参考始终为当前 Application 的精确输出。
     static DctImageQualityMetrics evaluateConfiguration(
-        const applications::DctApplication& application,
+        const core::Application& application,
         const cv::Mat& inputImage,
         const cv::Mat& roiMask,
         const std::vector<core::AttackConfig>& configuration
@@ -67,15 +67,15 @@ public:
 
     // Module 2-B：
     //
-    // 对 Module 2-A 留下的少量区间真正运行完整 DCT。
+    // 对 Module 2-A 留下的少量区间真正运行完整应用。
     //
     // currentConfiguration 表示其它节点以及目标节点当前正在使用的配置。
     // 对每个 candidate interval：
     // 1. 复制 currentConfiguration；
     // 2. 将目标 nodeId 的配置替换为
     //      nodeId + monitorInput + attackUnit + candidate interval；
-    // 3. 运行完整近似 DCT；
-    // 4. 统一相对“精确 DCT 重建结果”计算
+    // 3. 运行完整近似应用；
+    // 4. 统一相对“精确应用输出”计算
     //      Global / ROI / Non-ROI PSNR；
     // 5. 同时给出相对 currentConfiguration 的 PSNR 变化。
     //
@@ -83,7 +83,7 @@ public:
     // - 第一轮 Baseline 单节点验证；
     // - 后续多节点逐节点区间优化。
     static DctIntervalFullValidationReport validate(
-        const applications::DctApplication& application,
+        const core::Application& application,
         const cv::Mat& inputImage,
         const cv::Mat& roiMask,
         const std::vector<core::AttackConfig>& currentConfiguration,
