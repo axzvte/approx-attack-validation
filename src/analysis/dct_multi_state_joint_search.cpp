@@ -34,7 +34,7 @@ void validateStructure(
     if (structure.empty())
     {
         throw std::runtime_error(
-            "DCT multi-state joint search received an empty structure."
+            "Multi-state joint search received an empty structure."
         );
     }
 
@@ -48,7 +48,7 @@ void validateStructure(
         if (node.nodeId < 0)
         {
             throw std::runtime_error(
-                "DCT multi-state joint search received a negative node ID."
+                "Multi-state joint search received a negative node ID."
             );
         }
 
@@ -60,7 +60,7 @@ void validateStructure(
         )
         {
             throw std::runtime_error(
-                "DCT multi-state joint search received duplicate node IDs."
+                "Multi-state joint search received duplicate node IDs."
             );
         }
     }
@@ -187,7 +187,7 @@ void setTarget(
         if (replaced)
         {
             throw std::runtime_error(
-                "DCT multi-state joint search found duplicate target configs."
+                "Multi-state joint search found duplicate target configs."
             );
         }
 
@@ -326,7 +326,7 @@ toIntervals(
 
 std::vector<DctMultiStateSearchState>
 expandStateOnNode(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const DctMultiStateSearchState& currentState,
@@ -1138,7 +1138,7 @@ BeamReductionResult reduceBeam(
 
 
 void processNodeLayer(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const AttackStructureNode& node,
@@ -1300,7 +1300,7 @@ bool isBetterFeasibleFinal(
 
 DctMultiStateJointSearchResult
 DctMultiStateJointSearch::search(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const cv::Mat& inputImage,
     const cv::Mat& roiMask,
     const AttackStructure& structure,
