@@ -24,6 +24,7 @@ struct DctIntervalFastMetric
 
 
     // 当前区间在 ROI / Non-ROI 动态计算中的加权触发比例。
+    // Non-ROI 仅保留用于统计与 Global 误差估计，不再作为独立筛选目标。
     double roiTriggerRate = 0.0;
     double nonRoiTriggerRate = 0.0;
 
@@ -39,7 +40,7 @@ struct DctIntervalFastMetric
     double nonRoiErrorChange = 0.0;
 
 
-    // 一个仅用于“快速排序”的方向性指标：
+    // 兼容旧分析工具保留的方向性指标：
     //
     // redistributionScore
     //     = roiErrorChange - nonRoiErrorChange
@@ -47,8 +48,8 @@ struct DctIntervalFastMetric
     // 越大表示局部误差越倾向于被推向 ROI，
     // 或者更多地从 Non-ROI 中被减小。
     //
-    // 该分数只用于 Module 2-A 的候选排序，
-    // 最终区间仍由完整 DCT 的 Global / ROI / Non-ROI PSNR 决定。
+    // 当前联合搜索的代表区间筛选不再使用该分数；
+    // 最终选择由完整应用的 Global / ROI PSNR 决定。
     double redistributionScore = 0.0;
 };
 
@@ -70,15 +71,15 @@ struct DctIntervalRepresentativeSelection
 {
     std::size_t totalMetricCount = 0;
 
-    // 在“ROIErrorChange 越大越好、NonROIErrorChange 越小越好”
+    // 在“ROIErrorChange 越大越好、GlobalErrorChange 越小越好”
     // 这两个方向上，没有被其它区间同时压制的候选数量。
     std::size_t paretoMetricCount = 0;
 
 
     // 从非支配前沿中挑出的少量代表区间。
     //
-    // 它们不是最终最佳区间，只是为了给完整 DCT 保留
-    // 不同“ROI 破坏 / Non-ROI 代价”权衡。
+    // 它们不是最终最佳区间，只是为了给完整应用保留
+    // 不同“ROI 破坏 / Global 代价”权衡。
     std::vector<DctIntervalFastMetric>
         representatives;
 };
@@ -165,16 +166,13 @@ public:
     //
     // 第一步：构造二维非支配前沿。
     //
-    // 对区间 A、B，如果 A 同时满足：
-    //   A.roiErrorChange    >= B.roiErrorChange
-    //   A.nonRoiErrorChange <= B.nonRoiErrorChange
-    // 且至少一个严格更好，
-    // 那么 B 被 A 全面压制，可以删除。
+    // 目标方向为：
+    //   ROI 局部误差增加越大越好；
+    //   对整体 Global 误差的增加越小越好。
     //
     // 第二步：如果前沿仍超过 maxCount，
-    // 在归一化后的二维误差空间中保留两端极值，
-    // 再逐个选择离已有代表点最远的候选，
-    // 让代表区间覆盖不同的 ROI / Non-ROI 权衡位置。
+    // 在归一化后的 ROI / Global 二维空间中保留两端极值，
+    // 再逐个选择离已有代表点最远的候选。
     //
     // 这里仍然不运行完整 DCT。
     static DctIntervalRepresentativeSelection
