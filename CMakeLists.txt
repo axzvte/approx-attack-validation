@@ -43,6 +43,7 @@ add_library(
     src/applications/dct.cpp
     src/applications/dct8_fixed_graph.cpp
     src/applications/dct8_dfg_builder.cpp
+    src/applications/sharpen.cpp
 
     src/approximate/evoapprox_adapter.cpp
 
@@ -697,6 +698,24 @@ add_executable(
 
 target_link_libraries(
     dct_baseline_sweep
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# Image Sharpening through the shared multi-state joint search
+# =========================================================
+
+add_executable(
+    sharpen_multi_state_joint_search
+
+    app/sharpen_multi_state_joint_search.cpp
+)
+
+
+target_link_libraries(
+    sharpen_multi_state_joint_search
     PRIVATE
         approx_framework
 )
