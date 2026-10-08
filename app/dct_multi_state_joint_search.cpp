@@ -549,6 +549,10 @@ int main(int argc, char** argv)
             30.0;
 
 
+        options.nonRoiPsnrThreshold =
+            30.0;
+
+
         std::cout
             << "DCT error-redistribution interval + joint search\n"
             << "===============================================\n"
@@ -579,7 +583,11 @@ int main(int argc, char** argv)
             << "\n"
             << "Final Global PSNR threshold: "
             << options.globalPsnrThreshold
-            << " dB\n\n";
+            << " dB\n"
+            << "Final Non-ROI PSNR threshold: "
+            << options.nonRoiPsnrThreshold
+            << " dB\n"
+            << "Final ranking: maximize (Non-ROI PSNR - ROI PSNR)\n\n";
 
 
         std::cout
@@ -734,6 +742,27 @@ int main(int argc, char** argv)
                 const auto& second
             )
             {
+                const double firstGap =
+                    first.metrics.nonRoiPsnr
+                    -
+                    first.metrics.roiPsnr;
+
+
+                const double secondGap =
+                    second.metrics.nonRoiPsnr
+                    -
+                    second.metrics.roiPsnr;
+
+
+                if (firstGap != secondGap)
+                {
+                    return
+                        firstGap
+                        >
+                        secondGap;
+                }
+
+
                 return
                     first.metrics.roiPsnr
                     <
@@ -743,13 +772,14 @@ int main(int argc, char** argv)
 
 
         std::cout
-            << "\nFinal beam states (lowest ROI first)\n"
-            << "------------------------------------\n"
+            << "\nFinal beam states (largest regional gap first)\n"
+            << "----------------------------------------------\n"
             << std::left
             << std::setw(7) << "Rank"
             << std::setw(14) << "Global"
             << std::setw(14) << "ROI"
             << std::setw(14) << "NonROI"
+            << std::setw(14) << "Gap"
             << "ActiveNodes\n";
 
 
@@ -766,6 +796,12 @@ int main(int argc, char** argv)
                 << std::setw(14) << state.metrics.globalPsnr
                 << std::setw(14) << state.metrics.roiPsnr
                 << std::setw(14) << state.metrics.nonRoiPsnr
+                << std::setw(14)
+                << (
+                    state.metrics.nonRoiPsnr
+                    -
+                    state.metrics.roiPsnr
+                )
                 << state.configuration.size()
                 << "\n";
         }
@@ -774,8 +810,8 @@ int main(int argc, char** argv)
         if (!result.hasBestFeasibleState)
         {
             std::cout
-                << "\nNo final state satisfies Global >= 30 dB "
-                << "and ROI < baseline ROI.\n";
+                << "\nNo final state satisfies Global >= 30 dB, "
+                << "Non-ROI >= 30 dB and ROI < baseline ROI.\n";
 
             return 0;
         }
@@ -797,6 +833,13 @@ int main(int argc, char** argv)
             << "Non-ROI PSNR: "
             << best.metrics.nonRoiPsnr
             << "\n"
+            << "Regional gap (Non-ROI - ROI): "
+            << (
+                best.metrics.nonRoiPsnr
+                -
+                best.metrics.roiPsnr
+            )
+            << " dB\n"
             << "Active redistribution nodes: "
             << best.configuration.size()
             << "\n";
