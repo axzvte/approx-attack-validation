@@ -682,3 +682,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# DCT baseline-only quality sweep
+# =========================================================
+
+add_executable(
+    dct_baseline_sweep
+
+    app/dct_baseline_sweep.cpp
+)
+
+
+target_link_libraries(
+    dct_baseline_sweep
+    PRIVATE
+        approx_framework
+)
