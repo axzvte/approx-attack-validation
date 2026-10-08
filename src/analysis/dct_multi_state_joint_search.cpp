@@ -1248,6 +1248,18 @@ BeamReductionResult reduceBeam(
     );
 
 
+    if (
+        selectedIndices.size()
+        >
+        options.beamWidth
+    )
+    {
+        selectedIndices.resize(
+            options.beamWidth
+        );
+    }
+
+
     while (
         selectedIndices.size()
         <
