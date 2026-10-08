@@ -11,8 +11,6 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <limits>
-#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -45,33 +43,6 @@ std::string signalName(core::MonitorSignal signal)
     }
 
     return "unknown";
-}
-
-
-core::MonitorSignal parseSignal(const std::string& value)
-{
-    if (value == "input1")
-    {
-        return core::MonitorSignal::Input1;
-    }
-
-    if (value == "input2")
-    {
-        return core::MonitorSignal::Input2;
-    }
-
-    if (
-        value == "baseline_output"
-        ||
-        value == "5RP_output"
-    )
-    {
-        return core::MonitorSignal::BaselineOutput;
-    }
-
-    throw std::runtime_error(
-        "Unknown monitor signal in CSV: " + value
-    );
 }
 
 
@@ -192,121 +163,6 @@ std::vector<int> loadRankedNodeIds(
     }
 
     return nodes;
-}
-
-
-std::map<int, core::MonitorSignal> loadBestRoiSignals(
-    const std::filesystem::path& path,
-    const std::vector<int>& nodeIds
-)
-{
-    struct Choice
-    {
-        bool found = false;
-        double meanGap = -std::numeric_limits<double>::infinity();
-        core::MonitorSignal signal = core::MonitorSignal::Input1;
-    };
-
-
-    std::map<int, Choice> choices;
-
-    for (const int nodeId : nodeIds)
-    {
-        choices[nodeId] = Choice{};
-    }
-
-
-    std::ifstream file(path);
-
-    if (!file.is_open())
-    {
-        throw std::runtime_error(
-            "Unable to open monitor-signal summary CSV: "
-            + path.string()
-            + ". Run dct_monitor_signal_analysis first."
-        );
-    }
-
-
-    std::string line;
-
-    if (!std::getline(file, line))
-    {
-        throw std::runtime_error(
-            "Monitor-signal summary CSV is empty."
-        );
-    }
-
-
-    while (std::getline(file, line))
-    {
-        if (line.empty())
-        {
-            continue;
-        }
-
-        const auto fields =
-            splitCsvLine(line);
-
-        if (fields.size() < 5)
-        {
-            throw std::runtime_error(
-                "Malformed monitor-signal summary row."
-            );
-        }
-
-        const int nodeId =
-            std::stoi(fields[0]);
-
-        const auto iterator =
-            choices.find(nodeId);
-
-        if (iterator == choices.end())
-        {
-            continue;
-        }
-
-        if (fields[3] != "ROI")
-        {
-            continue;
-        }
-
-        const double meanGap =
-            std::stod(fields[4]);
-
-        if (
-            !iterator->second.found
-            ||
-            meanGap > iterator->second.meanGap
-        )
-        {
-            iterator->second.found = true;
-            iterator->second.meanGap = meanGap;
-            iterator->second.signal = parseSignal(fields[2]);
-        }
-    }
-
-
-    std::map<int, core::MonitorSignal> result;
-
-    for (const int nodeId : nodeIds)
-    {
-        const auto& choice =
-            choices.at(nodeId);
-
-        if (!choice.found)
-        {
-            throw std::runtime_error(
-                "No ROI monitor-signal result for node "
-                + std::to_string(nodeId)
-            );
-        }
-
-        result[nodeId] =
-            choice.signal;
-    }
-
-    return result;
 }
 
 
