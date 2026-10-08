@@ -424,23 +424,10 @@ int main(int argc, char** argv)
             "dct_node_sensitivity_summary.csv";
 
 
-        const auto monitorSummaryPath =
-            analysisDirectory
-            /
-            "dct_monitor_signal_summary.csv";
-
-
         const auto nodeIds =
             loadRankedNodeIds(
                 sensitivitySummaryPath,
                 static_cast<std::size_t>(nodeCount)
-            );
-
-
-        const auto bestSignals =
-            loadBestRoiSignals(
-                monitorSummaryPath,
-                nodeIds
             );
 
 
@@ -504,7 +491,7 @@ int main(int argc, char** argv)
                 analysis::AttackStructureNode{
                     nodeId,
                     approximate::ApproxUnitId::Add12se5RP,
-                    bestSignals.at(nodeId)
+                    core::MonitorSignal::Input1
                 }
             );
         }
@@ -533,6 +520,14 @@ int main(int argc, char** argv)
             redistributionUnits;
 
 
+        options.monitorSignals =
+        {
+            core::MonitorSignal::Input1,
+            core::MonitorSignal::Input2,
+            core::MonitorSignal::BaselineOutput
+        };
+
+
         options.representativeIntervalCount =
             representativeCount;
 
@@ -549,10 +544,6 @@ int main(int argc, char** argv)
             30.0;
 
 
-        options.nonRoiPsnrThreshold =
-            30.0;
-
-
         std::cout
             << "DCT error-redistribution interval + joint search\n"
             << "===============================================\n"
@@ -562,9 +553,6 @@ int main(int argc, char** argv)
             << "Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)\n"
             << "Node source: "
             << sensitivitySummaryPath.string()
-            << "\n"
-            << "Monitor source: "
-            << monitorSummaryPath.string()
             << "\n"
             << "Candidate nodes used: "
             << structure.size()
@@ -584,15 +572,13 @@ int main(int argc, char** argv)
             << "Final Global PSNR threshold: "
             << options.globalPsnrThreshold
             << " dB\n"
-            << "Final Non-ROI PSNR threshold: "
-            << options.nonRoiPsnrThreshold
-            << " dB\n"
-            << "Final ranking: minimize ROI PSNR after Global / Non-ROI constraints\n\n";
+            << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
+            << "Final ranking: Global >= threshold, then minimize ROI PSNR\n\n";
 
 
         std::cout
-            << "Automatically selected node / monitor pairs\n"
-            << "-------------------------------------------\n";
+            << "Candidate nodes\n"
+            << "---------------\n";
 
         for (std::size_t index = 0;
              index < structure.size();
@@ -608,8 +594,6 @@ int main(int argc, char** argv)
                 << node.nodeId
                 << " / "
                 << applications::Dct8FixedGraph::nodeName(node.nodeId)
-                << " / "
-                << signalName(node.monitorInput)
                 << "\n";
         }
 
@@ -744,22 +728,14 @@ int main(int argc, char** argv)
             {
                 const bool firstFeasible =
                     first.metrics.globalPsnr
-                        >=
-                        options.globalPsnrThreshold
-                    &&
-                    first.metrics.nonRoiPsnr
-                        >=
-                        options.nonRoiPsnrThreshold;
+                    >=
+                    options.globalPsnrThreshold;
 
 
                 const bool secondFeasible =
                     second.metrics.globalPsnr
-                        >=
-                        options.globalPsnrThreshold
-                    &&
-                    second.metrics.nonRoiPsnr
-                        >=
-                        options.nonRoiPsnrThreshold;
+                    >=
+                    options.globalPsnrThreshold;
 
 
                 if (firstFeasible != secondFeasible)
@@ -781,19 +757,6 @@ int main(int argc, char** argv)
                 }
 
 
-                if (
-                    first.metrics.nonRoiPsnr
-                    !=
-                    second.metrics.nonRoiPsnr
-                )
-                {
-                    return
-                        first.metrics.nonRoiPsnr
-                        >
-                        second.metrics.nonRoiPsnr;
-                }
-
-
                 return
                     first.metrics.globalPsnr
                     >
@@ -803,8 +766,8 @@ int main(int argc, char** argv)
 
 
         std::cout
-            << "\nFinal beam states (feasible states, lowest ROI first)\n"
-            << "-----------------------------------------------------\n"
+            << "\nFinal beam states (Global-feasible states, lowest ROI first)\n"
+            << "------------------------------------------------------------\n"
             << std::left
             << std::setw(7) << "Rank"
             << std::setw(14) << "Global"
@@ -841,8 +804,8 @@ int main(int argc, char** argv)
         if (!result.hasBestFeasibleState)
         {
             std::cout
-                << "\nNo final state satisfies Global >= 30 dB, "
-                << "Non-ROI >= 30 dB and ROI < baseline ROI.\n";
+                << "\nNo final state satisfies Global >= 30 dB "
+                << "and ROI < baseline ROI.\n";
 
             return 0;
         }
