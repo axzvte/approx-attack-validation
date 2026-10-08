@@ -124,6 +124,18 @@ void validateOptions(
 
     if (
         !std::isfinite(
+            options.nonRoiPsnrThreshold
+        )
+    )
+    {
+        throw std::runtime_error(
+            "nonRoiPsnrThreshold must be finite."
+        );
+    }
+
+
+    if (
+        !std::isfinite(
             options.comparisonEpsilon
         )
         ||
@@ -544,6 +556,14 @@ bool dominates(
         epsilon;
 
 
+    const bool nonRoiNoWorse =
+        first.metrics.nonRoiPsnr
+        >=
+        second.metrics.nonRoiPsnr
+        -
+        epsilon;
+
+
     const bool strictlyBetter =
         first.metrics.globalPsnr
             >
@@ -555,6 +575,12 @@ bool dominates(
             <
             second.metrics.roiPsnr
             -
+            epsilon
+        ||
+        first.metrics.nonRoiPsnr
+            >
+            second.metrics.nonRoiPsnr
+            +
             epsilon;
 
 
@@ -562,6 +588,8 @@ bool dominates(
         globalNoWorse
         &&
         roiNoWorse
+        &&
+        nonRoiNoWorse
         &&
         strictlyBetter;
 }
