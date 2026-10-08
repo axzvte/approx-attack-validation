@@ -78,9 +78,16 @@ Dct8FixedGraph::createDefaultBaselineConfig()
     return
         createSparseApproximateBaselineConfig(
             {
-                25,
+                8,
+                10,
+                11,
+                13,
+                16,
                 19,
-                13
+                22,
+                25,
+                28,
+                31
             },
             approximate::ApproxUnitId::Add12se5RP
         );
@@ -272,8 +279,9 @@ Dct8FixedGraph::addApprox(
     // 原正常路径始终存在。
     //
     // Baseline 由每个节点自己的 BaselineNodeConfig 决定。
-    // 当前默认工作配置为 Sparse-3：
-    // Node 25、19、13 = 5RP，其余节点 Exact。
+    // 当前默认工作配置为 Balanced-10：
+    // Node 8、10、11、13、16、19、22、25、28、31 = 5RP，
+    // 其余节点 Exact。
     // 对 BaselineOutput monitor 来说，比较器监测的就是该正常路径输出。
     const auto& baselineNode =
         baselineConfig_[nodeId];
