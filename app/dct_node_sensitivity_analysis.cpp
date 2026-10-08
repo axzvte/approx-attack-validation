@@ -461,10 +461,7 @@ int main(
 
         const auto baselineConfig =
             applications::Dct8FixedGraph::
-                createSparseApproximateBaselineConfig(
-                    {25, 19, 13},
-                    approximate::ApproxUnitId::Add12se5RP
-                );
+                createDefaultBaselineConfig();
 
 
         applications::DctApplication
@@ -747,7 +744,7 @@ int main(
         std::cout
             << "DCT single-node sensitivity analysis\n"
             << "====================================\n"
-            << "Baseline: Sparse-3 (nodes 25, 19, 13 = 5RP; others exact)\n"
+            << "Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)\n"
             << "Stage 1 images: "
             << inputImages.size()
             << "\n"
@@ -755,7 +752,7 @@ int main(
             << attackUnits.size()
             << "\n"
             << "Trigger: full signed-12 Input1 range [-2048, 2047]\n"
-            << "Output reference: Sparse-3 baseline image\n\n";
+            << "Output reference: Balanced-10 baseline image\n\n";
 
 
         std::cout
