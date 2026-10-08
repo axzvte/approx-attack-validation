@@ -548,15 +548,9 @@ bool fastMetricComesFirst(
         )
         {
             return
-                globalErrorChange(
-                    evaluation,
-                    first
-                )
+                first.nonRoiErrorChange
                 <
-                globalErrorChange(
-                    evaluation,
-                    second
-                );
+                second.nonRoiErrorChange;
         }
 
 
@@ -580,15 +574,9 @@ bool fastMetricComesFirst(
         )
         {
             return
-                globalErrorChange(
-                    evaluation,
-                    first
-                )
+                first.nonRoiErrorChange
                 <
-                globalErrorChange(
-                    evaluation,
-                    second
-                );
+                second.nonRoiErrorChange;
         }
 
 
@@ -1264,9 +1252,15 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
 
             return
-                first.nonRoiErrorChange
+                globalErrorChange(
+                    evaluation,
+                    first
+                )
                 <
-                second.nonRoiErrorChange;
+                globalErrorChange(
+                    evaluation,
+                    second
+                );
         }
     );
 
