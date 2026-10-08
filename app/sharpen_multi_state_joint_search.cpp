@@ -1,4 +1,3 @@
-#include "analysis/dct_monitor_signal_analyzer.hpp"
 #include "analysis/dct_multi_state_joint_search.hpp"
 
 #include "applications/sharpen.hpp"
@@ -9,7 +8,6 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -82,98 +80,6 @@ std::string unitName(
     }
 
     return "unknown";
-}
-
-
-core::MonitorSignal bestRoiSignal(
-    const analysis::DctMonitorSignalReport& report,
-    int nodeId
-)
-{
-    bool found =
-        false;
-
-    double bestGap =
-        -std::numeric_limits<double>::infinity();
-
-    core::MonitorSignal best =
-        core::MonitorSignal::Input1;
-
-
-    for (const auto& summary : report.summaries)
-    {
-        if (
-            summary.nodeId != nodeId
-            ||
-            summary.bias
-                !=
-                analysis::DctMonitorSignalBias::Roi
-        )
-        {
-            continue;
-        }
-
-
-        if (
-            !found
-            ||
-            summary.meanGap > bestGap
-        )
-        {
-            found =
-                true;
-
-            bestGap =
-                summary.meanGap;
-
-            best =
-                summary.signal;
-        }
-    }
-
-
-    if (!found)
-    {
-        throw std::runtime_error(
-            "No ROI monitor signal found for sharpening node "
-            +
-            std::to_string(
-                nodeId
-            )
-        );
-    }
-
-
-    return best;
-}
-
-
-double bestRoiGap(
-    const analysis::DctMonitorSignalReport& report,
-    int nodeId,
-    core::MonitorSignal signal
-)
-{
-    for (const auto& summary : report.summaries)
-    {
-        if (
-            summary.nodeId == nodeId
-            &&
-            summary.bias
-                ==
-                analysis::DctMonitorSignalBias::Roi
-            &&
-            summary.signal == signal
-        )
-        {
-            return summary.meanGap;
-        }
-    }
-
-
-    throw std::runtime_error(
-        "Unable to find selected sharpening monitor gap."
-    );
 }
 
 
@@ -415,39 +321,22 @@ int main(
         };
 
 
-        const auto monitorReport =
-            analysis::DctMonitorSignalAnalyzer::
-                analyze(
-                    application,
-                    stage1Images,
-                    stage1Masks,
-                    candidateNodes
-                );
-
-
         analysis::AttackStructure
             structure;
 
 
         std::cout
-            << "Automatically selected sharpening node / monitor pairs\n"
-            << "-----------------------------------------------------\n";
+            << "Sharpening candidate nodes\n"
+            << "--------------------------\n";
 
 
         for (const int nodeId : candidateNodes)
         {
-            const auto signal =
-                bestRoiSignal(
-                    monitorReport,
-                    nodeId
-                );
-
-
             structure.push_back(
                 analysis::AttackStructureNode{
                     nodeId,
                     approximate::ApproxUnitId::Add12se5RP,
-                    signal
+                    core::MonitorSignal::Input1
                 }
             );
 
@@ -458,20 +347,6 @@ int main(
                 << " / "
                 << applications::SharpenApplication::nodeName(
                     nodeId
-                )
-                << " / "
-                << signalName(
-                    signal
-                )
-                << " / mean gap "
-                << std::fixed
-                << std::setprecision(
-                    4
-                )
-                << bestRoiGap(
-                    monitorReport,
-                    nodeId,
-                    signal
                 )
                 << "\n";
         }
@@ -511,6 +386,14 @@ int main(
         };
 
 
+        options.monitorSignals =
+        {
+            core::MonitorSignal::Input1,
+            core::MonitorSignal::Input2,
+            core::MonitorSignal::BaselineOutput
+        };
+
+
         options.representativeIntervalCount =
             representativeCount;
 
@@ -524,16 +407,11 @@ int main(
             30.0;
 
 
-        options.nonRoiPsnrThreshold =
-            30.0;
-
-
         std::cout
             << "Search objective: Global >= "
             << options.globalPsnrThreshold
-            << " dB, Non-ROI >= "
-            << options.nonRoiPsnrThreshold
-            << " dB; then minimize ROI PSNR.\n\n";
+            << " dB; then minimize ROI PSNR.\n"
+            << "Monitor signals searched jointly: input1 / input2 / baseline_output\n\n";
 
 
         const analysis::DctMultiStateJointSearchProgressCallback
@@ -609,8 +487,7 @@ int main(
         {
             std::cout
                 << "\nNo feasible sharpening state satisfies "
-                << "Global >= 30 dB, Non-ROI >= 30 dB "
-                << "and ROI < baseline ROI.\n";
+                << "Global >= 30 dB and ROI < baseline ROI.\n";
 
             return 0;
         }
