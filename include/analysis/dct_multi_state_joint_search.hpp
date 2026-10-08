@@ -132,6 +132,7 @@ public:
     // 与旧贪心优化器不同：
     //
     // 1. 每一步保留多个 Global / ROI / Non-ROI 不同权衡状态；
+    //    Global / Non-ROI 用于质量约束，满足后主要追求更低 ROI；
     // 2. 中间状态不强制 Global PSNR >= threshold；
     // 3. 每扩展一个节点，都基于“该状态当前真实运行”
     //    重新采集目标节点 monitor signal；
