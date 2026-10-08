@@ -1199,11 +1199,13 @@ BeamReductionResult reduceBeam(
     );
 
 
-    // 显式保护四类有用状态：
+    // 显式保护几类有用状态：
     // 1. Global 最高；
     // 2. ROI 最低；
-    // 3. 当前已经满足阈值时 ROI 最低；
-    // 4. 刚低于阈值、后续可能被其它节点补偿回来的状态。
+    // 3. Non-ROI 最高；
+    // 4. Non-ROI - ROI 区域差异最大；
+    // 5. 当前同时满足 Global / Non-ROI 阈值时区域差异最大的状态；
+    // 6. 尚未可行但距离两个阈值最近、后续可能补偿回来的状态。
     addSeedIndex(
         maxGlobalIndex,
         selected,
@@ -1219,6 +1221,20 @@ BeamReductionResult reduceBeam(
 
 
     addSeedIndex(
+        maxNonRoiIndex,
+        selected,
+        selectedIndices
+    );
+
+
+    addSeedIndex(
+        maxGapIndex,
+        selected,
+        selectedIndices
+    );
+
+
+    addSeedIndex(
         bestFeasibleIndex,
         selected,
         selectedIndices
@@ -1226,7 +1242,7 @@ BeamReductionResult reduceBeam(
 
 
     addSeedIndex(
-        closestBelowThresholdIndex,
+        closestToFeasibleIndex,
         selected,
         selectedIndices
     );
@@ -1271,7 +1287,9 @@ BeamReductionResult reduceBeam(
                             minGlobal,
                             maxGlobal,
                             minRoi,
-                            maxRoi
+                            maxRoi,
+                            minNonRoi,
+                            maxNonRoi
                         )
                     );
             }
@@ -1329,23 +1347,57 @@ BeamReductionResult reduceBeam(
             const auto& second
         )
         {
+            const double firstGap =
+                regionalGap(
+                    first
+                );
+
+
+            const double secondGap =
+                regionalGap(
+                    second
+                );
+
+
+            if (firstGap != secondGap)
+            {
+                return
+                    firstGap
+                    >
+                    secondGap;
+            }
+
+
             if (
-                first.metrics.globalPsnr
+                first.metrics.roiPsnr
                 !=
-                second.metrics.globalPsnr
+                second.metrics.roiPsnr
             )
             {
                 return
-                    first.metrics.globalPsnr
+                    first.metrics.roiPsnr
+                    <
+                    second.metrics.roiPsnr;
+            }
+
+
+            if (
+                first.metrics.nonRoiPsnr
+                !=
+                second.metrics.nonRoiPsnr
+            )
+            {
+                return
+                    first.metrics.nonRoiPsnr
                     >
-                    second.metrics.globalPsnr;
+                    second.metrics.nonRoiPsnr;
             }
 
 
             return
-                first.metrics.roiPsnr
-                <
-                second.metrics.roiPsnr;
+                first.metrics.globalPsnr
+                >
+                second.metrics.globalPsnr;
         }
     );
 
