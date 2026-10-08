@@ -99,6 +99,14 @@ int main()
         options;
 
 
+    options.monitorSignals =
+    {
+        core::MonitorSignal::Input1,
+        core::MonitorSignal::Input2,
+        core::MonitorSignal::BaselineOutput
+    };
+
+
     options.representativeIntervalCount =
         3;
 
