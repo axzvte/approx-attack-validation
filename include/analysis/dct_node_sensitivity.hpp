@@ -195,8 +195,9 @@ public:
     //
     // Baseline:
     //     使用 DctApplication 当前持有的 BaselineConfig。
-    //     当前节点筛选实验固定为 Sparse-3：
-    //     Node 25、19、13 使用 5RP，其余节点使用 Exact。
+    //     当前节点筛选实验使用工作 Baseline Balanced-10：
+    //     Node 8、10、11、13、16、19、22、25、28、31
+    //     使用 5RP，其余节点使用 Exact。
     //
     // 单节点攻击:
     //     仅当前节点切换到 attackUnit，
