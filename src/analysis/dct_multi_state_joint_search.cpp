@@ -1525,6 +1525,47 @@ bool isBetterFeasibleFinal(
     double epsilon
 )
 {
+    const double candidateGap =
+        regionalGap(
+            candidate
+        );
+
+
+    const double currentGap =
+        regionalGap(
+            currentBest
+        );
+
+
+    // 首要目标：让最终 Non-ROI 与 ROI 的绝对质量差尽可能大，
+    // 即把误差尽可能集中到 ROI，而不是让整幅图共同恶化。
+    if (
+        candidateGap
+        >
+        currentGap
+        +
+        epsilon
+    )
+    {
+        return true;
+    }
+
+
+    if (
+        std::abs(
+            candidateGap
+            -
+            currentGap
+        )
+        >
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
+    // 区域差异近似相同时，优先更低的 ROI。
     if (
         candidate.metrics.roiPsnr
         <
@@ -1543,12 +1584,19 @@ bool isBetterFeasibleFinal(
             -
             currentBest.metrics.roiPsnr
         )
-        <=
-        epsilon
-        &&
-        candidate.metrics.globalPsnr
         >
-        currentBest.metrics.globalPsnr
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
+    // ROI 也近似相同时，优先更高的 Non-ROI。
+    if (
+        candidate.metrics.nonRoiPsnr
+        >
+        currentBest.metrics.nonRoiPsnr
         +
         epsilon
     )
@@ -1557,7 +1605,27 @@ bool isBetterFeasibleFinal(
     }
 
 
-    return false;
+    if (
+        std::abs(
+            candidate.metrics.nonRoiPsnr
+            -
+            currentBest.metrics.nonRoiPsnr
+        )
+        >
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
+    // 最后再比较整体质量。
+    return
+        candidate.metrics.globalPsnr
+        >
+        currentBest.metrics.globalPsnr
+        +
+        epsilon;
 }
 
 }
@@ -1675,6 +1743,10 @@ DctMultiStateJointSearch::search(
             state.metrics.globalPsnr
             <
             options.globalPsnrThreshold
+            ||
+            state.metrics.nonRoiPsnr
+            <
+            options.nonRoiPsnrThreshold
             ||
             state.metrics.roiPsnr
             >=
