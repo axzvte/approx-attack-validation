@@ -123,7 +123,7 @@ int main()
 
 
     // =====================================================
-    // 检查默认工作 Baseline 是否为 Sparse-3
+    // 检查默认工作 Baseline 是否为 Balanced-10
     // =====================================================
 
     applications::Dct8FixedGraph::Trace
@@ -141,7 +141,7 @@ int main()
     );
 
 
-    // Node 0 不在 Sparse-3 的近似节点列表中，
+    // Node 0 不在 Balanced-10 的近似节点列表中，
     // 因此默认 Baseline 应为精确加法。
     const int expectedBaseline =
         input[0]
@@ -156,7 +156,7 @@ int main()
     )
     {
         std::cerr
-            << "Default Sparse-3 baseline is incorrect.\n";
+            << "Default Balanced-10 baseline is incorrect.\n";
 
         return 1;
     }
@@ -330,7 +330,7 @@ int main()
 
 
 
-    // ADD_01 也不在 Sparse-3 近似节点列表中，
+    // ADD_01 也不在 Balanced-10 近似节点列表中，
     // 未攻击时应继续使用精确 Baseline。
     const int expectedNode1 =
         input[1]
@@ -345,7 +345,7 @@ int main()
     )
     {
         std::cerr
-            << "Unconfigured node did not use Sparse-3 baseline.\n";
+            << "Unconfigured node did not use Balanced-10 baseline.\n";
 
         return 1;
     }
