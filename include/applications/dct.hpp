@@ -67,7 +67,7 @@ public:
         const cv::Mat& roiMask,
         const std::vector<core::AttackConfig>& configs,
         std::vector<core::AddSample>& samples
-    ) const;
+    ) const override;
 
 
 private:
