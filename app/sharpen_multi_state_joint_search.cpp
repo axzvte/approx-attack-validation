@@ -509,13 +509,6 @@ int main(
             << "Non-ROI PSNR: "
             << best.metrics.nonRoiPsnr
             << "\n"
-            << "Regional gap (Non-ROI - ROI): "
-            << (
-                best.metrics.nonRoiPsnr
-                -
-                best.metrics.roiPsnr
-            )
-            << " dB\n"
             << "Active redistribution nodes: "
             << best.configuration.size()
             << "\n";
