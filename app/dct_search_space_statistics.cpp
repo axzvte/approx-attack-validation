@@ -112,7 +112,7 @@ int main(
     }
 
 
-    // Baseline 当前默认使用 5RP。
+    // Baseline 当前默认使用 Balanced-10（10 个节点为 5RP）。
     //
     // 攻击单元使用其余 8 个近似加法器，
     // 避免“切换后仍然是 5RP”的无效配置。
@@ -150,7 +150,7 @@ int main(
 
     std::cout
         << "DCT Stage 1 baseline range statistics\n"
-        << "Baseline: 5RP\n"
+        << "Baseline: Balanced-10\n"
         << "Attack units: "
         << attackUnits.size()
         << "\n"
