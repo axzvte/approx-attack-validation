@@ -528,6 +528,14 @@ int main(
             30.0;
 
 
+        std::cout
+            << "Search objective: Global >= "
+            << options.globalPsnrThreshold
+            << " dB, Non-ROI >= "
+            << options.nonRoiPsnrThreshold
+            << " dB; then minimize ROI PSNR.\n\n";
+
+
         const analysis::DctMultiStateJointSearchProgressCallback
             progressCallback =
                 [](
