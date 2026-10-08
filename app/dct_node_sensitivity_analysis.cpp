@@ -708,9 +708,9 @@ int main(
                 report.nodeSummaries;
 
 
-        // 继续沿用原来的 meanSensitivity 排名，
-        // 新增的跨图片统计先作为筛选依据展示，
-        // 不在这里擅自改变排名规则。
+        // 当前目标是在 Global 质量约束下尽可能降低 ROI 质量。
+        // 因此节点预筛优先使用 ROI sensitivity；
+        // meanSensitivity 仅在 ROI sensitivity 相同时作为次级参考。
         std::sort(
             rankedSummaries.begin(),
             rankedSummaries.end(),
@@ -720,6 +720,19 @@ int main(
                 const auto& second
             )
             {
+                if (
+                    first.meanRoiSensitivity
+                    !=
+                    second.meanRoiSensitivity
+                )
+                {
+                    return
+                        first.meanRoiSensitivity
+                        >
+                        second.meanRoiSensitivity;
+                }
+
+
                 if (
                     first.meanSensitivity
                     !=
