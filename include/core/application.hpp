@@ -54,6 +54,19 @@ public:
         const cv::Mat& roiMask,
         std::vector<AddSample>& samples
     ) const = 0;
+
+
+    // 在任意当前配置下真实运行应用，并采集节点动态输入/输出。
+    //
+    // 这是多节点联合搜索的关键通用接口：
+    // 上游节点配置变化后，下游节点的真实输入也会随之变化，
+    // 因此不能只使用 Baseline 样本。
+    virtual void collectConfiguredAddSamples(
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        const std::vector<AttackConfig>& configs,
+        std::vector<AddSample>& samples
+    ) const = 0;
 };
 
 }
