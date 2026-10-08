@@ -530,7 +530,7 @@ int main(
                     << "Node: 6\n"
                     << "Monitor: input1\n"
                     << "Reference: exact DCT reconstruction\n"
-                    << "Current configuration: Baseline 5RP\n"
+                    << "Current configuration: Balanced-10 baseline\n"
                     << "Validated candidates per role/unit: "
                     << validationCount
                     << "\n\n"
