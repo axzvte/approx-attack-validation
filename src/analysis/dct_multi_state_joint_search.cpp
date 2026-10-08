@@ -110,6 +110,29 @@ void validateOptions(
     }
 
 
+    {
+        std::set<int>
+            seenSignals;
+
+
+        for (const auto signal : options.monitorSignals)
+        {
+            const int key =
+                static_cast<int>(
+                    signal
+                );
+
+
+            if (!seenSignals.insert(key).second)
+            {
+                throw std::runtime_error(
+                    "monitorSignals contains duplicate signals."
+                );
+            }
+        }
+    }
+
+
     if (
         !std::isfinite(
             options.globalPsnrThreshold
@@ -118,18 +141,6 @@ void validateOptions(
     {
         throw std::runtime_error(
             "globalPsnrThreshold must be finite."
-        );
-    }
-
-
-    if (
-        !std::isfinite(
-            options.nonRoiPsnrThreshold
-        )
-    )
-    {
-        throw std::runtime_error(
-            "nonRoiPsnrThreshold must be finite."
         );
     }
 
@@ -397,93 +408,117 @@ expandStateOnNode(
     }
 
 
-    for (const auto unit : unitsToTry)
+    std::vector<core::MonitorSignal>
+        signalsToTry;
+
+
+    if (options.monitorSignals.empty())
     {
-        const auto fastEvaluation =
-            DctIntervalFastEvaluator::
-                evaluateFromSamples(
-                    samples,
-                    node.nodeId,
-                    node.monitorInput,
-                    unit
-                );
+        signalsToTry.push_back(
+            node.monitorInput
+        );
+    }
+    else
+    {
+        signalsToTry =
+            options.monitorSignals;
+    }
 
 
-        const auto representativeSelection =
-            DctIntervalFastEvaluator::
-                selectRepresentativeMetrics(
-                    fastEvaluation,
-                    options.representativeIntervalCount
-                );
-
-
-        if (
-            representativeSelection.
-                representatives.empty()
-        )
+    for (const auto signal : signalsToTry)
+    {
+        for (const auto unit : unitsToTry)
         {
-            continue;
-        }
+            const auto fastEvaluation =
+                DctIntervalFastEvaluator::
+                    evaluateFromSamples(
+                        samples,
+                        node.nodeId,
+                        signal,
+                        unit
+                    );
 
 
-        const auto fullReport =
-            DctIntervalFullValidator::
-                validate(
-                    application,
-                    inputImage,
-                    roiMask,
-                    withoutTarget,
-                    node.nodeId,
-                    node.monitorInput,
-                    unit,
-                    toIntervals(
-                        representativeSelection
+            const auto representativeSelection =
+                DctIntervalFastEvaluator::
+                    selectRepresentativeMetrics(
+                        fastEvaluation,
+                        options.representativeIntervalCount
+                    );
+
+
+            if (
+                representativeSelection.
+                    representatives.empty()
+            )
+            {
+                continue;
+            }
+
+
+            const auto fullReport =
+                DctIntervalFullValidator::
+                    validate(
+                        application,
+                        inputImage,
+                        roiMask,
+                        withoutTarget,
+                        node.nodeId,
+                        signal,
+                        unit,
+                        toIntervals(
+                            representativeSelection
+                        )
+                    );
+
+
+            AttackStructureNode
+                implementationNode =
+                    node;
+
+
+            implementationNode.unit =
+                unit;
+
+
+            implementationNode.monitorInput =
+                signal;
+
+
+            expanded.reserve(
+                expanded.size()
+                +
+                fullReport.candidates.size()
+            );
+
+
+            for (const auto& candidate : fullReport.candidates)
+            {
+                DctMultiStateSearchState
+                    state;
+
+
+                state.configuration =
+                    withoutTarget;
+
+
+                setTarget(
+                    state.configuration,
+                    implementationNode,
+                    candidate.interval
+                );
+
+
+                state.metrics =
+                    candidate.metrics;
+
+
+                expanded.push_back(
+                    std::move(
+                        state
                     )
                 );
-
-
-        AttackStructureNode
-            implementationNode =
-                node;
-
-
-        implementationNode.unit =
-            unit;
-
-
-        expanded.reserve(
-            expanded.size()
-            +
-            fullReport.candidates.size()
-        );
-
-
-        for (const auto& candidate : fullReport.candidates)
-        {
-            DctMultiStateSearchState
-                state;
-
-
-            state.configuration =
-                withoutTarget;
-
-
-            setTarget(
-                state.configuration,
-                implementationNode,
-                candidate.interval
-            );
-
-
-            state.metrics =
-                candidate.metrics;
-
-
-            expanded.push_back(
-                std::move(
-                    state
-                )
-            );
+            }
         }
     }
 
@@ -556,14 +591,6 @@ bool dominates(
         epsilon;
 
 
-    const bool nonRoiNoWorse =
-        first.metrics.nonRoiPsnr
-        >=
-        second.metrics.nonRoiPsnr
-        -
-        epsilon;
-
-
     const bool strictlyBetter =
         first.metrics.globalPsnr
             >
@@ -575,12 +602,6 @@ bool dominates(
             <
             second.metrics.roiPsnr
             -
-            epsilon
-        ||
-        first.metrics.nonRoiPsnr
-            >
-            second.metrics.nonRoiPsnr
-            +
             epsilon;
 
 
@@ -588,8 +609,6 @@ bool dominates(
         globalNoWorse
         &&
         roiNoWorse
-        &&
-        nonRoiNoWorse
         &&
         strictlyBetter;
 }
@@ -664,12 +683,8 @@ bool satisfiesQualityThresholds(
 {
     return
         state.metrics.globalPsnr
-            >=
-            options.globalPsnrThreshold
-        &&
-        state.metrics.nonRoiPsnr
-            >=
-            options.nonRoiPsnrThreshold;
+        >=
+        options.globalPsnrThreshold;
 }
 
 
@@ -678,28 +693,13 @@ double qualityThresholdDeficit(
     const DctMultiStateJointSearchOptions& options
 )
 {
-    const double globalDeficit =
+    return
         std::max(
             0.0,
             options.globalPsnrThreshold
             -
             state.metrics.globalPsnr
         );
-
-
-    const double nonRoiDeficit =
-        std::max(
-            0.0,
-            options.nonRoiPsnrThreshold
-            -
-            state.metrics.nonRoiPsnr
-        );
-
-
-    return
-        globalDeficit
-        +
-        nonRoiDeficit;
 }
 
 
@@ -709,8 +709,8 @@ bool betterFeasibleState(
     double epsilon
 )
 {
-    // Global 与 Non-ROI 只负责满足质量约束。
-    // 一旦两者均在正常范围内，首要目标就是让 ROI 尽可能差。
+    // Global 只负责满足整体质量约束。
+    // 一旦达到阈值，首要目标就是让 ROI PSNR 尽可能低。
     if (
         first.metrics.roiPsnr
         <
@@ -737,34 +737,6 @@ bool betterFeasibleState(
     }
 
 
-    // ROI 近似相同时，才优先保护 Non-ROI。
-    if (
-        first.metrics.nonRoiPsnr
-        >
-        second.metrics.nonRoiPsnr
-        +
-        epsilon
-    )
-    {
-        return true;
-    }
-
-
-    if (
-        std::abs(
-            first.metrics.nonRoiPsnr
-            -
-            second.metrics.nonRoiPsnr
-        )
-        >
-        epsilon
-    )
-    {
-        return false;
-    }
-
-
-    // 最后再比较整体质量。
     return
         first.metrics.globalPsnr
         >
@@ -800,8 +772,6 @@ bool beamStateComesFirst(
     }
 
 
-    // std::sort 的比较器使用严格字典序，避免 epsilon 比较破坏
-    // strict-weak-ordering。
     if (firstFeasible)
     {
         if (
@@ -817,19 +787,6 @@ bool beamStateComesFirst(
         }
 
 
-        if (
-            first.metrics.nonRoiPsnr
-            !=
-            second.metrics.nonRoiPsnr
-        )
-        {
-            return
-                first.metrics.nonRoiPsnr
-                >
-                second.metrics.nonRoiPsnr;
-        }
-
-
         return
             first.metrics.globalPsnr
             >
@@ -837,7 +794,8 @@ bool beamStateComesFirst(
     }
 
 
-    // 尚未达到正常范围的中间状态，优先保留离两个质量阈值更近的。
+    // 尚未达到整体质量阈值时，优先保留离阈值更近的状态，
+    // 同时保留 ROI 更低的候选，给后续节点补偿留下机会。
     const double firstDeficit =
         qualityThresholdDeficit(
             first,
@@ -861,7 +819,6 @@ bool beamStateComesFirst(
     }
 
 
-    // 距离阈值相同时，仍然优先更低的 ROI。
     if (
         first.metrics.roiPsnr
         !=
@@ -872,19 +829,6 @@ bool beamStateComesFirst(
             first.metrics.roiPsnr
             <
             second.metrics.roiPsnr;
-    }
-
-
-    if (
-        first.metrics.nonRoiPsnr
-        !=
-        second.metrics.nonRoiPsnr
-    )
-    {
-        return
-            first.metrics.nonRoiPsnr
-            >
-            second.metrics.nonRoiPsnr;
     }
 
 
@@ -901,9 +845,7 @@ double normalizedDistanceSquared(
     double minGlobal,
     double maxGlobal,
     double minRoi,
-    double maxRoi,
-    double minNonRoi,
-    double maxNonRoi
+    double maxRoi
 )
 {
     const double globalRange =
@@ -916,12 +858,6 @@ double normalizedDistanceSquared(
         maxRoi
         -
         minRoi;
-
-
-    const double nonRoiRange =
-        maxNonRoi
-        -
-        minNonRoi;
 
 
     const double firstGlobal =
@@ -980,34 +916,6 @@ double normalizedDistanceSquared(
         0.0;
 
 
-    const double firstNonRoi =
-        nonRoiRange > 0.0
-        ?
-        (
-            first.metrics.nonRoiPsnr
-            -
-            minNonRoi
-        )
-        /
-        nonRoiRange
-        :
-        0.0;
-
-
-    const double secondNonRoi =
-        nonRoiRange > 0.0
-        ?
-        (
-            second.metrics.nonRoiPsnr
-            -
-            minNonRoi
-        )
-        /
-        nonRoiRange
-        :
-        0.0;
-
-
     const double globalDifference =
         firstGlobal
         -
@@ -1020,12 +928,6 @@ double normalizedDistanceSquared(
         secondRoi;
 
 
-    const double nonRoiDifference =
-        firstNonRoi
-        -
-        secondNonRoi;
-
-
     return
         globalDifference
         *
@@ -1033,13 +935,8 @@ double normalizedDistanceSquared(
         +
         roiDifference
         *
-        roiDifference
-        +
-        nonRoiDifference
-        *
-        nonRoiDifference;
+        roiDifference;
 }
-
 
 void addSeedIndex(
     std::size_t index,
@@ -1150,23 +1047,11 @@ BeamReductionResult reduceBeam(
         front.front().metrics.roiPsnr;
 
 
-    double minNonRoi =
-        front.front().metrics.nonRoiPsnr;
-
-
-    double maxNonRoi =
-        front.front().metrics.nonRoiPsnr;
-
-
     std::size_t maxGlobalIndex =
         0;
 
 
     std::size_t minRoiIndex =
-        0;
-
-
-    std::size_t maxNonRoiIndex =
         0;
 
 
@@ -1218,20 +1103,6 @@ BeamReductionResult reduceBeam(
             );
 
 
-        minNonRoi =
-            std::min(
-                minNonRoi,
-                metrics.nonRoiPsnr
-            );
-
-
-        maxNonRoi =
-            std::max(
-                maxNonRoi,
-                metrics.nonRoiPsnr
-            );
-
-
         if (
             metrics.globalPsnr
             >
@@ -1254,19 +1125,6 @@ BeamReductionResult reduceBeam(
         )
         {
             minRoiIndex =
-                index;
-        }
-
-
-        if (
-            metrics.nonRoiPsnr
-            >
-            front[
-                maxNonRoiIndex
-            ].metrics.nonRoiPsnr
-        )
-        {
-            maxNonRoiIndex =
                 index;
         }
 
@@ -1341,9 +1199,8 @@ BeamReductionResult reduceBeam(
     // 显式保护几类有用状态：
     // 1. Global 最高；
     // 2. ROI 最低；
-    // 3. Non-ROI 最高；
-    // 4. 当前同时满足 Global / Non-ROI 阈值时 ROI 最低的状态；
-    // 5. 尚未可行但距离两个阈值最近、后续可能补偿回来的状态。
+    // 3. 当前满足 Global 阈值时 ROI 最低的状态；
+    // 4. 尚未可行但距离 Global 阈值最近、后续可能补偿回来的状态。
     addSeedIndex(
         maxGlobalIndex,
         selected,
@@ -1353,13 +1210,6 @@ BeamReductionResult reduceBeam(
 
     addSeedIndex(
         minRoiIndex,
-        selected,
-        selectedIndices
-    );
-
-
-    addSeedIndex(
-        maxNonRoiIndex,
         selected,
         selectedIndices
     );
@@ -1430,9 +1280,7 @@ BeamReductionResult reduceBeam(
                             minGlobal,
                             maxGlobal,
                             minRoi,
-                            maxRoi,
-                            minNonRoi,
-                            maxNonRoi
+                            maxRoi
                         )
                     );
             }
@@ -1746,10 +1594,6 @@ DctMultiStateJointSearch::search(
             state.metrics.globalPsnr
             <
             options.globalPsnrThreshold
-            ||
-            state.metrics.nonRoiPsnr
-            <
-            options.nonRoiPsnrThreshold
             ||
             state.metrics.roiPsnr
             >=
