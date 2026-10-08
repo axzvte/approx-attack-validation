@@ -764,6 +764,7 @@ int main(
             << "Attack units: "
             << attackUnits.size()
             << "\n"
+            << "Ranking metric: mean ROI sensitivity\n"
             << "Trigger: full signed-12 Input1 range [-2048, 2047]\n"
             << "Output reference: Balanced-10 baseline image\n\n";
 
