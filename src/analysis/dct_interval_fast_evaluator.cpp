@@ -580,9 +580,15 @@ bool fastMetricComesFirst(
         )
         {
             return
-                first.nonRoiErrorChange
+                globalErrorChange(
+                    evaluation,
+                    first
+                )
                 <
-                second.nonRoiErrorChange;
+                globalErrorChange(
+                    evaluation,
+                    second
+                );
         }
 
 
