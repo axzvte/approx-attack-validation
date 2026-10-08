@@ -800,14 +800,40 @@ bool beamStateComesFirst(
     }
 
 
+    // std::sort 的比较器使用严格字典序，避免 epsilon 比较破坏
+    // strict-weak-ordering。
     if (firstFeasible)
     {
+        if (
+            first.metrics.roiPsnr
+            !=
+            second.metrics.roiPsnr
+        )
+        {
+            return
+                first.metrics.roiPsnr
+                <
+                second.metrics.roiPsnr;
+        }
+
+
+        if (
+            first.metrics.nonRoiPsnr
+            !=
+            second.metrics.nonRoiPsnr
+        )
+        {
+            return
+                first.metrics.nonRoiPsnr
+                >
+                second.metrics.nonRoiPsnr;
+        }
+
+
         return
-            betterFeasibleState(
-                first,
-                second,
-                options.comparisonEpsilon
-            );
+            first.metrics.globalPsnr
+            >
+            second.metrics.globalPsnr;
     }
 
 
@@ -826,15 +852,7 @@ bool beamStateComesFirst(
         );
 
 
-    if (
-        std::abs(
-            firstDeficit
-            -
-            secondDeficit
-        )
-        >
-        options.comparisonEpsilon
-    )
+    if (firstDeficit != secondDeficit)
     {
         return
             firstDeficit
@@ -843,7 +861,7 @@ bool beamStateComesFirst(
     }
 
 
-    // 距离阈值相近时，仍然优先更低的 ROI。
+    // 距离阈值相同时，仍然优先更低的 ROI。
     if (
         first.metrics.roiPsnr
         !=
