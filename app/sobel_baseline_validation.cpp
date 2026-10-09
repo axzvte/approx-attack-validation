@@ -73,9 +73,9 @@ int main(
 
 
         std::cout
-            << "Sobel provisional baseline validation\n"
+            << "Sobel selected baseline validation\n"
             << "=====================================\n"
-            << "Baseline: all 11 ADD/SUB nodes = 5RP\n"
+            << "Baseline: nodes 0,2,4,7,9 = 5RP; others exact\n"
             << "Reference: exact Sobel output\n\n"
             << std::left
             << std::setw(10) << "Image"
