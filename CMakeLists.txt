@@ -796,3 +796,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Sobel provisional baseline validation
+# =========================================================
+
+add_executable(
+    sobel_baseline_validation
+
+    app/sobel_baseline_validation.cpp
+)
+
+
+target_link_libraries(
+    sobel_baseline_validation
+    PRIVATE
+        approx_framework
+)
