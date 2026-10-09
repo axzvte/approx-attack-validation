@@ -107,8 +107,16 @@ int main()
     };
 
 
+    options.candidateBoundaryCount =
+        8;
+
+
     options.representativeIntervalCount =
         3;
+
+
+    options.fullValidationCandidateCount =
+        5;
 
 
     options.beamWidth =
@@ -165,6 +173,16 @@ int main()
             layer.expandedStateCount
                 <
                 layer.inputStateCount
+            ||
+            layer.expandedStateCount
+                >
+                layer.inputStateCount
+                *
+                (
+                    options.fullValidationCandidateCount
+                    +
+                    1
+                )
             ||
             layer.retainedStateCount == 0
             ||
