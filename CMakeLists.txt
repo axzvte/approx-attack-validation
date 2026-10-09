@@ -925,3 +925,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# 3x3 Conv exhaustive baseline sweep
+# =========================================================
+
+add_executable(
+    conv_baseline_sweep
+
+    app/conv_baseline_sweep.cpp
+)
+
+
+target_link_libraries(
+    conv_baseline_sweep
+    PRIVATE
+        approx_framework
+)
