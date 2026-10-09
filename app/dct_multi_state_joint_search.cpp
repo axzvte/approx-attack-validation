@@ -256,6 +256,12 @@ int main(int argc, char** argv)
             : 24;
 
 
+        const std::size_t fullValidationCandidateCount =
+            argc >= 10
+            ? static_cast<std::size_t>(std::stoul(argv[9]))
+            : 16;
+
+
         if (
             imageIndex < 1
             ||
@@ -398,6 +404,10 @@ int main(int argc, char** argv)
             representativeCount;
 
 
+        options.fullValidationCandidateCount =
+            fullValidationCandidateCount;
+
+
         options.beamWidth =
             beamWidth;
 
@@ -429,8 +439,11 @@ int main(int argc, char** argv)
             << "Adaptive candidate boundaries / monitor: "
             << options.candidateBoundaryCount
             << "\n"
-            << "Representative intervals / implementation / state / node: "
+            << "Local representative intervals / monitor / implementation: "
             << options.representativeIntervalCount
+            << "\n"
+            << "Full-validation candidates / state / node: "
+            << options.fullValidationCandidateCount
             << "\n"
             << "Beam width: "
             << options.beamWidth
