@@ -1,12 +1,10 @@
 #include "analysis/dct_node_sensitivity.hpp"
 
-#include "applications/dct8_fixed_graph.hpp"
 #include "approximate/evoapprox_adapter.hpp"
 #include "core/add_sample.hpp"
 #include "region/region_mask.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -461,7 +459,7 @@ void fillSensitivityMetrics(
 
 DctNodeSensitivityReport
 DctNodeSensitivityAnalyzer::analyze(
-    const applications::DctApplication& application,
+    const core::Application& application,
     const std::vector<cv::Mat>& inputImages,
     const std::vector<cv::Mat>& roiMasks,
     const std::vector<approximate::ApproxUnitId>& attackUnits,
@@ -496,14 +494,14 @@ DctNodeSensitivityAnalyzer::analyze(
     }
 
 
-    if (
-        application.addNodes().size()
-        !=
-        applications::Dct8FixedGraph::kAddNodeCount
-    )
+    const std::size_t nodeCount =
+        application.addNodes().size();
+
+
+    if (nodeCount == 0)
     {
         throw std::runtime_error(
-            "DCT sensitivity expected exactly 32 ADD/SUB nodes."
+            "Node sensitivity application exposes no ADD/SUB nodes."
         );
     }
 
