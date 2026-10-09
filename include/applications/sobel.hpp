@@ -56,6 +56,14 @@ public:
     );
 
 
+    static BaselineConfig
+    createSparseApproximateBaselineConfig(
+        const std::vector<int>& approximateNodeIds,
+        approximate::ApproxUnitId unit =
+            approximate::ApproxUnitId::Add12se5RP
+    );
+
+
     const BaselineConfig&
     baselineConfig() const;
 
