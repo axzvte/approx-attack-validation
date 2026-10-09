@@ -871,3 +871,39 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# 3x3 Conv single-node ROI sensitivity analysis
+# =========================================================
+
+add_executable(
+    conv_node_sensitivity_analysis
+
+    app/conv_node_sensitivity_analysis.cpp
+)
+
+
+target_link_libraries(
+    conv_node_sensitivity_analysis
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# 3x3 Conv through the shared multi-state joint search
+# =========================================================
+
+add_executable(
+    conv_multi_state_joint_search
+
+    app/conv_multi_state_joint_search.cpp
+)
+
+
+target_link_libraries(
+    conv_multi_state_joint_search
+    PRIVATE
+        approx_framework
+)
