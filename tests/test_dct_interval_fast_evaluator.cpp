@@ -289,6 +289,38 @@ int main()
 
 
     // =====================================================
+    // 自适应候选边界测试
+    // =====================================================
+
+    const auto adaptiveResult =
+        analysis::
+            DctIntervalFastEvaluator::
+                evaluateFromSamples(
+                    samples,
+                    6,
+                    core::MonitorSignal::Input1,
+                    unit,
+                    2
+                );
+
+
+    if (
+        adaptiveResult.distinctMonitorValueCount != 3
+        ||
+        adaptiveResult.candidateBoundaryValueCount != 2
+        ||
+        adaptiveResult.metrics.size() != 3
+    )
+    {
+        std::cerr
+            << "Adaptive interval-boundary reduction is incorrect.\n";
+
+
+        return 1;
+    }
+
+
+    // =====================================================
     // 三类候选排序测试
     // =====================================================
 
