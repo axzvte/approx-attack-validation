@@ -401,6 +401,9 @@ int main(
             << "Adaptive candidate boundaries per monitor: "
             << options.candidateBoundaryCount
             << "\n"
+            << "Local representatives per monitor / implementation: "
+            << options.representativeIntervalCount
+            << "\n"
             << "Full-validation candidates per state / node: "
             << options.fullValidationCandidateCount
             << "\n\n";
