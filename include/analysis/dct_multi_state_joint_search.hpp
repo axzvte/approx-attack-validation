@@ -30,8 +30,16 @@ struct DctMultiStateJointSearchOptions
         monitorSignals;
 
 
-    // 每个“当前状态 + 目标节点”最多保留多少个快速代表区间，
-    // 再交给完整应用。
+    // 当 monitor 的不同取值很多时，主联合搜索不再枚举全部
+    // n*(n+1)/2 个区间，而是先从当前图片动态样本中挑选少量边界。
+    //
+    // 0：保持旧行为，使用全部 observed values；
+    // >0：最多保留该数量的候选边界，再组合连续区间。
+    std::size_t candidateBoundaryCount = 24;
+
+
+    // 每个“当前状态 + 目标节点 + monitor + implementation”
+    // 最多保留多少个快速代表区间，再交给完整应用。
     std::size_t representativeIntervalCount = 20;
 
 
