@@ -44,6 +44,7 @@ add_library(
     src/applications/dct8_fixed_graph.cpp
     src/applications/dct8_dfg_builder.cpp
     src/applications/sharpen.cpp
+    src/applications/sobel.cpp
 
     src/approximate/evoapprox_adapter.cpp
 
@@ -149,6 +150,26 @@ target_link_libraries(
 add_test(
     NAME sharpen_application
     COMMAND test_sharpen_application
+)
+
+
+add_executable(
+    test_sobel_application
+
+    tests/test_sobel_application.cpp
+)
+
+
+target_link_libraries(
+    test_sobel_application
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME sobel_application
+    COMMAND test_sobel_application
 )
 
 add_executable(
@@ -736,6 +757,42 @@ add_executable(
 
 target_link_libraries(
     sharpen_multi_state_joint_search
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# Sobel single-node ROI sensitivity analysis
+# =========================================================
+
+add_executable(
+    sobel_node_sensitivity_analysis
+
+    app/sobel_node_sensitivity_analysis.cpp
+)
+
+
+target_link_libraries(
+    sobel_node_sensitivity_analysis
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# Sobel through the shared multi-state joint search
+# =========================================================
+
+add_executable(
+    sobel_multi_state_joint_search
+
+    app/sobel_multi_state_joint_search.cpp
+)
+
+
+target_link_libraries(
+    sobel_multi_state_joint_search
     PRIVATE
         approx_framework
 )
