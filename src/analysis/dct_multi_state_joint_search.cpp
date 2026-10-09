@@ -71,6 +71,16 @@ void validateOptions(
     const DctMultiStateJointSearchOptions& options
 )
 {
+    if (
+        options.candidateBoundaryCount == 1
+    )
+    {
+        throw std::runtime_error(
+            "candidateBoundaryCount must be 0 or at least 2."
+        );
+    }
+
+
     if (options.representativeIntervalCount == 0)
     {
         throw std::runtime_error(
@@ -435,7 +445,8 @@ expandStateOnNode(
                         samples,
                         node.nodeId,
                         signal,
-                        unit
+                        unit,
+                        options.candidateBoundaryCount
                     );
 
 
