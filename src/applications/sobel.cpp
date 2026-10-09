@@ -73,10 +73,22 @@ SobelApplication::SobelApplication(
 SobelApplication::BaselineConfig
 SobelApplication::createDefaultBaselineConfig()
 {
-    // 第一版先使用全 5RP Baseline 跑通通用流程。
-    // 是否需要减少近似节点数量，后续根据真实 Baseline PSNR 再决定。
+    // 正式工作 Baseline：
+    // Node 0(X1)、2(X3)、4(X5_GX)、7(Y3)、9(Y5_GY)
+    // 使用 5RP，其余节点保持精确。
+    //
+    // 该配置由 3/4/5 节点 exhaustive baseline sweep 得到：
+    // 在 5 节点配置中具有最高的 Min Global PSNR，
+    // 同时 Mean Global PSNR 也保持较高水平。
     return
-        createAllApproximateBaselineConfig(
+        createSparseApproximateBaselineConfig(
+            {
+                0,
+                2,
+                4,
+                7,
+                9
+            },
             approximate::ApproxUnitId::Add12se5RP
         );
 }
