@@ -384,6 +384,10 @@ int main(int argc, char** argv)
         };
 
 
+        options.candidateBoundaryCount =
+            24;
+
+
         options.representativeIntervalCount =
             representativeCount;
 
@@ -415,6 +419,9 @@ int main(int argc, char** argv)
             << "\n"
             << "Redistribution implementations: "
             << redistributionUnits.size()
+            << "\n"
+            << "Adaptive candidate boundaries / monitor: "
+            << options.candidateBoundaryCount
             << "\n"
             << "Representative intervals / implementation / state / node: "
             << options.representativeIntervalCount
