@@ -42,7 +42,7 @@ void validateImagePair(
     if (inputImage.empty())
     {
         throw std::runtime_error(
-            "DCT sensitivity input image is empty."
+            "Node sensitivity input image is empty."
         );
     }
 
@@ -50,7 +50,7 @@ void validateImagePair(
     if (roiMask.empty())
     {
         throw std::runtime_error(
-            "DCT sensitivity ROI mask is empty."
+            "Node sensitivity ROI mask is empty."
         );
     }
 
@@ -58,7 +58,7 @@ void validateImagePair(
     if (inputImage.type() != CV_8UC1)
     {
         throw std::runtime_error(
-            "DCT sensitivity requires CV_8UC1 input images."
+            "Node sensitivity requires CV_8UC1 input images."
         );
     }
 
@@ -66,7 +66,7 @@ void validateImagePair(
     if (roiMask.type() != CV_8UC1)
     {
         throw std::runtime_error(
-            "DCT sensitivity requires CV_8UC1 ROI masks."
+            "Node sensitivity requires CV_8UC1 ROI masks."
         );
     }
 
@@ -78,7 +78,7 @@ void validateImagePair(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity input image and ROI mask sizes do not match."
+            "Node sensitivity input image and ROI mask sizes do not match."
         );
     }
 
@@ -116,7 +116,7 @@ void validateImagePair(
     if (roiCount == 0)
     {
         throw std::runtime_error(
-            "DCT sensitivity ROI mask contains no ROI pixels."
+            "Node sensitivity ROI mask contains no ROI pixels."
         );
     }
 
@@ -124,7 +124,7 @@ void validateImagePair(
     if (nonRoiCount == 0)
     {
         throw std::runtime_error(
-            "DCT sensitivity ROI mask contains no non-ROI pixels."
+            "Node sensitivity ROI mask contains no non-ROI pixels."
         );
     }
 }
@@ -144,7 +144,7 @@ void accumulatePixelErrors(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity output image is empty."
+            "Node sensitivity output image is empty."
         );
     }
 
@@ -156,7 +156,7 @@ void accumulatePixelErrors(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity output images must be CV_8UC1."
+            "Node sensitivity output images must be CV_8UC1."
         );
     }
 
@@ -172,7 +172,7 @@ void accumulatePixelErrors(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity output image dimensions do not match."
+            "Node sensitivity output image dimensions do not match."
         );
     }
 
@@ -275,7 +275,7 @@ double meanSquaredError(
     if (count == 0)
     {
         throw std::runtime_error(
-            "DCT sensitivity metric has zero samples."
+            "Node sensitivity metric has zero samples."
         );
     }
 
@@ -303,7 +303,7 @@ double normalizedSensitivity(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity received a negative MSE."
+            "Node sensitivity received a negative MSE."
         );
     }
 
@@ -454,7 +454,7 @@ void fillSensitivityMetrics(
 
 
 // =========================================================
-// DCT 单节点敏感性分析
+// 通用单节点敏感性分析
 // =========================================================
 
 DctNodeSensitivityReport
@@ -469,7 +469,7 @@ DctNodeSensitivityAnalyzer::analyze(
     if (inputImages.empty())
     {
         throw std::runtime_error(
-            "DCT sensitivity image set is empty."
+            "Node sensitivity image set is empty."
         );
     }
 
@@ -481,7 +481,7 @@ DctNodeSensitivityAnalyzer::analyze(
     )
     {
         throw std::runtime_error(
-            "DCT sensitivity image and ROI mask counts do not match."
+            "Node sensitivity image and ROI mask counts do not match."
         );
     }
 
@@ -489,7 +489,7 @@ DctNodeSensitivityAnalyzer::analyze(
     if (attackUnits.empty())
     {
         throw std::runtime_error(
-            "DCT sensitivity attack-unit set is empty."
+            "Node sensitivity attack-unit set is empty."
         );
     }
 
@@ -529,7 +529,7 @@ DctNodeSensitivityAnalyzer::analyze(
         std::vector<long double>
     >
         localSquaredErrorSums(
-            applications::Dct8FixedGraph::kAddNodeCount,
+            nodeCount,
             std::vector<long double>(
                 unitCount,
                 0.0L
@@ -537,11 +537,11 @@ DctNodeSensitivityAnalyzer::analyze(
         );
 
 
-    std::array<
-        std::uint64_t,
-        applications::Dct8FixedGraph::kAddNodeCount
-    >
-        localSampleCounts{};
+    std::vector<std::uint64_t>
+        localSampleCounts(
+            nodeCount,
+            0
+        );
 
 
     std::vector<
@@ -554,7 +554,7 @@ DctNodeSensitivityAnalyzer::analyze(
             std::vector<
                 std::vector<long double>
             >(
-                applications::Dct8FixedGraph::kAddNodeCount,
+                nodeCount,
                 std::vector<long double>(
                     unitCount,
                     0.0L
@@ -564,13 +564,14 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
     std::vector<
-        std::array<
-            std::uint64_t,
-            applications::Dct8FixedGraph::kAddNodeCount
-        >
+        std::vector<std::uint64_t>
     >
         perImageLocalSampleCounts(
-            imageCount
+            imageCount,
+            std::vector<std::uint64_t>(
+                nodeCount,
+                0
+            )
         );
 
 
@@ -584,10 +585,7 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
     // =====================================================
-    // 先跑 DctApplication 当前持有的 Baseline。
-    // 当前节点筛选程序使用工作 Baseline Balanced-10：
-    // Node 8、10、11、13、16、19、22、25、28、31 = 5RP，
-    // 其余节点 = Exact。
+    // 先跑当前 Application 持有的 Baseline。
     //
     // 同时分别保留：
     // 1. 全部图片汇总后的局部误差；
@@ -628,11 +626,11 @@ DctNodeSensitivityAnalyzer::analyze(
                 ||
                 sample.nodeId
                     >=
-                    applications::Dct8FixedGraph::kAddNodeCount
+                    nodeCount
             )
             {
                 throw std::runtime_error(
-                    "DCT sensitivity collected an invalid node ID."
+                    "Node sensitivity collected an invalid node ID."
                 );
             }
 
@@ -729,7 +727,7 @@ DctNodeSensitivityAnalyzer::analyze(
 
 
     report.unitResults.reserve(
-        applications::Dct8FixedGraph::kAddNodeCount
+        nodeCount
         *
         unitCount
     );
@@ -738,21 +736,21 @@ DctNodeSensitivityAnalyzer::analyze(
     report.perImageUnitResults.reserve(
         imageCount
         *
-        applications::Dct8FixedGraph::kAddNodeCount
+        nodeCount
         *
         unitCount
     );
 
 
     report.nodeSummaries.reserve(
-        applications::Dct8FixedGraph::kAddNodeCount
+        nodeCount
     );
 
 
     for (int nodeId = 0;
          nodeId
             <
-            applications::Dct8FixedGraph::kAddNodeCount;
+            nodeCount;
          ++nodeId)
     {
         if (
@@ -762,7 +760,7 @@ DctNodeSensitivityAnalyzer::analyze(
         )
         {
             throw std::runtime_error(
-                "DCT sensitivity found a node with no baseline samples."
+                "Node sensitivity found a node with no baseline samples."
             );
         }
 
@@ -827,7 +825,7 @@ DctNodeSensitivityAnalyzer::analyze(
                 )
                 {
                     throw std::runtime_error(
-                        "DCT sensitivity found an image/node pair with no baseline samples."
+                        "Node sensitivity found an image/node pair with no baseline samples."
                     );
                 }
 
@@ -929,7 +927,7 @@ DctNodeSensitivityAnalyzer::analyze(
 
                     const std::size_t totalImages =
                         static_cast<std::size_t>(
-                            applications::Dct8FixedGraph::kAddNodeCount
+                            nodeCount
                         )
                         *
                         unitCount
