@@ -39,8 +39,19 @@ struct DctMultiStateJointSearchOptions
 
 
     // 每个“当前状态 + 目标节点 + monitor + implementation”
-    // 最多保留多少个快速代表区间，再交给完整应用。
+    // 先在快速阶段最多保留多少个局部代表区间。
+    //
+    // 这些候选不会立即全部运行完整图像，而是先与其它
+    // monitor / implementation 的候选合并后统一竞争。
     std::size_t representativeIntervalCount = 20;
+
+
+    // 将所有 monitor x implementation 的快速代表区间合并以后，
+    // 每个“当前状态 + 目标节点”最多有多少个候选进入完整图像验证。
+    //
+    // 例如 3 monitor x 9 unit x 4 local representatives = 108 个
+    // 快速候选，可以统一压缩到 16 个再真正运行完整应用。
+    std::size_t fullValidationCandidateCount = 16;
 
 
     // 每处理完一个节点后，最多保留多少个不同
@@ -149,8 +160,9 @@ public:
     //    重新采集目标节点 monitor signal；
     // 4. 目标节点已有区间时，refinement 会暂时移除它，
     //    保留其它节点后重新生成区间候选；
-    // 5. Module 3-A 的代表区间只负责预筛，
-    //    所有保留候选最终都真正跑完整应用。
+    // 5. Module 3-A 先为每个 monitor / implementation 生成局部代表区间；
+    // 6. 所有局部代表区间再统一按 ROI / Global 快速指标竞争，
+    //    只有少量候选真正运行完整应用。
     //
     // structure 可包含任意数量节点；当前课题后续主要使用 1~5 个。
     static DctMultiStateJointSearchResult search(
