@@ -814,3 +814,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Sobel exhaustive sparse-baseline sweep
+# =========================================================
+
+add_executable(
+    sobel_baseline_sweep
+
+    app/sobel_baseline_sweep.cpp
+)
+
+
+target_link_libraries(
+    sobel_baseline_sweep
+    PRIVATE
+        approx_framework
+)
