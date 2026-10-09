@@ -89,6 +89,14 @@ void validateOptions(
     }
 
 
+    if (options.fullValidationCandidateCount == 0)
+    {
+        throw std::runtime_error(
+            "fullValidationCandidateCount must be greater than zero."
+        );
+    }
+
+
     if (options.beamWidth == 0)
     {
         throw std::runtime_error(
@@ -331,29 +339,586 @@ std::string configurationKey(
 }
 
 
-std::vector<TriggerInterval>
-toIntervals(
-    const DctIntervalRepresentativeSelection& selection
-)
+struct JointFastCandidate
 {
+    core::MonitorSignal signal =
+        core::MonitorSignal::Input1;
+
+    approximate::ApproxUnitId unit =
+        approximate::ApproxUnitId::Add12se5RP;
+
+    TriggerInterval interval;
+
+    double roiErrorChange = 0.0;
+    double globalErrorChange = 0.0;
+};
+
+
+struct JointValidationGroup
+{
+    core::MonitorSignal signal =
+        core::MonitorSignal::Input1;
+
+    approximate::ApproxUnitId unit =
+        approximate::ApproxUnitId::Add12se5RP;
+
     std::vector<TriggerInterval>
         intervals;
+};
 
 
-    intervals.reserve(
-        selection.representatives.size()
-    );
+double fastGlobalErrorChange(
+    const DctIntervalFastEvaluation& evaluation,
+    const DctIntervalFastMetric& metric
+)
+{
+    const double totalWeight =
+        evaluation.totalRoiWeight
+        +
+        evaluation.totalNonRoiWeight;
 
 
-    for (const auto& metric : selection.representatives)
+    if (totalWeight <= 0.0)
     {
-        intervals.push_back(
-            metric.interval
+        throw std::runtime_error(
+            "Joint fast candidate has zero total weight."
         );
     }
 
 
-    return intervals;
+    return
+        (
+            metric.roiErrorChange
+            *
+            evaluation.totalRoiWeight
+            +
+            metric.nonRoiErrorChange
+            *
+            evaluation.totalNonRoiWeight
+        )
+        /
+        totalWeight;
+}
+
+
+bool jointFastCandidateComesFirst(
+    const JointFastCandidate& first,
+    const JointFastCandidate& second
+)
+{
+    if (
+        first.roiErrorChange
+        !=
+        second.roiErrorChange
+    )
+    {
+        return
+            first.roiErrorChange
+            >
+            second.roiErrorChange;
+    }
+
+
+    if (
+        first.globalErrorChange
+        !=
+        second.globalErrorChange
+    )
+    {
+        return
+            first.globalErrorChange
+            <
+            second.globalErrorChange;
+    }
+
+
+    if (
+        first.signal
+        !=
+        second.signal
+    )
+    {
+        return
+            static_cast<int>(
+                first.signal
+            )
+            <
+            static_cast<int>(
+                second.signal
+            );
+    }
+
+
+    if (
+        first.unit
+        !=
+        second.unit
+    )
+    {
+        return
+            static_cast<int>(
+                first.unit
+            )
+            <
+            static_cast<int>(
+                second.unit
+            );
+    }
+
+
+    if (
+        first.interval.lower
+        !=
+        second.interval.lower
+    )
+    {
+        return
+            first.interval.lower
+            <
+            second.interval.lower;
+    }
+
+
+    return
+        first.interval.upper
+        <
+        second.interval.upper;
+}
+
+
+double jointFastDistanceSquared(
+    const JointFastCandidate& first,
+    const JointFastCandidate& second,
+    double minRoi,
+    double maxRoi,
+    double minGlobal,
+    double maxGlobal
+)
+{
+    const double roiRange =
+        maxRoi
+        -
+        minRoi;
+
+
+    const double globalRange =
+        maxGlobal
+        -
+        minGlobal;
+
+
+    const double firstRoi =
+        roiRange > 0.0
+        ?
+        (
+            first.roiErrorChange
+            -
+            minRoi
+        )
+        /
+        roiRange
+        :
+        0.0;
+
+
+    const double secondRoi =
+        roiRange > 0.0
+        ?
+        (
+            second.roiErrorChange
+            -
+            minRoi
+        )
+        /
+        roiRange
+        :
+        0.0;
+
+
+    const double firstGlobal =
+        globalRange > 0.0
+        ?
+        (
+            first.globalErrorChange
+            -
+            minGlobal
+        )
+        /
+        globalRange
+        :
+        0.0;
+
+
+    const double secondGlobal =
+        globalRange > 0.0
+        ?
+        (
+            second.globalErrorChange
+            -
+            minGlobal
+        )
+        /
+        globalRange
+        :
+        0.0;
+
+
+    const double roiDifference =
+        firstRoi
+        -
+        secondRoi;
+
+
+    const double globalDifference =
+        firstGlobal
+        -
+        secondGlobal;
+
+
+    return
+        roiDifference
+        *
+        roiDifference
+        +
+        globalDifference
+        *
+        globalDifference;
+}
+
+
+std::vector<JointFastCandidate>
+selectJointFastCandidates(
+    const std::vector<JointFastCandidate>& candidates,
+    std::size_t maxCount
+)
+{
+    if (
+        candidates.empty()
+        ||
+        maxCount == 0
+    )
+    {
+        return {};
+    }
+
+
+    std::vector<JointFastCandidate>
+        ranked =
+            candidates;
+
+
+    std::sort(
+        ranked.begin(),
+        ranked.end(),
+        jointFastCandidateComesFirst
+    );
+
+
+    // 二维 Pareto：
+    // ROIErrorChange 越大越好；
+    // GlobalErrorChange 越小越好。
+    std::vector<JointFastCandidate>
+        front;
+
+
+    front.reserve(
+        ranked.size()
+    );
+
+
+    double bestGlobal =
+        std::numeric_limits<double>::infinity();
+
+
+    for (const auto& candidate : ranked)
+    {
+        if (
+            front.empty()
+            ||
+            candidate.globalErrorChange
+                <
+                bestGlobal
+        )
+        {
+            front.push_back(
+                candidate
+            );
+
+
+            bestGlobal =
+                candidate.globalErrorChange;
+        }
+    }
+
+
+    if (
+        front.size()
+        <=
+        maxCount
+    )
+    {
+        return front;
+    }
+
+
+    double minRoi =
+        front.front().roiErrorChange;
+
+    double maxRoi =
+        front.front().roiErrorChange;
+
+    double minGlobal =
+        front.front().globalErrorChange;
+
+    double maxGlobal =
+        front.front().globalErrorChange;
+
+
+    for (const auto& candidate : front)
+    {
+        minRoi =
+            std::min(
+                minRoi,
+                candidate.roiErrorChange
+            );
+
+
+        maxRoi =
+            std::max(
+                maxRoi,
+                candidate.roiErrorChange
+            );
+
+
+        minGlobal =
+            std::min(
+                minGlobal,
+                candidate.globalErrorChange
+            );
+
+
+        maxGlobal =
+            std::max(
+                maxGlobal,
+                candidate.globalErrorChange
+            );
+    }
+
+
+    std::vector<bool>
+        selected(
+            front.size(),
+            false
+        );
+
+
+    std::vector<std::size_t>
+        selectedIndices;
+
+
+    selectedIndices.reserve(
+        maxCount
+    );
+
+
+    // 两个端点：
+    // ROI 破坏最强；
+    // Global 代价最小。
+    selected[0] =
+        true;
+
+    selectedIndices.push_back(
+        0
+    );
+
+
+    if (maxCount > 1)
+    {
+        const std::size_t lastIndex =
+            front.size()
+            -
+            1;
+
+
+        selected[lastIndex] =
+            true;
+
+        selectedIndices.push_back(
+            lastIndex
+        );
+    }
+
+
+    while (
+        selectedIndices.size()
+        <
+        maxCount
+    )
+    {
+        std::size_t bestIndex =
+            front.size();
+
+
+        double bestMinimumDistance =
+            -1.0;
+
+
+        for (std::size_t candidateIndex = 0;
+             candidateIndex < front.size();
+             ++candidateIndex)
+        {
+            if (selected[candidateIndex])
+            {
+                continue;
+            }
+
+
+            double minimumDistance =
+                std::numeric_limits<double>::infinity();
+
+
+            for (const auto selectedIndex : selectedIndices)
+            {
+                minimumDistance =
+                    std::min(
+                        minimumDistance,
+                        jointFastDistanceSquared(
+                            front[candidateIndex],
+                            front[selectedIndex],
+                            minRoi,
+                            maxRoi,
+                            minGlobal,
+                            maxGlobal
+                        )
+                    );
+            }
+
+
+            if (
+                minimumDistance
+                >
+                bestMinimumDistance
+            )
+            {
+                bestMinimumDistance =
+                    minimumDistance;
+
+                bestIndex =
+                    candidateIndex;
+            }
+        }
+
+
+        if (bestIndex == front.size())
+        {
+            break;
+        }
+
+
+        selected[bestIndex] =
+            true;
+
+        selectedIndices.push_back(
+            bestIndex
+        );
+    }
+
+
+    std::vector<JointFastCandidate>
+        result;
+
+
+    result.reserve(
+        selectedIndices.size()
+    );
+
+
+    for (const auto index : selectedIndices)
+    {
+        result.push_back(
+            front[index]
+        );
+    }
+
+
+    std::sort(
+        result.begin(),
+        result.end(),
+        jointFastCandidateComesFirst
+    );
+
+
+    return result;
+}
+
+
+std::vector<JointValidationGroup>
+groupJointValidationCandidates(
+    const std::vector<JointFastCandidate>& candidates
+)
+{
+    std::vector<JointValidationGroup>
+        groups;
+
+
+    for (const auto& candidate : candidates)
+    {
+        auto iterator =
+            std::find_if(
+                groups.begin(),
+                groups.end(),
+
+                [&candidate](
+                    const JointValidationGroup& group
+                )
+                {
+                    return
+                        group.signal
+                            ==
+                            candidate.signal
+                        &&
+                        group.unit
+                            ==
+                            candidate.unit;
+                }
+            );
+
+
+        if (iterator == groups.end())
+        {
+            JointValidationGroup
+                group;
+
+
+            group.signal =
+                candidate.signal;
+
+
+            group.unit =
+                candidate.unit;
+
+
+            group.intervals.push_back(
+                candidate.interval
+            );
+
+
+            groups.push_back(
+                std::move(
+                    group
+                )
+            );
+        }
+        else
+        {
+            iterator->intervals.push_back(
+                candidate.interval
+            );
+        }
+    }
+
+
+    return groups;
 }
 
 
@@ -371,16 +936,12 @@ expandStateOnNode(
         expanded;
 
 
-    // Keeping the current state is always legal.
-    // The search therefore does not have to activate every candidate node.
+    // 保留“不修改当前目标节点”的原状态。
     expanded.push_back(
         currentState
     );
 
 
-    // Remove the target node temporarily and keep all other current
-    // redistribution settings. Samples therefore reflect the real current
-    // state before this node is reconfigured.
     const AttackConfiguration
         withoutTarget =
             removeTarget(
@@ -435,6 +996,22 @@ expandStateOnNode(
     }
 
 
+    // 第一层：每个 monitor x implementation 先做廉价快速筛选。
+    // 第二层：把所有组合的局部代表区间合并，让它们统一竞争
+    // fullValidationCandidateCount 个完整图像验证名额。
+    std::vector<JointFastCandidate>
+        fastPool;
+
+
+    fastPool.reserve(
+        signalsToTry.size()
+        *
+        unitsToTry.size()
+        *
+        options.representativeIntervalCount
+    );
+
+
     for (const auto signal : signalsToTry)
     {
         for (const auto unit : unitsToTry)
@@ -450,7 +1027,7 @@ expandStateOnNode(
                     );
 
 
-            const auto representativeSelection =
+            const auto localSelection =
                 DctIntervalFastEvaluator::
                     selectRepresentativeMetrics(
                         fastEvaluation,
@@ -458,78 +1035,127 @@ expandStateOnNode(
                     );
 
 
-            if (
-                representativeSelection.
-                    representatives.empty()
+            for (
+                const auto& metric :
+                localSelection.representatives
             )
             {
-                continue;
-            }
+                JointFastCandidate
+                    candidate;
 
 
-            const auto fullReport =
-                DctIntervalFullValidator::
-                    validate(
-                        application,
-                        inputImage,
-                        roiMask,
-                        withoutTarget,
-                        node.nodeId,
-                        signal,
-                        unit,
-                        toIntervals(
-                            representativeSelection
-                        )
+                candidate.signal =
+                    signal;
+
+
+                candidate.unit =
+                    unit;
+
+
+                candidate.interval =
+                    metric.interval;
+
+
+                candidate.roiErrorChange =
+                    metric.roiErrorChange;
+
+
+                candidate.globalErrorChange =
+                    fastGlobalErrorChange(
+                        fastEvaluation,
+                        metric
                     );
 
 
-            AttackStructureNode
-                implementationNode =
-                    node;
+                fastPool.push_back(
+                    candidate
+                );
+            }
+        }
+    }
 
 
-            implementationNode.unit =
-                unit;
+    const auto selectedFastCandidates =
+        selectJointFastCandidates(
+            fastPool,
+            options.fullValidationCandidateCount
+        );
 
 
-            implementationNode.monitorInput =
-                signal;
+    if (selectedFastCandidates.empty())
+    {
+        return expanded;
+    }
 
 
-            expanded.reserve(
-                expanded.size()
-                +
-                fullReport.candidates.size()
+    const auto validationGroups =
+        groupJointValidationCandidates(
+            selectedFastCandidates
+        );
+
+
+    expanded.reserve(
+        expanded.size()
+        +
+        selectedFastCandidates.size()
+    );
+
+
+    for (const auto& group : validationGroups)
+    {
+        const auto fullReport =
+            DctIntervalFullValidator::
+                validate(
+                    application,
+                    inputImage,
+                    roiMask,
+                    withoutTarget,
+                    node.nodeId,
+                    group.signal,
+                    group.unit,
+                    group.intervals
+                );
+
+
+        AttackStructureNode
+            implementationNode =
+                node;
+
+
+        implementationNode.unit =
+            group.unit;
+
+
+        implementationNode.monitorInput =
+            group.signal;
+
+
+        for (const auto& candidate : fullReport.candidates)
+        {
+            DctMultiStateSearchState
+                state;
+
+
+            state.configuration =
+                withoutTarget;
+
+
+            setTarget(
+                state.configuration,
+                implementationNode,
+                candidate.interval
             );
 
 
-            for (const auto& candidate : fullReport.candidates)
-            {
-                DctMultiStateSearchState
-                    state;
+            state.metrics =
+                candidate.metrics;
 
 
-                state.configuration =
-                    withoutTarget;
-
-
-                setTarget(
-                    state.configuration,
-                    implementationNode,
-                    candidate.interval
-                );
-
-
-                state.metrics =
-                    candidate.metrics;
-
-
-                expanded.push_back(
-                    std::move(
-                        state
-                    )
-                );
-            }
+            expanded.push_back(
+                std::move(
+                    state
+                )
+            );
         }
     }
 
