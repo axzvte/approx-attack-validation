@@ -228,6 +228,18 @@ int main(
             24;
 
 
+        const std::size_t fullValidationCandidateCount =
+            argc >= 9
+            ?
+            static_cast<std::size_t>(
+                std::stoul(
+                    argv[8]
+                )
+            )
+            :
+            16;
+
+
         if (
             imageIndex < 1
             ||
@@ -366,6 +378,11 @@ int main(
         options.representativeIntervalCount =
             representativeCount;
 
+
+        options.fullValidationCandidateCount =
+            fullValidationCandidateCount;
+
+
         options.beamWidth =
             beamWidth;
 
@@ -383,6 +400,9 @@ int main(
             << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
             << "Adaptive candidate boundaries per monitor: "
             << options.candidateBoundaryCount
+            << "\n"
+            << "Full-validation candidates per state / node: "
+            << options.fullValidationCandidateCount
             << "\n\n";
 
 
