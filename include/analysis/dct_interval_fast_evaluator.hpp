@@ -100,6 +100,12 @@ struct DctIntervalFastEvaluation
     std::size_t distinctMonitorValueCount = 0;
 
 
+    // 本次快速搜索真正用于构造区间的边界数量。
+    // 等于 distinctMonitorValueCount 表示全枚举；
+    // 更小时表示启用了基于当前图片的自适应候选边界。
+    std::size_t candidateBoundaryValueCount = 0;
+
+
     double totalRoiWeight = 0.0;
     double totalNonRoiWeight = 0.0;
 
@@ -130,15 +136,20 @@ public:
     // 3. 建立 ROI / Non-ROI 前缀和；
     // 4. O(1) 得到任意 [lower, upper] 的快速指标。
     //
-    // 整体复杂度：
-    // O(sampleCount + intervalCount)
+    // maxCandidateBoundaryCount == 0：
+    //   保持旧行为，全部不同 monitor value 都可以作为边界；
     //
-    // 不需要对每个区间重新运行 DCT。
+    // maxCandidateBoundaryCount > 0：
+    //   当实际取值很多时，根据当前图片动态选择少量候选边界，
+    //   主要覆盖 ROI 分位点、整图分位点以及 ROI 局部误差贡献大的值。
+    //
+    // 不需要对每个区间重新运行完整应用。
     static DctIntervalFastEvaluation evaluateFromSamples(
         const std::vector<core::AddSample>& samples,
         int nodeId,
         core::MonitorSignal monitorInput,
-        approximate::ApproxUnitId attackUnit
+        approximate::ApproxUnitId attackUnit,
+        std::size_t maxCandidateBoundaryCount = 0
     );
 
 
