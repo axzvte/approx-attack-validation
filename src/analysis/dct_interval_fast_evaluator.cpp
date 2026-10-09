@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <limits>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -60,6 +61,365 @@ long double squared(
         value;
 }
 
+
+std::size_t weightedQuantileIndex(
+    const std::vector<double>& weights,
+    double totalWeight,
+    double quantile
+)
+{
+    if (
+        weights.empty()
+        ||
+        totalWeight <= 0.0
+    )
+    {
+        return 0;
+    }
+
+
+    if (quantile <= 0.0)
+    {
+        return 0;
+    }
+
+
+    if (quantile >= 1.0)
+    {
+        return
+            weights.size()
+            -
+            1;
+    }
+
+
+    const double target =
+        quantile
+        *
+        totalWeight;
+
+
+    double cumulative =
+        0.0;
+
+
+    for (std::size_t index = 0;
+         index < weights.size();
+         ++index)
+    {
+        cumulative +=
+            weights[index];
+
+
+        if (cumulative >= target)
+        {
+            return index;
+        }
+    }
+
+
+    return
+        weights.size()
+        -
+        1;
+}
+
+
+void addQuantileBoundaries(
+    const std::vector<double>& weights,
+    double totalWeight,
+    std::size_t quantileCount,
+    std::set<std::size_t>& selected
+)
+{
+    if (
+        weights.empty()
+        ||
+        totalWeight <= 0.0
+        ||
+        quantileCount == 0
+    )
+    {
+        return;
+    }
+
+
+    if (quantileCount == 1)
+    {
+        selected.insert(
+            weightedQuantileIndex(
+                weights,
+                totalWeight,
+                0.5
+            )
+        );
+
+        return;
+    }
+
+
+    for (std::size_t index = 0;
+         index < quantileCount;
+         ++index)
+    {
+        const double quantile =
+            static_cast<double>(
+                index
+            )
+            /
+            static_cast<double>(
+                quantileCount
+                -
+                1
+            );
+
+
+        selected.insert(
+            weightedQuantileIndex(
+                weights,
+                totalWeight,
+                quantile
+            )
+        );
+    }
+}
+
+
+std::vector<std::size_t>
+selectCandidateBoundaryIndices(
+    const std::vector<double>& roiWeights,
+    const std::vector<double>& globalWeights,
+    const std::vector<long double>& roiErrorContributions,
+    double totalRoiWeight,
+    double totalGlobalWeight,
+    std::size_t maxCandidateBoundaryCount
+)
+{
+    const std::size_t valueCount =
+        roiWeights.size();
+
+
+    if (
+        maxCandidateBoundaryCount == 0
+        ||
+        valueCount
+            <=
+            maxCandidateBoundaryCount
+    )
+    {
+        std::vector<std::size_t>
+            result;
+
+
+        result.reserve(
+            valueCount
+        );
+
+
+        for (std::size_t index = 0;
+             index < valueCount;
+             ++index)
+        {
+            result.push_back(
+                index
+            );
+        }
+
+
+        return result;
+    }
+
+
+    const std::size_t boundaryBudget =
+        std::min(
+            valueCount,
+            std::max<std::size_t>(
+                2,
+                maxCandidateBoundaryCount
+            )
+        );
+
+
+    // 候选边界由三类当前图片信息共同产生：
+    // 1. ROI 分布分位点：重点覆盖 ROI 高频取值范围；
+    // 2. 整图分布分位点：避免完全丢失整体输入范围；
+    // 3. ROI 局部误差贡献最大的取值：补充可能很窄但破坏强的区间。
+    std::size_t roiQuantileCount =
+        std::max<std::size_t>(
+            2,
+            boundaryBudget
+            /
+            2
+        );
+
+
+    std::size_t globalQuantileCount =
+        std::max<std::size_t>(
+            2,
+            boundaryBudget
+            /
+            4
+        );
+
+
+    if (
+        roiQuantileCount
+        +
+        globalQuantileCount
+        >
+        boundaryBudget
+    )
+    {
+        globalQuantileCount =
+            boundaryBudget
+            -
+            roiQuantileCount;
+    }
+
+
+    std::set<std::size_t>
+        selected;
+
+
+    addQuantileBoundaries(
+        roiWeights,
+        totalRoiWeight,
+        roiQuantileCount,
+        selected
+    );
+
+
+    addQuantileBoundaries(
+        globalWeights,
+        totalGlobalWeight,
+        globalQuantileCount,
+        selected
+    );
+
+
+    std::vector<std::size_t>
+        impactOrder;
+
+
+    impactOrder.reserve(
+        valueCount
+    );
+
+
+    for (std::size_t index = 0;
+         index < valueCount;
+         ++index)
+    {
+        impactOrder.push_back(
+            index
+        );
+    }
+
+
+    std::sort(
+        impactOrder.begin(),
+        impactOrder.end(),
+
+        [&roiErrorContributions](
+            std::size_t first,
+            std::size_t second
+        )
+        {
+            if (
+                roiErrorContributions[first]
+                !=
+                roiErrorContributions[second]
+            )
+            {
+                return
+                    roiErrorContributions[first]
+                    >
+                    roiErrorContributions[second];
+            }
+
+
+            return
+                first
+                <
+                second;
+        }
+    );
+
+
+    for (const auto index : impactOrder)
+    {
+        if (
+            selected.size()
+            >=
+            boundaryBudget
+        )
+        {
+            break;
+        }
+
+
+        selected.insert(
+            index
+        );
+    }
+
+
+    // 分位点和误差峰值可能高度重合。
+    // 如果仍未填满预算，用等距索引补足，保证整个观测范围都有覆盖。
+    if (
+        selected.size()
+        <
+        boundaryBudget
+    )
+    {
+        for (std::size_t slot = 0;
+             slot < boundaryBudget;
+             ++slot)
+        {
+            if (
+                selected.size()
+                >=
+                boundaryBudget
+            )
+            {
+                break;
+            }
+
+
+            const std::size_t index =
+                boundaryBudget == 1
+                ?
+                0
+                :
+                slot
+                *
+                (
+                    valueCount
+                    -
+                    1
+                )
+                /
+                (
+                    boundaryBudget
+                    -
+                    1
+                );
+
+
+            selected.insert(
+                index
+            );
+        }
+    }
+
+
+    return
+        std::vector<std::size_t>(
+            selected.begin(),
+            selected.end()
+        );
+}
+
 }
 
 
@@ -72,7 +432,8 @@ DctIntervalFastEvaluator::evaluateFromSamples(
     const std::vector<core::AddSample>& samples,
     int nodeId,
     core::MonitorSignal monitorInput,
-    approximate::ApproxUnitId attackUnit
+    approximate::ApproxUnitId attackUnit,
+    std::size_t maxCandidateBoundaryCount
 )
 {
     if (samples.empty())
@@ -297,6 +658,33 @@ DctIntervalFastEvaluator::evaluateFromSamples(
         );
 
 
+    std::vector<double>
+        roiWeightsByValue;
+
+
+    roiWeightsByValue.reserve(
+        valueCount
+    );
+
+
+    std::vector<double>
+        globalWeightsByValue;
+
+
+    globalWeightsByValue.reserve(
+        valueCount
+    );
+
+
+    std::vector<long double>
+        roiErrorContributionByValue;
+
+
+    roiErrorContributionByValue.reserve(
+        valueCount
+    );
+
+
     std::size_t valueIndex =
         0;
 
@@ -351,6 +739,23 @@ DctIntervalFastEvaluator::evaluateFromSamples(
             item.second.nonRoiErrorChange;
 
 
+        roiWeightsByValue.push_back(
+            item.second.roiWeight
+        );
+
+
+        globalWeightsByValue.push_back(
+            item.second.roiWeight
+            +
+            item.second.nonRoiWeight
+        );
+
+
+        roiErrorContributionByValue.push_back(
+            item.second.roiErrorChange
+        );
+
+
         ++valueIndex;
     }
 
@@ -387,28 +792,54 @@ DctIntervalFastEvaluator::evaluateFromSamples(
         totalNonRoiWeight;
 
 
+    const auto candidateBoundaryIndices =
+        selectCandidateBoundaryIndices(
+            roiWeightsByValue,
+            globalWeightsByValue,
+            roiErrorContributionByValue,
+            totalRoiWeight,
+            totalRoiWeight
+                +
+                totalNonRoiWeight,
+            maxCandidateBoundaryCount
+        );
+
+
+    result.candidateBoundaryValueCount =
+        candidateBoundaryIndices.size();
+
+
     result.metrics.reserve(
         static_cast<std::size_t>(
             DctIntervalSearchSpaceGenerator::
                 countIntervals(
-                    valueCount
+                    candidateBoundaryIndices.size()
                 )
         )
     );
 
 
-    // 与 Module 1 完全相同的区间顺序：
-    // lowerIndex 外层，upperIndex 内层。
-    //
-    // 每个区间只做常数次前缀和相减。
-    for (std::size_t lowerIndex = 0;
-         lowerIndex < valueCount;
-         ++lowerIndex)
+    // 只在当前图片自动挑选出的候选边界之间组合连续闭区间。
+    // 前缀和仍基于完整 observed values，因此每个候选区间的
+    // ROI / Global 局部误差统计仍使用全部动态样本。
+    for (std::size_t lowerPosition = 0;
+         lowerPosition < candidateBoundaryIndices.size();
+         ++lowerPosition)
     {
-        for (std::size_t upperIndex = lowerIndex;
-             upperIndex < valueCount;
-             ++upperIndex)
+        const std::size_t lowerIndex =
+            candidateBoundaryIndices[
+                lowerPosition
+            ];
+
+
+        for (std::size_t upperPosition = lowerPosition;
+             upperPosition < candidateBoundaryIndices.size();
+             ++upperPosition)
         {
+            const std::size_t upperIndex =
+                candidateBoundaryIndices[
+                    upperPosition
+                ];
             const double roiTriggeredWeight =
                 roiWeightPrefix[
                     upperIndex + 1
