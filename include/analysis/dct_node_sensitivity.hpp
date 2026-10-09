@@ -1,6 +1,6 @@
 #pragma once
 
-#include "applications/dct.hpp"
+#include "core/application.hpp"
 #include "approximate/evoapprox_adapter.hpp"
 
 #include <opencv2/core.hpp>
@@ -190,7 +190,7 @@ class DctNodeSensitivityAnalyzer
 {
 public:
 
-    // 使用多张真实图像，对 DCT 的 32 个静态 ADD/SUB 节点
+    // 使用多张真实图像，对任意 Application 暴露的 ADD/SUB 节点
     // 进行“单节点、全触发”敏感性分析。
     //
     // Baseline:
@@ -211,7 +211,7 @@ public:
     // 除原有的全数据集汇总结果外，还会保留逐图片结果，
     // 用于评价节点的跨图片稳定性。
     static DctNodeSensitivityReport analyze(
-        const applications::DctApplication& application,
+        const core::Application& application,
         const std::vector<cv::Mat>& inputImages,
         const std::vector<cv::Mat>& roiMasks,
         const std::vector<approximate::ApproxUnitId>& attackUnits,
