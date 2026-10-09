@@ -80,12 +80,42 @@ std::size_t weightedQuantileIndex(
 
     if (quantile <= 0.0)
     {
+        for (std::size_t index = 0;
+             index < weights.size();
+             ++index)
+        {
+            if (weights[index] > 0.0)
+            {
+                return index;
+            }
+        }
+
+
         return 0;
     }
 
 
     if (quantile >= 1.0)
     {
+        for (std::size_t offset = 0;
+             offset < weights.size();
+             ++offset)
+        {
+            const std::size_t index =
+                weights.size()
+                -
+                1
+                -
+                offset;
+
+
+            if (weights[index] > 0.0)
+            {
+                return index;
+            }
+        }
+
+
         return
             weights.size()
             -
