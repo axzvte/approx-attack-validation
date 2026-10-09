@@ -45,6 +45,7 @@ add_library(
     src/applications/dct8_dfg_builder.cpp
     src/applications/sharpen.cpp
     src/applications/sobel.cpp
+    src/applications/conv.cpp
 
     src/approximate/evoapprox_adapter.cpp
 
@@ -170,6 +171,26 @@ target_link_libraries(
 add_test(
     NAME sobel_application
     COMMAND test_sobel_application
+)
+
+
+add_executable(
+    test_conv_application
+
+    tests/test_conv_application.cpp
+)
+
+
+target_link_libraries(
+    test_conv_application
+    PRIVATE
+        approx_framework
+)
+
+
+add_test(
+    NAME conv_application
+    COMMAND test_conv_application
 )
 
 add_executable(
@@ -829,6 +850,24 @@ add_executable(
 
 target_link_libraries(
     sobel_baseline_sweep
+    PRIVATE
+        approx_framework
+)
+
+
+# =========================================================
+# 3x3 Conv provisional baseline validation
+# =========================================================
+
+add_executable(
+    conv_baseline_validation
+
+    app/conv_baseline_validation.cpp
+)
+
+
+target_link_libraries(
+    conv_baseline_validation
     PRIVATE
         approx_framework
 )
