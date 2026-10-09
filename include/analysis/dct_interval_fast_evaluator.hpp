@@ -110,7 +110,9 @@ struct DctIntervalFastEvaluation
     double totalNonRoiWeight = 0.0;
 
 
-    // 与 Module 1 生成的区间一一对应。
+    // 当前真正进入快速评价的候选区间。
+    // 全枚举模式下与 Module 1 完整区间空间一致；
+    // 自适应模式下只包含候选边界两两组合得到的区间。
     std::vector<DctIntervalFastMetric>
         metrics;
 };
