@@ -216,6 +216,18 @@ int main(
             0;
 
 
+        const std::size_t candidateBoundaryCount =
+            argc >= 8
+            ?
+            static_cast<std::size_t>(
+                std::stoul(
+                    argv[7]
+                )
+            )
+            :
+            24;
+
+
         if (
             imageIndex < 1
             ||
@@ -348,7 +360,7 @@ int main(
 
 
         options.candidateBoundaryCount =
-            24;
+            candidateBoundaryCount;
 
 
         options.representativeIntervalCount =
