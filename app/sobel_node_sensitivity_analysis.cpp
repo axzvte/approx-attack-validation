@@ -343,7 +343,7 @@ int main(
         std::cout
             << "Sobel single-node sensitivity analysis\n"
             << "======================================\n"
-            << "Baseline: all 11 ADD/SUB nodes = 5RP (provisional)\n"
+            << "Baseline: nodes 0,2,4,7,9 = 5RP; others exact\n"
             << "Ranking: mean ROI sensitivity\n"
             << "Stage-1 images: 10\n"
             << "Attack units: 9\n\n"
