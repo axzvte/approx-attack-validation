@@ -123,6 +123,68 @@ SobelApplication::createAllApproximateBaselineConfig(
 }
 
 
+SobelApplication::BaselineConfig
+SobelApplication::createSparseApproximateBaselineConfig(
+    const std::vector<int>& approximateNodeIds,
+    approximate::ApproxUnitId unit
+)
+{
+    BaselineConfig
+        config =
+            createAllExactBaselineConfig();
+
+
+    std::array<bool, kAddNodeCount>
+        seen{};
+
+
+    for (const int nodeId : approximateNodeIds)
+    {
+        if (
+            nodeId < 0
+            ||
+            nodeId >= kAddNodeCount
+        )
+        {
+            throw std::runtime_error(
+                "Sparse Sobel baseline contains an invalid node ID."
+            );
+        }
+
+
+        if (seen[nodeId])
+        {
+            throw std::runtime_error(
+                "Sparse Sobel baseline contains duplicate node IDs."
+            );
+        }
+
+
+        seen[nodeId] =
+            true;
+
+
+        config[
+            static_cast<std::size_t>(
+                nodeId
+            )
+        ].exact =
+            false;
+
+
+        config[
+            static_cast<std::size_t>(
+                nodeId
+            )
+        ].unit =
+            unit;
+    }
+
+
+    return config;
+}
+
+
 const SobelApplication::BaselineConfig&
 SobelApplication::baselineConfig() const
 {
