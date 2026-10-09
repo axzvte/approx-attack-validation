@@ -347,6 +347,10 @@ int main(
         };
 
 
+        options.candidateBoundaryCount =
+            24;
+
+
         options.representativeIntervalCount =
             representativeCount;
 
@@ -364,7 +368,10 @@ int main(
             << "Search objective: Global >= "
             << options.globalPsnrThreshold
             << " dB; then minimize ROI PSNR.\n"
-            << "Monitor signals searched jointly: input1 / input2 / baseline_output\n\n";
+            << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
+            << "Adaptive candidate boundaries per monitor: "
+            << options.candidateBoundaryCount
+            << "\n\n";
 
 
         const analysis::DctMultiStateJointSearchProgressCallback
