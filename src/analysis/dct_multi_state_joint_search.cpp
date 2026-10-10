@@ -2014,7 +2014,8 @@ void addSeedIndex(
 
 BeamReductionResult reduceBeam(
     const std::vector<DctMultiStateSearchState>& inputStates,
-    const DctMultiStateJointSearchOptions& options
+    const DctMultiStateJointSearchOptions& options,
+    const DctImageQualityMetrics& baselineMetrics
 )
 {
     BeamReductionResult
@@ -2036,6 +2037,7 @@ BeamReductionResult reduceBeam(
     auto front =
         buildParetoFront(
             uniqueStates,
+            baselineMetrics,
             options.comparisonEpsilon
         );
 
@@ -2054,7 +2056,7 @@ BeamReductionResult reduceBeam(
             front.begin(),
             front.end(),
 
-            [&options](
+            [&options, &baselineMetrics](
                 const auto& first,
                 const auto& second
             )
@@ -2063,7 +2065,8 @@ BeamReductionResult reduceBeam(
                     beamStateComesFirst(
                         first,
                         second,
-                        options
+                        options,
+                        baselineMetrics
                     );
             }
         );
@@ -2095,11 +2098,26 @@ BeamReductionResult reduceBeam(
         front.front().metrics.roiPsnr;
 
 
+    double minRedistribution =
+        redistributionAdvantage(
+            front.front(),
+            baselineMetrics
+        );
+
+
+    double maxRedistribution =
+        minRedistribution;
+
+
     std::size_t maxGlobalIndex =
         0;
 
 
     std::size_t minRoiIndex =
+        0;
+
+
+    std::size_t maxRedistributionIndex =
         0;
 
 
@@ -2111,7 +2129,11 @@ BeamReductionResult reduceBeam(
         front.size();
 
 
-    double closestDeficit =
+    double closestGlobalDeficit =
+        std::numeric_limits<double>::infinity();
+
+
+    double closestRedistributionDeficit =
         std::numeric_limits<double>::infinity();
 
 
@@ -2119,8 +2141,12 @@ BeamReductionResult reduceBeam(
          index < front.size();
          ++index)
     {
+        const auto& state =
+            front[index];
+
+
         const auto& metrics =
-            front[index].metrics;
+            state.metrics;
 
 
         minGlobal =
@@ -2151,6 +2177,35 @@ BeamReductionResult reduceBeam(
             );
 
 
+        const double currentRedistribution =
+            redistributionAdvantage(
+                state,
+                baselineMetrics
+            );
+
+
+        minRedistribution =
+            std::min(
+                minRedistribution,
+                currentRedistribution
+            );
+
+
+        if (
+            currentRedistribution
+            >
+            maxRedistribution
+        )
+        {
+            maxRedistribution =
+                currentRedistribution;
+
+
+            maxRedistributionIndex =
+                index;
+        }
+
+
         if (
             metrics.globalPsnr
             >
@@ -2178,9 +2233,10 @@ BeamReductionResult reduceBeam(
 
 
         const bool feasible =
-            satisfiesQualityThresholds(
-                front[index],
-                options
+            satisfiesSearchConstraints(
+                state,
+                options,
+                baselineMetrics
             );
 
 
@@ -2190,10 +2246,11 @@ BeamReductionResult reduceBeam(
                 bestFeasibleIndex == front.size()
                 ||
                 betterFeasibleState(
-                    front[index],
+                    state,
                     front[
                         bestFeasibleIndex
                     ],
+                    baselineMetrics,
                     options.comparisonEpsilon
                 )
             )
@@ -2204,21 +2261,42 @@ BeamReductionResult reduceBeam(
         }
         else
         {
-            const double totalDeficit =
+            const double currentGlobalDeficit =
                 qualityThresholdDeficit(
-                    front[index],
+                    state,
                     options
                 );
 
 
+            const double currentRedistributionDeficit =
+                redistributionDeficit(
+                    state,
+                    baselineMetrics
+                );
+
+
             if (
-                totalDeficit
-                <
-                closestDeficit
+                currentGlobalDeficit
+                    <
+                    closestGlobalDeficit
+                ||
+                (
+                    currentGlobalDeficit
+                        ==
+                        closestGlobalDeficit
+                    &&
+                    currentRedistributionDeficit
+                        <
+                        closestRedistributionDeficit
+                )
             )
             {
-                closestDeficit =
-                    totalDeficit;
+                closestGlobalDeficit =
+                    currentGlobalDeficit;
+
+
+                closestRedistributionDeficit =
+                    currentRedistributionDeficit;
 
 
                 closestToFeasibleIndex =
@@ -2244,11 +2322,12 @@ BeamReductionResult reduceBeam(
     );
 
 
-    // 显式保护几类有用状态：
+    // 显式保护五类状态：
     // 1. Global 最高；
     // 2. ROI 最低；
-    // 3. 当前满足 Global 阈值时 ROI 最低的状态；
-    // 4. 尚未可行但距离 Global 阈值最近、后续可能补偿回来的状态。
+    // 3. 区域误差重分布优势最大；
+    // 4. 当前已同时满足 Global + 区域选择性约束的最佳状态；
+    // 5. 距离约束最近、后续节点仍可能补偿回来的状态。
     addSeedIndex(
         maxGlobalIndex,
         selected,
@@ -2258,6 +2337,13 @@ BeamReductionResult reduceBeam(
 
     addSeedIndex(
         minRoiIndex,
+        selected,
+        selectedIndices
+    );
+
+
+    addSeedIndex(
+        maxRedistributionIndex,
         selected,
         selectedIndices
     );
@@ -2325,10 +2411,13 @@ BeamReductionResult reduceBeam(
                         normalizedDistanceSquared(
                             front[candidateIndex],
                             front[selectedIndex],
+                            baselineMetrics,
                             minGlobal,
                             maxGlobal,
                             minRoi,
-                            maxRoi
+                            maxRoi,
+                            minRedistribution,
+                            maxRedistribution
                         )
                     );
             }
@@ -2381,7 +2470,7 @@ BeamReductionResult reduceBeam(
         result.states.begin(),
         result.states.end(),
 
-        [&options](
+        [&options, &baselineMetrics](
             const auto& first,
             const auto& second
         )
@@ -2390,7 +2479,8 @@ BeamReductionResult reduceBeam(
                 beamStateComesFirst(
                     first,
                     second,
-                    options
+                    options,
+                    baselineMetrics
                 );
         }
     );
