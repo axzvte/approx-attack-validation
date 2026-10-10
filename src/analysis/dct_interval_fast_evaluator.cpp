@@ -1196,19 +1196,123 @@ buildParetoFront(
 )
 {
     std::vector<DctIntervalFastMetric>
-        ranked =
-            evaluation.metrics;
+        front;
 
 
-    // 当前搜索目标只有两个方向：
+    front.reserve(
+        evaluation.metrics.size()
+    );
+
+
+    // 三维 Pareto：
     // 1. ROIErrorChange 越大越好；
-    // 2. GlobalErrorChange 越小越好。
+    // 2. GlobalErrorChange 越小越好；
+    // 3. redistributionScore = ROIErrorChange - NonROIErrorChange 越大越好。
     //
-    // Non-ROI 只参与 GlobalErrorChange 的组成，
-    // 不再作为独立筛选目标。
+    // 第 3 维用于优先保留“新增误差更倾向 ROI”的区间，
+    // 但这里只是快速阶段，不做最终硬判定。
+    for (std::size_t index = 0;
+         index < evaluation.metrics.size();
+         ++index)
+    {
+        const auto& candidate =
+            evaluation.metrics[index];
+
+
+        const double candidateGlobal =
+            globalErrorChange(
+                evaluation,
+                candidate
+            );
+
+
+        bool dominated =
+            false;
+
+
+        for (std::size_t otherIndex = 0;
+             otherIndex < evaluation.metrics.size();
+             ++otherIndex)
+        {
+            if (index == otherIndex)
+            {
+                continue;
+            }
+
+
+            const auto& other =
+                evaluation.metrics[otherIndex];
+
+
+            const double otherGlobal =
+                globalErrorChange(
+                    evaluation,
+                    other
+                );
+
+
+            const bool roiNoWorse =
+                other.roiErrorChange
+                >=
+                candidate.roiErrorChange;
+
+
+            const bool globalNoWorse =
+                otherGlobal
+                <=
+                candidateGlobal;
+
+
+            const bool redistributionNoWorse =
+                other.redistributionScore
+                >=
+                candidate.redistributionScore;
+
+
+            const bool strictlyBetter =
+                other.roiErrorChange
+                    >
+                    candidate.roiErrorChange
+                ||
+                otherGlobal
+                    <
+                    candidateGlobal
+                ||
+                other.redistributionScore
+                    >
+                    candidate.redistributionScore;
+
+
+            if (
+                roiNoWorse
+                &&
+                globalNoWorse
+                &&
+                redistributionNoWorse
+                &&
+                strictlyBetter
+            )
+            {
+                dominated =
+                    true;
+
+                break;
+            }
+        }
+
+
+        if (!dominated)
+        {
+            front.push_back(
+                candidate
+            );
+        }
+    }
+
+
     std::sort(
-        ranked.begin(),
-        ranked.end(),
+        front.begin(),
+        front.end(),
 
         [&evaluation](
             const DctIntervalFastMetric& first,
@@ -1228,97 +1332,31 @@ buildParetoFront(
             }
 
 
-            const double firstGlobal =
-                globalErrorChange(
-                    evaluation,
-                    first
-                );
-
-
-            const double secondGlobal =
-                globalErrorChange(
-                    evaluation,
-                    second
-                );
-
-
-            if (firstGlobal != secondGlobal)
-            {
-                return
-                    firstGlobal
-                    <
-                    secondGlobal;
-            }
-
-
             if (
-                first.interval.lower
+                first.redistributionScore
                 !=
-                second.interval.lower
+                second.redistributionScore
             )
             {
                 return
-                    first.interval.lower
-                    <
-                    second.interval.lower;
+                    first.redistributionScore
+                    >
+                    second.redistributionScore;
             }
 
 
             return
-                first.interval.upper
+                globalErrorChange(
+                    evaluation,
+                    first
+                )
                 <
-                second.interval.upper;
+                globalErrorChange(
+                    evaluation,
+                    second
+                );
         }
     );
-
-
-    std::vector<DctIntervalFastMetric>
-        front;
-
-
-    front.reserve(
-        ranked.size()
-    );
-
-
-    double bestGlobalErrorChange =
-        std::numeric_limits<double>::infinity();
-
-
-    bool hasFrontPoint =
-        false;
-
-
-    for (const auto& metric : ranked)
-    {
-        const double currentGlobal =
-            globalErrorChange(
-                evaluation,
-                metric
-            );
-
-
-        if (
-            !hasFrontPoint
-            ||
-            currentGlobal
-                <
-                bestGlobalErrorChange
-        )
-        {
-            front.push_back(
-                metric
-            );
-
-
-            bestGlobalErrorChange =
-                currentGlobal;
-
-
-            hasFrontPoint =
-                true;
-        }
-    }
 
 
     return front;
@@ -1332,7 +1370,9 @@ double normalizedDistanceSquared(
     double minRoi,
     double maxRoi,
     double minGlobal,
-    double maxGlobal
+    double maxGlobal,
+    double minRedistribution,
+    double maxRedistribution
 )
 {
     const double roiRange =
@@ -1345,6 +1385,12 @@ double normalizedDistanceSquared(
         maxGlobal
         -
         minGlobal;
+
+
+    const double redistributionRange =
+        maxRedistribution
+        -
+        minRedistribution;
 
 
     const double firstRoi =
@@ -1409,6 +1455,34 @@ double normalizedDistanceSquared(
         0.0;
 
 
+    const double firstRedistribution =
+        redistributionRange > 0.0
+        ?
+        (
+            first.redistributionScore
+            -
+            minRedistribution
+        )
+        /
+        redistributionRange
+        :
+        0.0;
+
+
+    const double secondRedistribution =
+        redistributionRange > 0.0
+        ?
+        (
+            second.redistributionScore
+            -
+            minRedistribution
+        )
+        /
+        redistributionRange
+        :
+        0.0;
+
+
     const double roiDifference =
         firstRoi
         -
@@ -1421,6 +1495,12 @@ double normalizedDistanceSquared(
         secondGlobal;
 
 
+    const double redistributionDifference =
+        firstRedistribution
+        -
+        secondRedistribution;
+
+
     return
         roiDifference
         *
@@ -1428,9 +1508,11 @@ double normalizedDistanceSquared(
         +
         globalDifference
         *
-        globalDifference;
-}
-
+        globalDifference
+        +
+        redistributionDifference
+        *
+        redistributionDifference;
 }
 
 
@@ -1505,7 +1587,28 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
         minGlobal;
 
 
-    for (const auto& metric : front)
+    double minRedistribution =
+        front.front().redistributionScore;
+
+
+    double maxRedistribution =
+        front.front().redistributionScore;
+
+
+    std::size_t maxRedistributionIndex =
+        0;
+
+
+    std::size_t minGlobalIndex =
+        0;
+
+
+    for (std::size_t index = 0;
+         index < front.size();
+         ++index)
+    {
+        const auto& metric =
+            front[index];
     {
         minRoi =
             std::min(
@@ -1535,11 +1638,50 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
             );
 
 
+        if (
+            currentGlobal
+            <
+            minGlobal
+        )
+        {
+            minGlobal =
+                currentGlobal;
+
+            minGlobalIndex =
+                index;
+        }
+
+
         maxGlobal =
             std::max(
                 maxGlobal,
                 currentGlobal
             );
+
+
+        if (
+            metric.redistributionScore
+            <
+            minRedistribution
+        )
+        {
+            minRedistribution =
+                metric.redistributionScore;
+        }
+
+
+        if (
+            metric.redistributionScore
+            >
+            maxRedistribution
+        )
+        {
+            maxRedistribution =
+                metric.redistributionScore;
+
+            maxRedistributionIndex =
+                index;
+        }
     }
 
 
@@ -1559,8 +1701,10 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     );
 
 
-    // 前沿第一端：
-    // ROIErrorChange 最大，偏“攻击能力”。
+    // 显式保留三个方向的极值：
+    // 1. ROI 破坏最强；
+    // 2. Global 代价最小；
+    // 3. ROI 相对 Non-ROI 的误差重分布最强。
     selected[0] =
         true;
 
@@ -1570,30 +1714,43 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     );
 
 
-    if (maxCount > 1)
+    if (
+        selectedIndices.size()
+        <
+        maxCount
+        &&
+        !selected[minGlobalIndex]
+    )
     {
-        // 前沿另一端：
-        // GlobalErrorChange 最小，偏“整体质量保护”。
-        const std::size_t lastIndex =
-            front.size()
-            -
-            1;
+        selected[minGlobalIndex] =
+            true;
 
 
-        if (!selected[lastIndex])
-        {
-            selected[lastIndex] =
-                true;
-
-
-            selectedIndices.push_back(
-                lastIndex
-            );
-        }
+        selectedIndices.push_back(
+            minGlobalIndex
+        );
     }
 
 
-    // 在归一化二维误差空间中做最远点补充。
+    if (
+        selectedIndices.size()
+        <
+        maxCount
+        &&
+        !selected[maxRedistributionIndex]
+    )
+    {
+        selected[maxRedistributionIndex] =
+            true;
+
+
+        selectedIndices.push_back(
+            maxRedistributionIndex
+        );
+    }
+
+
+    // 在归一化三维误差空间中做最远点补充。
     //
     // 这样不会只保留某一个极端附近的大量相似区间，
     // 而是尽量覆盖整条“ROI破坏 - Global代价”前沿。
@@ -1637,7 +1794,9 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
                             minRoi,
                             maxRoi,
                             minGlobal,
-                            maxGlobal
+                            maxGlobal,
+                            minRedistribution,
+                            maxRedistribution
                         )
                     );
             }
