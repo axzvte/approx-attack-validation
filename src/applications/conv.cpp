@@ -96,11 +96,22 @@ ConvApplication::ConvApplication(
 ConvApplication::BaselineConfig
 ConvApplication::createDefaultBaselineConfig()
 {
-    // 第一版先使用全 5RP Baseline 做质量验证。
-    // 正式 Baseline 后续根据真实 PSNR 再通过 sweep 确定。
+    // 正式工作 Baseline：
+    // Node 3(C4)、4(C5)、5(C6)、6(C7) 使用 5Z0，
+    // 其余节点保持精确。
+    //
+    // 该配置由 Conv exhaustive baseline sweep 得到：
+    // Mean Global PSNR = 35.039471 dB
+    // Min  Global PSNR = 34.466574 dB
     return
-        createAllApproximateBaselineConfig(
-            approximate::ApproxUnitId::Add12se5RP
+        createSparseApproximateBaselineConfig(
+            {
+                3,
+                4,
+                5,
+                6
+            },
+            approximate::ApproxUnitId::Add12se5Z0
         );
 }
 
