@@ -2496,6 +2496,7 @@ void processNodeLayer(
     const cv::Mat& roiMask,
     const AttackStructureNode& node,
     const DctMultiStateJointSearchOptions& options,
+    const DctImageQualityMetrics& baselineMetrics,
     std::size_t passIndex,
     std::size_t nodeIndex,
     bool refinement,
@@ -2553,7 +2554,8 @@ void processNodeLayer(
     const auto reduced =
         reduceBeam(
             expanded,
-            options
+            options,
+            baselineMetrics
         );
 
 
@@ -2606,6 +2608,7 @@ void processNodeLayer(
 bool isBetterFeasibleFinal(
     const DctMultiStateSearchState& candidate,
     const DctMultiStateSearchState& currentBest,
+    const DctImageQualityMetrics& baselineMetrics,
     double epsilon
 )
 {
@@ -2613,6 +2616,7 @@ bool isBetterFeasibleFinal(
         betterFeasibleState(
             candidate,
             currentBest,
+            baselineMetrics,
             epsilon
         );
 }
@@ -2684,6 +2688,7 @@ DctMultiStateJointSearch::search(
             roiMask,
             structure[nodeIndex],
             options,
+            result.initialMetrics,
             0,
             nodeIndex,
             false,
@@ -2711,6 +2716,7 @@ DctMultiStateJointSearch::search(
                 roiMask,
                 structure[nodeIndex],
                 options,
+                result.initialMetrics,
                 round + 1,
                 nodeIndex,
                 true,
@@ -2729,9 +2735,11 @@ DctMultiStateJointSearch::search(
     for (const auto& state : result.finalStates)
     {
         if (
-            state.metrics.globalPsnr
-            <
-            options.globalPsnrThreshold
+            !satisfiesSearchConstraints(
+                state,
+                options,
+                result.initialMetrics
+            )
             ||
             state.metrics.roiPsnr
             >=
@@ -2748,6 +2756,7 @@ DctMultiStateJointSearch::search(
             isBetterFeasibleFinal(
                 state,
                 result.bestFeasibleState,
+                result.initialMetrics,
                 options.comparisonEpsilon
             )
         )
