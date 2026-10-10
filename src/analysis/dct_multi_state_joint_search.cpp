@@ -351,6 +351,11 @@ struct JointFastCandidate
 
     double roiErrorChange = 0.0;
     double globalErrorChange = 0.0;
+
+    // 快速阶段的区域误差重分布倾向：
+    // ROIErrorChange - NonROIErrorChange。
+    // 越大表示新增局部误差越倾向 ROI。
+    double redistributionScore = 0.0;
 };
 
 
@@ -416,6 +421,19 @@ bool jointFastCandidateComesFirst(
             first.roiErrorChange
             >
             second.roiErrorChange;
+    }
+
+
+    if (
+        first.redistributionScore
+        !=
+        second.redistributionScore
+    )
+    {
+        return
+            first.redistributionScore
+            >
+            second.redistributionScore;
     }
 
 
@@ -492,7 +510,9 @@ double jointFastDistanceSquared(
     double minRoi,
     double maxRoi,
     double minGlobal,
-    double maxGlobal
+    double maxGlobal,
+    double minRedistribution,
+    double maxRedistribution
 )
 {
     const double roiRange =
@@ -505,6 +525,12 @@ double jointFastDistanceSquared(
         maxGlobal
         -
         minGlobal;
+
+
+    const double redistributionRange =
+        maxRedistribution
+        -
+        minRedistribution;
 
 
     const double firstRoi =
@@ -563,6 +589,34 @@ double jointFastDistanceSquared(
         0.0;
 
 
+    const double firstRedistribution =
+        redistributionRange > 0.0
+        ?
+        (
+            first.redistributionScore
+            -
+            minRedistribution
+        )
+        /
+        redistributionRange
+        :
+        0.0;
+
+
+    const double secondRedistribution =
+        redistributionRange > 0.0
+        ?
+        (
+            second.redistributionScore
+            -
+            minRedistribution
+        )
+        /
+        redistributionRange
+        :
+        0.0;
+
+
     const double roiDifference =
         firstRoi
         -
@@ -575,6 +629,12 @@ double jointFastDistanceSquared(
         secondGlobal;
 
 
+    const double redistributionDifference =
+        firstRedistribution
+        -
+        secondRedistribution;
+
+
     return
         roiDifference
         *
@@ -582,7 +642,11 @@ double jointFastDistanceSquared(
         +
         globalDifference
         *
-        globalDifference;
+        globalDifference
+        +
+        redistributionDifference
+        *
+        redistributionDifference;
 }
 
 
@@ -603,52 +667,108 @@ selectJointFastCandidates(
 
 
     std::vector<JointFastCandidate>
-        ranked =
-            candidates;
-
-
-    std::sort(
-        ranked.begin(),
-        ranked.end(),
-        jointFastCandidateComesFirst
-    );
-
-
-    // 二维 Pareto：
-    // ROIErrorChange 越大越好；
-    // GlobalErrorChange 越小越好。
-    std::vector<JointFastCandidate>
         front;
 
 
     front.reserve(
-        ranked.size()
+        candidates.size()
     );
 
 
-    double bestGlobal =
-        std::numeric_limits<double>::infinity();
-
-
-    for (const auto& candidate : ranked)
+    // 三维 Pareto：
+    // ROIErrorChange 越大越好；
+    // GlobalErrorChange 越小越好；
+    // RedistributionScore 越大越好。
+    for (std::size_t index = 0;
+         index < candidates.size();
+         ++index)
     {
-        if (
-            front.empty()
-            ||
-            candidate.globalErrorChange
-                <
-                bestGlobal
-        )
+        const auto& candidate =
+            candidates[index];
+
+
+        bool dominated =
+            false;
+
+
+        for (std::size_t otherIndex = 0;
+             otherIndex < candidates.size();
+             ++otherIndex)
+        {
+            if (index == otherIndex)
+            {
+                continue;
+            }
+
+
+            const auto& other =
+                candidates[otherIndex];
+
+
+            const bool roiNoWorse =
+                other.roiErrorChange
+                >=
+                candidate.roiErrorChange;
+
+
+            const bool globalNoWorse =
+                other.globalErrorChange
+                <=
+                candidate.globalErrorChange;
+
+
+            const bool redistributionNoWorse =
+                other.redistributionScore
+                >=
+                candidate.redistributionScore;
+
+
+            const bool strictlyBetter =
+                other.roiErrorChange
+                    >
+                    candidate.roiErrorChange
+                ||
+                other.globalErrorChange
+                    <
+                    candidate.globalErrorChange
+                ||
+                other.redistributionScore
+                    >
+                    candidate.redistributionScore;
+
+
+            if (
+                roiNoWorse
+                &&
+                globalNoWorse
+                &&
+                redistributionNoWorse
+                &&
+                strictlyBetter
+            )
+            {
+                dominated =
+                    true;
+
+                break;
+            }
+        }
+
+
+        if (!dominated)
         {
             front.push_back(
                 candidate
             );
-
-
-            bestGlobal =
-                candidate.globalErrorChange;
         }
     }
+
+
+    std::sort(
+        front.begin(),
+        front.end(),
+        jointFastCandidateComesFirst
+    );
 
 
     if (
@@ -673,9 +793,28 @@ selectJointFastCandidates(
     double maxGlobal =
         front.front().globalErrorChange;
 
+    double minRedistribution =
+        front.front().redistributionScore;
 
-    for (const auto& candidate : front)
+    double maxRedistribution =
+        front.front().redistributionScore;
+
+
+    std::size_t minGlobalIndex =
+        0;
+
+    std::size_t maxRedistributionIndex =
+        0;
+
+
+    for (std::size_t index = 0;
+         index < front.size();
+         ++index)
     {
+        const auto& candidate =
+            front[index];
+
+
         minRoi =
             std::min(
                 minRoi,
@@ -690,11 +829,18 @@ selectJointFastCandidates(
             );
 
 
-        minGlobal =
-            std::min(
-                minGlobal,
-                candidate.globalErrorChange
-            );
+        if (
+            candidate.globalErrorChange
+            <
+            minGlobal
+        )
+        {
+            minGlobal =
+                candidate.globalErrorChange;
+
+            minGlobalIndex =
+                index;
+        }
 
 
         maxGlobal =
@@ -702,6 +848,27 @@ selectJointFastCandidates(
                 maxGlobal,
                 candidate.globalErrorChange
             );
+
+
+        minRedistribution =
+            std::min(
+                minRedistribution,
+                candidate.redistributionScore
+            );
+
+
+        if (
+            candidate.redistributionScore
+            >
+            maxRedistribution
+        )
+        {
+            maxRedistribution =
+                candidate.redistributionScore;
+
+            maxRedistributionIndex =
+                index;
+        }
     }
 
 
@@ -721,32 +888,43 @@ selectJointFastCandidates(
     );
 
 
-    // 两个端点：
-    // ROI 破坏最强；
-    // Global 代价最小。
-    selected[0] =
-        true;
+    const auto addIndex =
+        [&](
+            std::size_t index
+        )
+        {
+            if (
+                index < selected.size()
+                &&
+                !selected[index]
+                &&
+                selectedIndices.size() < maxCount
+            )
+            {
+                selected[index] =
+                    true;
 
-    selectedIndices.push_back(
+                selectedIndices.push_back(
+                    index
+                );
+            }
+        };
+
+
+    // 三个端点：ROI破坏最强、Global代价最小、区域重分布最强。
+    addIndex(
         0
     );
 
 
-    if (maxCount > 1)
-    {
-        const std::size_t lastIndex =
-            front.size()
-            -
-            1;
+    addIndex(
+        minGlobalIndex
+    );
 
 
-        selected[lastIndex] =
-            true;
-
-        selectedIndices.push_back(
-            lastIndex
-        );
-    }
+    addIndex(
+        maxRedistributionIndex
+    );
 
 
     while (
@@ -788,7 +966,9 @@ selectJointFastCandidates(
                             minRoi,
                             maxRoi,
                             minGlobal,
-                            maxGlobal
+                            maxGlobal,
+                            minRedistribution,
+                            maxRedistribution
                         )
                     );
             }
@@ -815,10 +995,7 @@ selectJointFastCandidates(
         }
 
 
-        selected[bestIndex] =
-            true;
-
-        selectedIndices.push_back(
+        addIndex(
             bestIndex
         );
     }
@@ -1065,6 +1242,10 @@ expandStateOnNode(
                         fastEvaluation,
                         metric
                     );
+
+
+                candidate.redistributionScore =
+                    metric.redistributionScore;
 
 
                 fastPool.push_back(
