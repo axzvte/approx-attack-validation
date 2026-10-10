@@ -548,7 +548,7 @@ int main(
                 imageIndex
             )
             << ".jpg\n"
-            << "Baseline: all 8 ADD nodes = 5RP (provisional) (provisional)\n"
+            << "Baseline: all 8 ADD nodes = 5RP (provisional)\n"
             << "Candidate nodes used: "
             << structure.size()
             << "\n"
