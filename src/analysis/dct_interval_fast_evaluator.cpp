@@ -1609,7 +1609,8 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     {
         const auto& metric =
             front[index];
-    {
+
+
         minRoi =
             std::min(
                 minRoi,
@@ -1628,13 +1629,6 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
             globalErrorChange(
                 evaluation,
                 metric
-            );
-
-
-        minGlobal =
-            std::min(
-                minGlobal,
-                currentGlobal
             );
 
 
