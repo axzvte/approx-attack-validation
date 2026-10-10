@@ -332,7 +332,7 @@ int main(
             << "Conv single-node sensitivity analysis\n"
             << "=====================================\n"
             << "Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]\n"
-            << "Baseline: all 8 ADD nodes = 5RP (provisional) (provisional)\n"
+            << "Baseline: all 8 ADD nodes = 5RP (provisional)\n"
             << "Ranking: mean ROI sensitivity\n"
             << "Stage-1 images: 10\n"
             << "Attack units: 9\n\n"
