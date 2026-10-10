@@ -283,7 +283,7 @@ int main(
         std::cout
             << "Conv baseline approximate-unit sweep\n"
             << "====================================\n"
-            << "Kernel: [1 2 1; 2 4 2; 1 2 1] / 16\n"
+            << "Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]\n"
             << "ADD nodes: all 8 approximate\n"
             << "Stage-1 images: 10\n"
             << "Approximate implementations: "
