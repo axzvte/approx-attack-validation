@@ -156,6 +156,30 @@ double calculateNonRoiPsnr(
 }
 
 
+double mseFromPsnr(
+    double psnr
+)
+{
+    if (
+        std::isinf(
+            psnr
+        )
+    )
+    {
+        return 0.0;
+    }
+
+
+    return
+        (255.0 * 255.0)
+        /
+        std::pow(
+            10.0,
+            psnr / 10.0
+        );
+}
+
+
 DctImageQualityMetrics calculateMetrics(
     const cv::Mat& referenceImage,
     const cv::Mat& testImage,
@@ -186,6 +210,24 @@ DctImageQualityMetrics calculateMetrics(
             referenceImage,
             testImage,
             roiMask
+        );
+
+
+    result.globalMse =
+        mseFromPsnr(
+            result.globalPsnr
+        );
+
+
+    result.roiMse =
+        mseFromPsnr(
+            result.roiPsnr
+        );
+
+
+    result.nonRoiMse =
+        mseFromPsnr(
+            result.nonRoiPsnr
         );
 
 
