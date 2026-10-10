@@ -565,7 +565,7 @@ int main(
             << options.beamWidth
             << "\n"
             << "Global PSNR threshold: 30 dB\n"
-            << "Final objective: Global >= 30 dB, then minimize ROI PSNR\n\n"
+            << "Final objective: Global >= 30 dB, DeltaMSE_ROI > DeltaMSE_NonROI, then minimize ROI PSNR\n\n"
             << "Candidate nodes\n"
             << "---------------\n";
 
@@ -648,7 +648,7 @@ int main(
         {
             std::cout
                 << "\nNo feasible Conv state satisfies "
-                << "Global >= 30 dB and ROI < baseline ROI.\n";
+                << "Global >= 30 dB, ROI < baseline ROI, and DeltaMSE_ROI > DeltaMSE_NonROI.\n";
 
             return 0;
         }
@@ -656,6 +656,24 @@ int main(
 
         const auto& best =
             result.bestFeasibleState;
+
+
+        const double roiMseIncrease =
+            best.metrics.roiMse
+            -
+            result.initialMetrics.roiMse;
+
+
+        const double nonRoiMseIncrease =
+            best.metrics.nonRoiMse
+            -
+            result.initialMetrics.nonRoiMse;
+
+
+        const double redistributionAdvantage =
+            roiMseIncrease
+            -
+            nonRoiMseIncrease;
 
 
         std::cout
@@ -669,6 +687,15 @@ int main(
             << "\n"
             << "Non-ROI PSNR: "
             << best.metrics.nonRoiPsnr
+            << "\n"
+            << "ROI MSE increase: "
+            << roiMseIncrease
+            << "\n"
+            << "Non-ROI MSE increase: "
+            << nonRoiMseIncrease
+            << "\n"
+            << "Redistribution advantage: "
+            << redistributionAdvantage
             << "\n"
             << "Active redistribution nodes: "
             << best.configuration.size()
