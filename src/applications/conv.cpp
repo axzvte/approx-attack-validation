@@ -30,28 +30,6 @@ int clampToByte(
 }
 
 
-int roundDivideBy16(
-    int value
-)
-{
-    if (value >= 0)
-    {
-        return
-            (value + 8)
-            /
-            16;
-    }
-
-
-    return
-        -
-        (
-            ((-value) + 8)
-            /
-            16
-        );
-}
-
 }
 
 
@@ -96,22 +74,12 @@ ConvApplication::ConvApplication(
 ConvApplication::BaselineConfig
 ConvApplication::createDefaultBaselineConfig()
 {
-    // 正式工作 Baseline：
-    // Node 3(C4)、4(C5)、5(C6)、6(C7) 使用 5Z0，
-    // 其余节点保持精确。
-    //
-    // 该配置由 Conv exhaustive baseline sweep 得到：
-    // Mean Global PSNR = 35.039471 dB
-    // Min  Global PSNR = 34.466574 dB
+    // Laplacian Conv 更换后，旧 Gaussian Conv Baseline 不再适用。
+    // 第一轮先用全 5RP 验证质量，再根据实际 PSNR 决定
+    // 是否需要重新进行 baseline sweep。
     return
-        createSparseApproximateBaselineConfig(
-            {
-                3,
-                4,
-                5,
-                6
-            },
-            approximate::ApproxUnitId::Add12se5Z0
+        createAllApproximateBaselineConfig(
+            approximate::ApproxUnitId::Add12se5RP
         );
 }
 
@@ -625,25 +593,30 @@ cv::Mat ConvApplication::runInternal(
                 128;
 
 
-            // 3x3 kernel:
+            // 3x3 Laplacian convolution kernel:
             //
-            // [1 2 1]
-            // [2 4 2] / 16
-            // [1 2 1]
+            // [-1 -1 -1]
+            // [-1  8 -1]
+            // [-1 -1 -1]
             //
-            // 乘2/乘4作为精确移位，近似只发生在下面8个ADD节点。
+            // 该核的系数和为0，因此前面的 pixel-128 中心化
+            // 不改变精确卷积结果。乘8与取负作为精确移位/符号变换，
+            // 近似只发生在下面8个ADD节点。
+            //
+            // 对8-bit输入，精确累加范围约为[-2040, 2040]，
+            // 仍在signed-12可表示范围内。
             const std::array<int, 9>
                 weighted =
             {
-                p1,
-                2 * p2,
-                p3,
-                2 * p4,
-                4 * p5,
-                2 * p6,
-                p7,
-                2 * p8,
-                p9
+                -p1,
+                -p2,
+                -p3,
+                -p4,
+                8 * p5,
+                -p6,
+                -p7,
+                -p8,
+                -p9
             };
 
 
@@ -754,17 +727,18 @@ cv::Mat ConvApplication::runInternal(
                 );
 
 
+            // 输出使用Laplacian响应幅值形成8-bit结构图。
+            // 这样保留局部边缘/纹理强度，同时与其它图像应用一样
+            // 可直接使用PSNR比较精确与近似输出。
             outputImage.at<unsigned char>(
                 row,
                 col
             ) =
                 static_cast<unsigned char>(
                     clampToByte(
-                        roundDivideBy16(
+                        std::abs(
                             c8
                         )
-                        +
-                        128
                     )
                 );
 
