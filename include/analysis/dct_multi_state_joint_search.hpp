@@ -65,9 +65,14 @@ struct DctMultiStateJointSearchOptions
     std::size_t refinementRounds = 1;
 
 
-    // 最终“可行解”的唯一质量下限。
-    // 中间状态不会因为低于该阈值而直接删除，
-    // 以保留后续节点补偿回来的可能性。
+    // 最终整体质量下限。
+    //
+    // 最终可行解还必须满足：
+    //   ΔMSE_ROI > ΔMSE_NonROI
+    // 即相对当前 Application Baseline，新增误差更多地进入 ROI。
+    //
+    // 中间状态不会因为暂时不满足 Global 或区域选择性而直接删除，
+    // 以保留后续节点补偿 / 重分布回来的可能性。
     double globalPsnrThreshold = 30.0;
 
 
@@ -153,15 +158,16 @@ public:
     //
     // 与旧贪心优化器不同：
     //
-    // 1. 每一步保留多个 Global / ROI 不同权衡状态；
-    //    Global 用作质量约束，满足后主要追求更低 ROI；
+    // 1. 每一步保留多个 Global / ROI / 区域重分布不同权衡状态；
+    //    最终要求 Global 达标且 ΔMSE_ROI > ΔMSE_NonROI，
+    //    在此基础上主要追求更低 ROI；
     // 2. 中间状态不强制 Global PSNR >= threshold；
     // 3. 每扩展一个节点，都基于“该状态当前真实运行”
     //    重新采集目标节点 monitor signal；
     // 4. 目标节点已有区间时，refinement 会暂时移除它，
     //    保留其它节点后重新生成区间候选；
     // 5. Module 3-A 先为每个 monitor / implementation 生成局部代表区间；
-    // 6. 所有局部代表区间再统一按 ROI / Global 快速指标竞争，
+    // 6. 所有局部代表区间再统一按 ROI / Global / 重分布快速指标竞争，
     //    只有少量候选真正运行完整应用。
     //
     // structure 可包含任意数量节点；当前课题后续主要使用 1~5 个。
