@@ -396,7 +396,7 @@ int main(
         std::cout
             << "Search objective: Global >= "
             << options.globalPsnrThreshold
-            << " dB; then minimize ROI PSNR.\n"
+            << " dB; DeltaMSE_ROI > DeltaMSE_NonROI; then minimize ROI PSNR.\n"
             << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
             << "Adaptive candidate boundaries per monitor: "
             << options.candidateBoundaryCount
