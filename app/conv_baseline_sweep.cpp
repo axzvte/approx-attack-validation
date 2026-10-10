@@ -722,7 +722,7 @@ int main(
         std::cout
             << "Conv exhaustive baseline sweep\n"
             << "==============================\n"
-            << "Kernel: [1 2 1; 2 4 2; 1 2 1] / 16\n"
+            << "Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]\n"
             << "ADD nodes: "
             << applications::ConvApplication::kAddNodeCount
             << "\n"
