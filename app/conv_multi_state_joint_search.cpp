@@ -542,13 +542,13 @@ int main(
         std::cout
             << "Conv error-redistribution joint search\n"
             << "======================================\n"
-            << "Kernel: [1 2 1; 2 4 2; 1 2 1] / 16\n"
+            << "Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]\n"
             << "Image: image_"
             << twoDigit(
                 imageIndex
             )
             << ".jpg\n"
-            << "Baseline: nodes 3,4,5,6 = 5Z0; others exact\n"
+            << "Baseline: all 8 ADD nodes = 5RP (provisional) (provisional)\n"
             << "Candidate nodes used: "
             << structure.size()
             << "\n"
