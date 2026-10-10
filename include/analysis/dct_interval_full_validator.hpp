@@ -16,6 +16,15 @@ struct DctImageQualityMetrics
     double globalPsnr = 0.0;
     double roiPsnr = 0.0;
     double nonRoiPsnr = 0.0;
+
+
+    // 与上述 PSNR 使用同一精确参考图计算的区域 MSE。
+    //
+    // 联合搜索用它们判断“新增误差是否更多地流向 ROI”。
+    // 这里保留绝对 MSE，和 Baseline 的差值由搜索器统一计算。
+    double globalMse = 0.0;
+    double roiMse = 0.0;
+    double nonRoiMse = 0.0;
 };
 
 
