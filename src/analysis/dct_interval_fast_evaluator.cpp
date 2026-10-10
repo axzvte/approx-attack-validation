@@ -1515,6 +1515,8 @@ double normalizedDistanceSquared(
         redistributionDifference;
 }
 
+}
+
 
 // =========================================================
 // Module 3-A：非支配前沿 + 代表区间
