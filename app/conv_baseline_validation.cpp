@@ -73,10 +73,10 @@ int main(
 
 
         std::cout
-            << "Conv selected baseline validation\n"
+            << "Conv provisional baseline validation\n"
             << "====================================\n"
-            << "Kernel: [1 2 1; 2 4 2; 1 2 1] / 16\n"
-            << "Baseline: nodes 3,4,5,6 = 5Z0; others exact\n"
+            << "Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]\n"
+            << "Baseline: all 8 ADD nodes = 5RP (provisional) (provisional)\n"
             << "Reference: exact Conv output\n\n"
             << std::left
             << std::setw(10) << "Image"
