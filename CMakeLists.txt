@@ -1015,3 +1015,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Sharpening Stage2 fixed-hardware screening
+# =========================================================
+
+add_executable(
+    sharpen_stage2_hardware_screening
+
+    app/sharpen_stage2_hardware_screening.cpp
+)
+
+
+target_link_libraries(
+    sharpen_stage2_hardware_screening
+    PRIVATE
+        approx_framework
+)
