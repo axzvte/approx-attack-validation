@@ -75,11 +75,21 @@ ConvApplication::ConvApplication(
 ConvApplication::BaselineConfig
 ConvApplication::createDefaultBaselineConfig()
 {
-    // Laplacian Conv 更换后，旧 Gaussian Conv Baseline 不再适用。
-    // 第一轮先用全 5RP 验证质量，再根据实际 PSNR 决定
-    // 是否需要重新进行 baseline sweep。
+    // 正式工作 Baseline（Laplacian Conv）：
+    // Node 1(C2)、2(C3)、4(C5)、7(C8) 使用 5RP，
+    // 其余节点保持精确。
+    //
+    // 该配置由 exhaustive baseline sweep 选定：
+    // Mean Global PSNR = 34.964333 dB
+    // Min  Global PSNR = 34.823761 dB
     return
-        createAllApproximateBaselineConfig(
+        createSparseApproximateBaselineConfig(
+            {
+                1,
+                2,
+                4,
+                7
+            },
             approximate::ApproxUnitId::Add12se5RP
         );
 }
