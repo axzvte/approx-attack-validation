@@ -943,3 +943,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Conv fixed-hardware configuration statistics
+# =========================================================
+
+add_executable(
+    conv_hardware_config_statistics
+
+    app/conv_hardware_config_statistics.cpp
+)
+
+
+target_link_libraries(
+    conv_hardware_config_statistics
+    PRIVATE
+        approx_framework
+)
