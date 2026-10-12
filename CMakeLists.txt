@@ -997,3 +997,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Generic fixed-hardware configuration statistics
+# =========================================================
+
+add_executable(
+    hardware_config_statistics
+
+    app/hardware_config_statistics.cpp
+)
+
+
+target_link_libraries(
+    hardware_config_statistics
+    PRIVATE
+        approx_framework
+)
