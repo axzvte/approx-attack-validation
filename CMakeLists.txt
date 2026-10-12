@@ -1050,3 +1050,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Automatic DCT/Sobel fixed-hardware pipeline
+# =========================================================
+
+add_executable(
+    automatic_fixed_hardware_pipeline
+
+    app/automatic_fixed_hardware_pipeline.cpp
+)
+
+
+target_link_libraries(
+    automatic_fixed_hardware_pipeline
+    PRIVATE
+        approx_framework
+)
