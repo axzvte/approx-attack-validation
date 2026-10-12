@@ -961,3 +961,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Conv Stage2 fixed-hardware screening
+# =========================================================
+
+add_executable(
+    conv_stage2_hardware_screening
+
+    app/conv_stage2_hardware_screening.cpp
+)
+
+
+target_link_libraries(
+    conv_stage2_hardware_screening
+    PRIVATE
+        approx_framework
+)
