@@ -168,6 +168,35 @@ std::filesystem::path stage2ImagePath(
     }
 
 
+    // 兼容 Stage2 继续沿用整个数据集总编号 image_11~20。
+    const auto continuedNumbering =
+        dataRoot
+        /
+        "stage2"
+        /
+        "input"
+        /
+        (
+            "image_"
+            +
+            twoDigit(
+                imageIndex + 10
+            )
+            +
+            ".jpg"
+        );
+
+
+    if (
+        std::filesystem::exists(
+            continuedNumbering
+        )
+    )
+    {
+        return continuedNumbering;
+    }
+
+
     // 兼容少数旧数据目录直接把图片放在 stage2/ 下。
     const auto fallback =
         dataRoot
@@ -195,10 +224,40 @@ std::filesystem::path stage2ImagePath(
     }
 
 
+    const auto continuedFallback =
+        dataRoot
+        /
+        "stage2"
+        /
+        (
+            "image_"
+            +
+            twoDigit(
+                imageIndex + 10
+            )
+            +
+            ".jpg"
+        );
+
+
+    if (
+        std::filesystem::exists(
+            continuedFallback
+        )
+    )
+    {
+        return continuedFallback;
+    }
+
+
     throw std::runtime_error(
-        "Missing Stage2 image: "
+        "Missing Stage2 image. Tried: "
         +
         primary.string()
+        +
+        " and "
+        +
+        continuedNumbering.string()
     );
 }
 
