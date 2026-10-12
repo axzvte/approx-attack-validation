@@ -979,3 +979,21 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Conv Stage3 final fixed-hardware validation
+# =========================================================
+
+add_executable(
+    conv_stage3_final_validation
+
+    app/conv_stage3_final_validation.cpp
+)
+
+
+target_link_libraries(
+    conv_stage3_final_validation
+    PRIVATE
+        approx_framework
+)
