@@ -682,7 +682,8 @@ int main(
             << "\n"
             << "Full validations: "
             << fullValidationCandidateCount
-            << "\n\n";
+            << "\n\n"
+            << std::flush;
 
 
         for (const auto& candidate : candidates)
@@ -749,6 +750,17 @@ int main(
                     );
 
 
+                std::cout
+                    << "\n[stage2] Candidate "
+                    << candidate.name
+                    << " / image_"
+                    << twoDigit(
+                        imageIndex
+                    )
+                    << " starting"
+                    << std::endl;
+
+
                 const auto result =
                     analysis::DctMultiStateJointSearch::
                         search(
@@ -756,7 +768,40 @@ int main(
                             inputImage,
                             roiMask,
                             candidate.structure,
-                            options
+                            options,
+
+                            [&candidate, imageIndex](
+                                const analysis::DctMultiStateJointSearchProgress& progress
+                            )
+                            {
+                                std::cout
+                                    << "\r[stage2] candidate "
+                                    << candidate.name
+                                    << " / image "
+                                    << imageIndex
+                                    << "/10"
+                                    << " / pass "
+                                    << progress.passIndex
+                                    << " / node "
+                                    << progress.nodeId
+                                    << " / state "
+                                    << progress.completedStates
+                                    << "/"
+                                    << progress.totalStates
+                                    << "                    "
+                                    << std::flush;
+
+
+                                if (
+                                    progress.completedStates
+                                    ==
+                                    progress.totalStates
+                                )
+                                {
+                                    std::cout
+                                        << std::endl;
+                                }
+                            }
                         );
 
 
