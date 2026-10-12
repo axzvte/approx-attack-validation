@@ -1033,3 +1033,20 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# Sharpening Stage3 final fixed-hardware validation
+# =========================================================
+
+add_executable(
+    sharpen_stage3_final_validation
+
+    app/sharpen_stage3_final_validation.cpp
+)
+
+target_link_libraries(
+    sharpen_stage3_final_validation
+    PRIVATE
+        approx_framework
+)
