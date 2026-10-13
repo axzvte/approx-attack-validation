@@ -1320,19 +1320,6 @@ buildParetoFront(
         )
         {
             if (
-                first.roiErrorChange
-                !=
-                second.roiErrorChange
-            )
-            {
-                return
-                    first.roiErrorChange
-                    >
-                    second.roiErrorChange;
-            }
-
-
-            if (
                 first.redistributionScore
                 !=
                 second.redistributionScore
@@ -1342,6 +1329,19 @@ buildParetoFront(
                     first.redistributionScore
                     >
                     second.redistributionScore;
+            }
+
+
+            if (
+                first.roiErrorChange
+                !=
+                second.roiErrorChange
+            )
+            {
+                return
+                    first.roiErrorChange
+                    >
+                    second.roiErrorChange;
             }
 
 
@@ -1601,6 +1601,10 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
         0;
 
 
+    std::size_t maxRoiIndex =
+        0;
+
+
     std::size_t minGlobalIndex =
         0;
 
@@ -1620,11 +1624,19 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
             );
 
 
-        maxRoi =
-            std::max(
-                maxRoi,
-                metric.roiErrorChange
-            );
+        if (
+            metric.roiErrorChange
+            >
+            maxRoi
+        )
+        {
+            maxRoi =
+                metric.roiErrorChange;
+
+
+            maxRoiIndex =
+                index;
+        }
 
 
         const double currentGlobal =
@@ -1698,16 +1710,34 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
 
     // 显式保留三个方向的极值：
-    // 1. ROI 破坏最强；
-    // 2. Global 代价最小；
-    // 3. ROI 相对 Non-ROI 的误差重分布最强。
-    selected[0] =
+    // 1. Redistribution Advantage 最大；
+    // 2. ROI 破坏最强；
+    // 3. Global 代价最小。
+    selected[maxRedistributionIndex] =
         true;
 
 
     selectedIndices.push_back(
-        0
+        maxRedistributionIndex
     );
+
+
+    if (
+        selectedIndices.size()
+        <
+        maxCount
+        &&
+        !selected[maxRoiIndex]
+    )
+    {
+        selected[maxRoiIndex] =
+            true;
+
+
+        selectedIndices.push_back(
+            maxRoiIndex
+        );
+    }
 
 
     if (
@@ -1724,24 +1754,6 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
         selectedIndices.push_back(
             minGlobalIndex
-        );
-    }
-
-
-    if (
-        selectedIndices.size()
-        <
-        maxCount
-        &&
-        !selected[maxRedistributionIndex]
-    )
-    {
-        selected[maxRedistributionIndex] =
-            true;
-
-
-        selectedIndices.push_back(
-            maxRedistributionIndex
         );
     }
 
@@ -1843,8 +1855,8 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
     }
 
 
-    // 仅为了输出和后续调试更直观：
-    // 从“ROI攻击端”排到“整体质量保护端”。
+    // 为后续 full validation 排序：
+    // Advantage 优先，ROI 误差增量次之，Global 代价最后。
     std::sort(
         result.representatives.begin(),
         result.representatives.end(),
@@ -1854,6 +1866,19 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
             const DctIntervalFastMetric& second
         )
         {
+            if (
+                first.redistributionScore
+                !=
+                second.redistributionScore
+            )
+            {
+                return
+                    first.redistributionScore
+                    >
+                    second.redistributionScore;
+            }
+
+
             if (
                 first.roiErrorChange
                 !=
