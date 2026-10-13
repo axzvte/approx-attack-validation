@@ -437,9 +437,9 @@ bool betterSummary(
 {
     // 第二轮固定硬件筛选顺序：
     // 1. Stage2 成功图片数越多越好；
-    // 2. 成功图片中的 Mean ROI PSNR 越低越好；
-    // 3. Mean redistribution advantage 越大越好；
-    // 4. 效果接近时硬件节点越少越好。
+    // 2. Mean redistribution advantage 越大越好；
+    // 3. Advantage 接近时 Mean ROI PSNR 越低越好；
+    // 4. 最后优先硬件节点更少。
     if (
         first.successCount
         !=
@@ -450,6 +450,19 @@ bool betterSummary(
             first.successCount
             >
             second.successCount;
+    }
+
+
+    if (
+        first.meanRedistributionAdvantage
+        !=
+        second.meanRedistributionAdvantage
+    )
+    {
+        return
+            first.meanRedistributionAdvantage
+            >
+            second.meanRedistributionAdvantage;
     }
 
 
@@ -467,19 +480,6 @@ bool betterSummary(
             first.meanRoi
             <
             second.meanRoi;
-    }
-
-
-    if (
-        first.meanRedistributionAdvantage
-        !=
-        second.meanRedistributionAdvantage
-    )
-    {
-        return
-            first.meanRedistributionAdvantage
-            >
-            second.meanRedistributionAdvantage;
     }
 
 
@@ -670,7 +670,7 @@ int main(
             << "Fixed per candidate: Node + Monitor + Unit\n"
             << "Searched per image: Interval only\n"
             << "Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI\n"
-            << "Objective: minimize ROI PSNR\n"
+            << "Objective: maximize Redistribution Advantage; tie-break: lower ROI PSNR\n"
             << "Boundary count: "
             << candidateBoundaryCount
             << "\n"
