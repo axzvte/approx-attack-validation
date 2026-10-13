@@ -603,7 +603,7 @@ int main(int argc, char** argv)
         std::sort(
             finalStates.begin(),
             finalStates.end(),
-            [&options](
+            [&options, &result](
                 const auto& first,
                 const auto& second
             )
