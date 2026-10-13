@@ -1068,3 +1068,20 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# DCT/Sobel Stage3 old-H* + new-ROI validation
+# =========================================================
+
+add_executable(
+    fixed_hardware_stage3_validation
+
+    app/fixed_hardware_stage3_validation.cpp
+)
+
+target_link_libraries(
+    fixed_hardware_stage3_validation
+    PRIVATE
+        approx_framework
+)
