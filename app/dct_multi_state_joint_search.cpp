@@ -455,7 +455,7 @@ int main(int argc, char** argv)
             << options.globalPsnrThreshold
             << " dB\n"
             << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
-            << "Final ranking: Global >= threshold, then minimize ROI PSNR\n\n";
+            << "Final ranking: Global >= threshold; maximize Redistribution Advantage; tie-break: minimize ROI PSNR\n\n";
 
 
         std::cout
@@ -626,6 +626,47 @@ int main(int argc, char** argv)
                 }
 
 
+                const double firstAdvantage =
+                    (
+                        first.metrics.roiMse
+                        -
+                        result.initialMetrics.roiMse
+                    )
+                    -
+                    (
+                        first.metrics.nonRoiMse
+                        -
+                        result.initialMetrics.nonRoiMse
+                    );
+
+
+                const double secondAdvantage =
+                    (
+                        second.metrics.roiMse
+                        -
+                        result.initialMetrics.roiMse
+                    )
+                    -
+                    (
+                        second.metrics.nonRoiMse
+                        -
+                        result.initialMetrics.nonRoiMse
+                    );
+
+
+                if (
+                    firstAdvantage
+                    !=
+                    secondAdvantage
+                )
+                {
+                    return
+                        firstAdvantage
+                        >
+                        secondAdvantage;
+                }
+
+
                 if (
                     first.metrics.roiPsnr
                     !=
@@ -648,7 +689,7 @@ int main(int argc, char** argv)
 
 
         std::cout
-            << "\nFinal beam states (Global-feasible states, lowest ROI first)\n"
+            << "\nFinal beam states (Global-feasible states, highest Advantage first)\n"
             << "------------------------------------------------------------\n"
             << std::left
             << std::setw(7) << "Rank"
