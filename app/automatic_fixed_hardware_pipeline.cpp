@@ -1,6 +1,8 @@
 #include "analysis/dct_multi_state_joint_search.hpp"
 
 #include "applications/dct.hpp"
+#include "applications/conv.hpp"
+#include "applications/sharpen.hpp"
 #include "applications/sobel.hpp"
 #include "io/image_io.hpp"
 #include "region/region_mask.hpp"
@@ -998,7 +1000,7 @@ int main(
         if (argc < 4)
         {
             throw std::runtime_error(
-                "Usage: automatic_fixed_hardware_pipeline <dct|sobel> <data_root> <result_dir> [representatives] [beam] [refinement] [boundaries] [full_validation]"
+                "Usage: automatic_fixed_hardware_pipeline <conv|sharpen|dct|sobel> <data_root> <result_dir> [representatives] [beam] [refinement] [boundaries] [full_validation]"
             );
         }
 
@@ -1082,7 +1084,29 @@ int main(
         std::string prefix;
 
 
-        if (applicationName == "dct")
+        if (applicationName == "conv")
+        {
+            application =
+                std::make_unique<
+                    applications::ConvApplication
+                >();
+
+
+            prefix =
+                "conv";
+        }
+        else if (applicationName == "sharpen")
+        {
+            application =
+                std::make_unique<
+                    applications::SharpenApplication
+                >();
+
+
+            prefix =
+                "sharpen";
+        }
+        else if (applicationName == "dct")
         {
             application =
                 std::make_unique<
