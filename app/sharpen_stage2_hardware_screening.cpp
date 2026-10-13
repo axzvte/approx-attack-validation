@@ -276,19 +276,6 @@ bool betterSummary(
 
 
     if (
-        first.meanRoi
-        !=
-        second.meanRoi
-    )
-    {
-        return
-            first.meanRoi
-            <
-            second.meanRoi;
-    }
-
-
-    if (
         first.meanAdvantage
         !=
         second.meanAdvantage
@@ -298,6 +285,19 @@ bool betterSummary(
             first.meanAdvantage
             >
             second.meanAdvantage;
+    }
+
+
+    if (
+        first.meanRoi
+        !=
+        second.meanRoi
+    )
+    {
+        return
+            first.meanRoi
+            <
+            second.meanRoi;
     }
 
 
@@ -469,7 +469,7 @@ int main(
             << "Fixed per candidate: Node + Monitor + Unit\n"
             << "Per-image search: Interval only\n"
             << "Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI\n"
-            << "Objective: minimize ROI PSNR\n\n";
+            << "Objective: maximize Redistribution Advantage; tie-break: lower ROI PSNR\n\n";
 
 
         for (const auto& candidate : candidates)
