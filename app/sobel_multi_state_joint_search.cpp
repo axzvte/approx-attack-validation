@@ -584,7 +584,7 @@ int main(
             << "Global PSNR threshold: "
             << options.globalPsnrThreshold
             << " dB\n"
-            << "Final objective: Global >= 30 dB, DeltaMSE_ROI > DeltaMSE_NonROI, then minimize ROI PSNR\n\n"
+            << "Final objective: Global >= 30 dB; maximize Redistribution Advantage; tie-break: minimize ROI PSNR\n\n"
             << "Candidate nodes\n"
             << "---------------\n";
 
