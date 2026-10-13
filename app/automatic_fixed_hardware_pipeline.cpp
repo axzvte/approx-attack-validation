@@ -941,19 +941,6 @@ bool betterSummary(
 
 
     if (
-        first.meanRoi
-        !=
-        second.meanRoi
-    )
-    {
-        return
-            first.meanRoi
-            <
-            second.meanRoi;
-    }
-
-
-    if (
         first.meanAdvantage
         !=
         second.meanAdvantage
@@ -963,6 +950,19 @@ bool betterSummary(
             first.meanAdvantage
             >
             second.meanAdvantage;
+    }
+
+
+    if (
+        first.meanRoi
+        !=
+        second.meanRoi
+    )
+    {
+        return
+            first.meanRoi
+            <
+            second.meanRoi;
     }
 
 
