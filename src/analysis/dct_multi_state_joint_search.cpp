@@ -805,6 +805,9 @@ selectJointFastCandidates(
     std::size_t minGlobalIndex =
         0;
 
+    std::size_t maxRoiIndex =
+        0;
+
     std::size_t maxRedistributionIndex =
         0;
 
@@ -824,11 +827,18 @@ selectJointFastCandidates(
             );
 
 
-        maxRoi =
-            std::max(
-                maxRoi,
-                candidate.roiErrorChange
-            );
+        if (
+            candidate.roiErrorChange
+            >
+            maxRoi
+        )
+        {
+            maxRoi =
+                candidate.roiErrorChange;
+
+            maxRoiIndex =
+                index;
+        }
 
 
         if (
@@ -915,17 +925,17 @@ selectJointFastCandidates(
 
     // 三个端点：区域重分布最强、ROI破坏最强、Global代价最小。
     addIndex(
-        0
+        maxRedistributionIndex
+    );
+
+
+    addIndex(
+        maxRoiIndex
     );
 
 
     addIndex(
         minGlobalIndex
-    );
-
-
-    addIndex(
-        maxRedistributionIndex
     );
 
 
