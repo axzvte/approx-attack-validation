@@ -396,7 +396,7 @@ int main(
         std::cout
             << "Search objective: Global >= "
             << options.globalPsnrThreshold
-            << " dB; maximize Redistribution Advantage; tie-break: minimize ROI PSNR.\n"
+            << " dB; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage.\n"
             << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
             << "Adaptive candidate boundaries per monitor: "
             << options.candidateBoundaryCount
