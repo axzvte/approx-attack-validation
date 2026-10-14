@@ -335,6 +335,10 @@ int main(
             refinementRounds;
 
 
+        options.requireAllStructureNodesActive =
+            true;
+
+
         options.globalPsnrThreshold =
             30.0;
 
