@@ -45,6 +45,9 @@ struct CandidateSummary
 
     double minimumGlobal =
         std::numeric_limits<double>::infinity();
+
+    double maximumRoi =
+        -std::numeric_limits<double>::infinity();
 };
 
 
@@ -276,15 +279,15 @@ bool betterSummary(
 
 
     if (
-        first.meanAdvantage
+        first.maximumRoi
         !=
-        second.meanAdvantage
+        second.maximumRoi
     )
     {
         return
-            first.meanAdvantage
-            >
-            second.meanAdvantage;
+            first.maximumRoi
+            <
+            second.maximumRoi;
     }
 
 
@@ -298,6 +301,19 @@ bool betterSummary(
             first.meanRoi
             <
             second.meanRoi;
+    }
+
+
+    if (
+        first.meanAdvantage
+        !=
+        second.meanAdvantage
+    )
+    {
+        return
+            first.meanAdvantage
+            >
+            second.meanAdvantage;
     }
 
 
@@ -469,7 +485,7 @@ int main(
             << "Fixed per candidate: Node + Monitor + Unit\n"
             << "Per-image search: Interval only\n"
             << "Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI\n"
-            << "Objective: maximize Redistribution Advantage; tie-break: lower ROI PSNR\n\n";
+            << "Objective: minimize ROI PSNR; tie-break: higher Redistribution Advantage\n\n";
 
 
         for (const auto& candidate : candidates)
@@ -708,6 +724,13 @@ int main(
                     );
 
 
+                summary.maximumRoi =
+                    std::max(
+                        summary.maximumRoi,
+                        best.metrics.roiPsnr
+                    );
+
+
                 std::cout
                     << std::fixed
                     << std::setprecision(
@@ -817,6 +840,8 @@ int main(
             << "MeanNonROI"
             << std::setw(16)
             << "MeanAdv"
+            << std::setw(14)
+            << "MaxROI"
             << "MinGlobal\n"
             << std::fixed
             << std::setprecision(
@@ -860,6 +885,8 @@ int main(
                     << summary.meanNonRoi
                     << std::setw(16)
                     << summary.meanAdvantage
+                    << std::setw(14)
+                    << summary.maximumRoi
                     << summary.minimumGlobal;
             }
 
