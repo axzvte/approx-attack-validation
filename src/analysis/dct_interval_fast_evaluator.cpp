@@ -1320,19 +1320,6 @@ buildParetoFront(
         )
         {
             if (
-                first.redistributionScore
-                !=
-                second.redistributionScore
-            )
-            {
-                return
-                    first.redistributionScore
-                    >
-                    second.redistributionScore;
-            }
-
-
-            if (
                 first.roiErrorChange
                 !=
                 second.roiErrorChange
@@ -1342,6 +1329,19 @@ buildParetoFront(
                     first.roiErrorChange
                     >
                     second.roiErrorChange;
+            }
+
+
+            if (
+                first.redistributionScore
+                !=
+                second.redistributionScore
+            )
+            {
+                return
+                    first.redistributionScore
+                    >
+                    second.redistributionScore;
             }
 
 
@@ -1710,15 +1710,15 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
 
     // 显式保留三个方向的极值：
-    // 1. Redistribution Advantage 最大；
-    // 2. ROI 破坏最强；
+    // 1. ROI 破坏最强；
+    // 2. Redistribution Advantage 最大；
     // 3. Global 代价最小。
-    selected[maxRedistributionIndex] =
+    selected[maxRoiIndex] =
         true;
 
 
     selectedIndices.push_back(
-        maxRedistributionIndex
+        maxRoiIndex
     );
 
 
@@ -1727,15 +1727,15 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
         <
         maxCount
         &&
-        !selected[maxRoiIndex]
+        !selected[maxRedistributionIndex]
     )
     {
-        selected[maxRoiIndex] =
+        selected[maxRedistributionIndex] =
             true;
 
 
         selectedIndices.push_back(
-            maxRoiIndex
+            maxRedistributionIndex
         );
     }
 
@@ -1856,7 +1856,7 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
 
 
     // 为后续 full validation 排序：
-    // Advantage 优先，ROI 误差增量次之，Global 代价最后。
+    // ROI 误差增量优先，Advantage 次之，Global 代价最后。
     std::sort(
         result.representatives.begin(),
         result.representatives.end(),
@@ -1867,19 +1867,6 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
         )
         {
             if (
-                first.redistributionScore
-                !=
-                second.redistributionScore
-            )
-            {
-                return
-                    first.redistributionScore
-                    >
-                    second.redistributionScore;
-            }
-
-
-            if (
                 first.roiErrorChange
                 !=
                 second.roiErrorChange
@@ -1889,6 +1876,19 @@ DctIntervalFastEvaluator::selectRepresentativeMetrics(
                     first.roiErrorChange
                     >
                     second.roiErrorChange;
+            }
+
+
+            if (
+                first.redistributionScore
+                !=
+                second.redistributionScore
+            )
+            {
+                return
+                    first.redistributionScore
+                    >
+                    second.redistributionScore;
             }
 
 
