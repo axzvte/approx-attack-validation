@@ -348,7 +348,7 @@ int main(
             << "Fixed: Node + Monitor + Unit\n"
             << "Per-image search: Interval only\n"
             << "Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI\n"
-            << "Objective: maximize Redistribution Advantage; tie-break: lower ROI PSNR\n\n"
+            << "Objective: minimize ROI PSNR; tie-break: higher Redistribution Advantage\n\n"
             << "Fixed hardware structure\n"
             << "------------------------\n";
 
