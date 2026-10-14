@@ -1125,10 +1125,40 @@ expandStateOnNode(
         expanded;
 
 
-    // 保留“不修改当前目标节点”的原状态。
-    expanded.push_back(
-        currentState
-    );
+    const bool targetAlreadyConfigured =
+        std::any_of(
+            currentState.configuration.begin(),
+            currentState.configuration.end(),
+
+            [&node](
+                const core::AttackConfig& config
+            )
+            {
+                return
+                    config.nodeId
+                    ==
+                    node.nodeId;
+            }
+        );
+
+
+    // 自由搜索阶段允许跳过候选节点。
+    //
+    // 固定硬件阶段(requireAllStructureNodesActive=true)：
+    // 若该节点尚未出现在配置中，则首次处理时必须为它选择一个
+    // 有效区间，不再保留“未配置该节点”的原状态。
+    //
+    // refinement 时节点已经配置，因此仍可保留现有区间。
+    if (
+        !options.requireAllStructureNodesActive
+        ||
+        targetAlreadyConfigured
+    )
+    {
+        expanded.push_back(
+            currentState
+        );
+    }
 
 
     const AttackConfiguration
@@ -2748,6 +2778,18 @@ DctMultiStateJointSearch::search(
 
     for (const auto& state : result.finalStates)
     {
+        if (
+            options.requireAllStructureNodesActive
+            &&
+            state.configuration.size()
+                !=
+                structure.size()
+        )
+        {
+            continue;
+        }
+
+
         if (
             !satisfiesSearchConstraints(
                 state,
