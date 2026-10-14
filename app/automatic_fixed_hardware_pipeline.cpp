@@ -73,6 +73,8 @@ struct CandidateSummary
 
     double minGlobal = 1.0e30;
 
+    double maxRoi = -1.0e30;
+
     analysis::AttackStructure structure;
 };
 
@@ -943,15 +945,15 @@ bool betterSummary(
 
 
     if (
-        first.meanAdvantage
+        first.maxRoi
         !=
-        second.meanAdvantage
+        second.maxRoi
     )
     {
         return
-            first.meanAdvantage
-            >
-            second.meanAdvantage;
+            first.maxRoi
+            <
+            second.maxRoi;
     }
 
 
@@ -965,6 +967,19 @@ bool betterSummary(
             first.meanRoi
             <
             second.meanRoi;
+    }
+
+
+    if (
+        first.meanAdvantage
+        !=
+        second.meanAdvantage
+    )
+    {
+        return
+            first.meanAdvantage
+            >
+            second.meanAdvantage;
     }
 
 
@@ -1401,6 +1416,13 @@ int main(
                     );
 
 
+                summary.maxRoi =
+                    std::max(
+                        summary.maxRoi,
+                        best.metrics.roiPsnr
+                    );
+
+
                 std::cout
                     << std::fixed
                     << std::setprecision(
@@ -1478,6 +1500,8 @@ int main(
             << "MeanNonROI"
             << std::setw(16)
             << "MeanAdv"
+            << std::setw(14)
+            << "MaxROI"
             << "MinGlobal\n"
             << std::fixed
             << std::setprecision(
@@ -1521,6 +1545,8 @@ int main(
                     << summary.meanNonRoi
                     << std::setw(16)
                     << summary.meanAdvantage
+                    << std::setw(14)
+                    << summary.maxRoi
                     << summary.minGlobal;
             }
 
