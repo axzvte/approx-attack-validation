@@ -1085,3 +1085,20 @@ target_link_libraries(
     PRIVATE
         approx_framework
 )
+
+
+# =========================================================
+# PPT-ready Stage3 image export
+# =========================================================
+
+add_executable(
+    ppt_stage3_export
+
+    app/ppt_stage3_export.cpp
+)
+
+target_link_libraries(
+    ppt_stage3_export
+    PRIVATE
+        approx_framework
+)
