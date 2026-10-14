@@ -65,6 +65,18 @@ struct DctMultiStateJointSearchOptions
     std::size_t refinementRounds = 1;
 
 
+    // 固定硬件阶段是否要求 structure 中的每个节点都必须
+    // 出现在最终 AttackConfiguration 中并具有有效触发区间。
+    //
+    // false：自由搜索阶段允许通过“保留当前状态”跳过某个候选节点；
+    // true ：首次处理某个尚未配置的固定节点时，不允许跳过，
+    //        从而保证所有已实例化近似单元都具备区间触发路径，
+    //        无需额外 enable 端。
+    //
+    // refinement 阶段若节点已经存在，则仍允许保留其当前区间。
+    bool requireAllStructureNodesActive = false;
+
+
     // 最终整体质量下限。
     //
     // 最终可行解还必须满足：
