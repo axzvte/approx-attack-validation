@@ -1243,6 +1243,10 @@ int main(
         options.refinementRounds =
             refinementRounds;
 
+        options.requireAllStructureNodesActive =
+            true;
+
+
         options.globalPsnrThreshold =
             30.0;
 
