@@ -411,21 +411,8 @@ bool jointFastCandidateComesFirst(
     const JointFastCandidate& second
 )
 {
-    // 新目标：快速阶段先保留区域误差重分布更强的区间。
-    if (
-        first.redistributionScore
-        !=
-        second.redistributionScore
-    )
-    {
-        return
-            first.redistributionScore
-            >
-            second.redistributionScore;
-    }
-
-
-    // 重分布优势相近时，再偏向 ROI 误差增量更大的区间。
+    // 正式目标：快速阶段优先保留 ROI 误差增量更大的区间。
+    // Redistribution Advantage 作为第二排序指标。
     if (
         first.roiErrorChange
         !=
@@ -436,6 +423,19 @@ bool jointFastCandidateComesFirst(
             first.roiErrorChange
             >
             second.roiErrorChange;
+    }
+
+
+    if (
+        first.redistributionScore
+        !=
+        second.redistributionScore
+    )
+    {
+        return
+            first.redistributionScore
+            >
+            second.redistributionScore;
     }
 
 
@@ -923,14 +923,14 @@ selectJointFastCandidates(
         };
 
 
-    // 三个端点：区域重分布最强、ROI破坏最强、Global代价最小。
+    // 三个端点：ROI破坏最强、区域重分布最强、Global代价最小。
     addIndex(
-        maxRedistributionIndex
+        maxRoiIndex
     );
 
 
     addIndex(
-        maxRoiIndex
+        maxRedistributionIndex
     );
 
 
@@ -1650,11 +1650,37 @@ bool betterFeasibleState(
     double epsilon
 )
 {
-    // 新目标：
-    // 1. Global >= threshold 和区域重分布方向作为硬约束；
-    // 2. 首要最大化 Redistribution Advantage；
-    // 3. Advantage 基本相同时，再让 ROI PSNR 更低；
+    // 正式目标：
+    // 1. Global >= threshold 且 Advantage > 0 作为硬约束；
+    // 2. 首要让 ROI PSNR 尽可能低；
+    // 3. ROI 基本相同时，优先 Redistribution Advantage 更大；
     // 4. 最后优先 Global PSNR 更高。
+    if (
+        first.metrics.roiPsnr
+        <
+        second.metrics.roiPsnr
+        -
+        epsilon
+    )
+    {
+        return true;
+    }
+
+
+    if (
+        std::abs(
+            first.metrics.roiPsnr
+            -
+            second.metrics.roiPsnr
+        )
+        >
+        epsilon
+    )
+    {
+        return false;
+    }
+
+
     const double firstRedistribution =
         redistributionAdvantage(
             first,
@@ -1686,32 +1712,6 @@ bool betterFeasibleState(
             firstRedistribution
             -
             secondRedistribution
-        )
-        >
-        epsilon
-    )
-    {
-        return false;
-    }
-
-
-    if (
-        first.metrics.roiPsnr
-        <
-        second.metrics.roiPsnr
-        -
-        epsilon
-    )
-    {
-        return true;
-    }
-
-
-    if (
-        std::abs(
-            first.metrics.roiPsnr
-            -
-            second.metrics.roiPsnr
         )
         >
         epsilon
@@ -2340,7 +2340,7 @@ BeamReductionResult reduceBeam(
     // 1. Global 最高；
     // 2. ROI 最低；
     // 3. 区域误差重分布优势最大；
-    // 4. 当前已同时满足约束、且 Advantage 优先的最佳状态；
+    // 4. 当前已同时满足约束、且 ROI 优先的最佳状态；
     // 5. 距离约束最近、后续节点仍可能补偿回来的状态。
     addSeedIndex(
         maxGlobalIndex,
