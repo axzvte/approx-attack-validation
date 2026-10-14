@@ -455,7 +455,7 @@ int main(int argc, char** argv)
             << options.globalPsnrThreshold
             << " dB\n"
             << "Monitor signals searched jointly: input1 / input2 / baseline_output\n"
-            << "Final ranking: Global >= threshold; maximize Redistribution Advantage; tie-break: minimize ROI PSNR\n\n";
+            << "Final ranking: Global >= threshold; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage\n\n";
 
 
         std::cout
@@ -626,6 +626,19 @@ int main(int argc, char** argv)
                 }
 
 
+                if (
+                    first.metrics.roiPsnr
+                    !=
+                    second.metrics.roiPsnr
+                )
+                {
+                    return
+                        first.metrics.roiPsnr
+                        <
+                        second.metrics.roiPsnr;
+                }
+
+
                 const double firstAdvantage =
                     (
                         first.metrics.roiMse
@@ -667,19 +680,6 @@ int main(int argc, char** argv)
                 }
 
 
-                if (
-                    first.metrics.roiPsnr
-                    !=
-                    second.metrics.roiPsnr
-                )
-                {
-                    return
-                        first.metrics.roiPsnr
-                        <
-                        second.metrics.roiPsnr;
-                }
-
-
                 return
                     first.metrics.globalPsnr
                     >
@@ -689,7 +689,7 @@ int main(int argc, char** argv)
 
 
         std::cout
-            << "\nFinal beam states (Global-feasible states, highest Advantage first)\n"
+            << "\nFinal beam states (Global-feasible states, lowest ROI first)\n"
             << "------------------------------------------------------------\n"
             << std::left
             << std::setw(7) << "Rank"
