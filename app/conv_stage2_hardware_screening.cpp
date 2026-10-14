@@ -437,9 +437,10 @@ bool betterSummary(
 {
     // 第二轮固定硬件筛选顺序：
     // 1. Stage2 成功图片数越多越好；
-    // 2. Mean redistribution advantage 越大越好；
-    // 3. Advantage 接近时 Mean ROI PSNR 越低越好；
-    // 4. 最后优先硬件节点更少。
+    // 2. Max ROI PSNR 越低越好，优先避免“个别图片失效”；
+    // 3. Mean ROI PSNR 越低越好；
+    // 4. Mean Redistribution Advantage 越大越好；
+    // 5. 最后优先硬件节点更少。
     if (
         first.successCount
         !=
@@ -454,15 +455,15 @@ bool betterSummary(
 
 
     if (
-        first.meanRedistributionAdvantage
+        first.maximumRoi
         !=
-        second.meanRedistributionAdvantage
+        second.maximumRoi
     )
     {
         return
-            first.meanRedistributionAdvantage
-            >
-            second.meanRedistributionAdvantage;
+            first.maximumRoi
+            <
+            second.maximumRoi;
     }
 
 
@@ -480,6 +481,19 @@ bool betterSummary(
             first.meanRoi
             <
             second.meanRoi;
+    }
+
+
+    if (
+        first.meanRedistributionAdvantage
+        !=
+        second.meanRedistributionAdvantage
+    )
+    {
+        return
+            first.meanRedistributionAdvantage
+            >
+            second.meanRedistributionAdvantage;
     }
 
 
@@ -670,7 +684,7 @@ int main(
             << "Fixed per candidate: Node + Monitor + Unit\n"
             << "Searched per image: Interval only\n"
             << "Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI\n"
-            << "Objective: maximize Redistribution Advantage; tie-break: lower ROI PSNR\n"
+            << "Objective: minimize ROI PSNR; tie-break: higher Redistribution Advantage\n"
             << "Boundary count: "
             << candidateBoundaryCount
             << "\n"
@@ -994,6 +1008,8 @@ int main(
             << "MeanNonROI"
             << std::setw(16)
             << "MeanAdv"
+            << std::setw(14)
+            << "MaxROI"
             << "MinGlobal\n"
             << std::fixed
             << std::setprecision(
@@ -1038,6 +1054,8 @@ int main(
                     << summary.meanNonRoi
                     << std::setw(16)
                     << summary.meanRedistributionAdvantage
+                    << std::setw(14)
+                    << summary.maximumRoi
                     << summary.minimumGlobal;
             }
             else
