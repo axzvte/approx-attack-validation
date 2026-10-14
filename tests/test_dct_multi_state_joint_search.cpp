@@ -127,6 +127,10 @@ int main()
         1;
 
 
+    options.requireAllStructureNodesActive =
+        true;
+
+
     options.globalPsnrThreshold =
         0.0;
 
@@ -162,6 +166,23 @@ int main()
 
 
         return 1;
+    }
+
+
+    for (const auto& state : result.finalStates)
+    {
+        if (
+            state.configuration.size()
+            !=
+            structure.size()
+        )
+        {
+            std::cerr
+                << "Fixed-hardware search left a structure node inactive.\n";
+
+
+            return 1;
+        }
     }
 
 
