@@ -974,7 +974,7 @@ int main(
         if (argc < 4)
         {
             throw std::runtime_error(
-                "Usage: automatic_fixed_hardware_pipeline <conv|sharpen|dct|sobel> <data_root> <result_dir> [representatives] [beam] [refinement] [boundaries] [full_validation]"
+                "Usage: automatic_fixed_hardware_pipeline <conv|sharpen|dct|sobel> <data_root> <result_dir> [representatives] [beam] [refinement] [boundaries] [full_validation] [--stage3-only <A|B|C|D>]"
             );
         }
 
@@ -1049,6 +1049,23 @@ int main(
             )
             :
             24;
+
+
+        // Stage3-only 模式直接复用 Stage1 生成的候选硬件，不重复计算
+        // Stage1/Stage2。候选字母由既有 Stage2 统计决定，禁止依据
+        // Stage3 测试集来选择固定硬件。
+        const bool stage3Only =
+            argc >= 10 && std::string(argv[9]) == "--stage3-only";
+
+        if (argc >= 10 && (!stage3Only || argc != 11))
+        {
+            throw std::runtime_error(
+                "Expected optional args: --stage3-only <A|B|C|D>"
+            );
+        }
+
+        const std::string selectedHardwareName =
+            stage3Only ? std::string(argv[10]) : std::string{};
 
 
         std::unique_ptr<core::Application>
@@ -1214,6 +1231,38 @@ int main(
             summaries;
 
 
+        if (stage3Only)
+        {
+            const auto candidateIt = std::find_if(
+                candidates.begin(),
+                candidates.end(),
+                [&selectedHardwareName](const HardwareCandidate& candidate)
+                {
+                    return candidate.name == selectedHardwareName;
+                }
+            );
+
+            if (candidateIt == candidates.end())
+            {
+                throw std::runtime_error(
+                    "Selected hardware not generated from Stage1: "
+                    + selectedHardwareName
+                );
+            }
+
+            CandidateSummary summary;
+            summary.name = candidateIt->name;
+            summary.nodeCount = candidateIt->structure.size();
+            summary.structure = candidateIt->structure;
+            summaries.push_back(std::move(summary));
+
+            std::cout
+                << "\nStage3-only mode: skip Stage2, reuse candidate "
+                << selectedHardwareName
+                << " selected from earlier Stage2 results.\n";
+        }
+        else
+        {
         for (const auto& candidate : candidates)
         {
             CandidateSummary
@@ -1525,6 +1574,7 @@ int main(
                 "No Stage2 candidate summaries."
             );
         }
+        }  // Stage2 path
 
 
         const auto& selected =
