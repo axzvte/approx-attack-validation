@@ -1609,6 +1609,26 @@ int main(
         }
 
 
+        // Save per-image Stage3 metrics and final images for PPT comparison.
+        const auto stage3ImageDirectory =
+            resultDirectory / ("stage3_final_" + selected.name);
+        std::filesystem::create_directories(stage3ImageDirectory);
+
+        const auto stage3DetailPath =
+            resultDirectory / ("stage3_detail_" + selected.name + ".csv");
+        std::ofstream stage3DetailCsv(stage3DetailPath);
+        if (!stage3DetailCsv)
+        {
+            throw std::runtime_error(
+                "Unable to create Stage3 detail CSV: "
+                + stage3DetailPath.string()
+            );
+        }
+        stage3DetailCsv
+            << "image_index,success,active_nodes,global_psnr,roi_psnr,"
+            << "non_roi_psnr,redistribution_advantage\n";
+
+
         std::size_t stage3Success =
             0;
 
@@ -1716,6 +1736,7 @@ int main(
                     << "-stage3] FAIL\n";
 
 
+                stage3DetailCsv << (imageIndex + 20) << ",0,0,,,,\n";
                 continue;
             }
 
@@ -1741,6 +1762,29 @@ int main(
                     baseline.nonRoiMse
                 );
 
+
+            if (best.configuration.size() != selected.structure.size())
+            {
+                throw std::runtime_error(
+                    "Stage3 solution is missing fixed hardware nodes."
+                );
+            }
+
+            const auto finalImage =
+                application->runApprox(inputImage, best.configuration);
+            image_io::saveImage(
+                (stage3ImageDirectory /
+                 ("image_" + twoDigit(imageIndex + 20) + ".png")).string(),
+                finalImage
+            );
+
+            stage3DetailCsv
+                << (imageIndex + 20) << ",1,"
+                << best.configuration.size() << ","
+                << best.metrics.globalPsnr << ","
+                << best.metrics.roiPsnr << ","
+                << best.metrics.nonRoiPsnr << ","
+                << advantage << "\n";
 
             ++stage3Success;
 
@@ -1791,6 +1835,8 @@ int main(
                 << best.metrics.nonRoiPsnr
                 << " / Adv="
                 << advantage
+                << " / Active="
+                << best.configuration.size()
                 << "\n";
         }
 
@@ -1854,6 +1900,13 @@ int main(
                 << "\n";
         }
 
+
+        std::cout
+            << "\nStage3 per-image CSV: "
+            << stage3DetailPath.string()
+            << "\nStage3 final images: "
+            << stage3ImageDirectory.string()
+            << "\n";
 
         return 0;
     }
