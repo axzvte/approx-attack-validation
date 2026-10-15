@@ -435,85 +435,34 @@ bool betterSummary(
     const CandidateSummary& second
 )
 {
-    // 第二轮固定硬件筛选顺序：
-    // 1. Stage2 成功图片数越多越好；
-    // 2. Max ROI PSNR 越低越好，优先避免“个别图片失效”；
-    // 3. Mean ROI PSNR 越低越好；
-    // 4. Mean Redistribution Advantage 越大越好；
-    // 5. 最后优先硬件节点更少。
-    if (
-        first.successCount
-        !=
-        second.successCount
-    )
+    // 固定硬件筛选：成功率 > 平均 ROI 破坏 > 平均重分布优势
+    // > 硬件节点数 > 最差 ROI（仅用于最后的同分比较）。
+    if (first.successCount != second.successCount)
     {
-        return
-            first.successCount
-            >
-            second.successCount;
+        return first.successCount > second.successCount;
     }
 
-
-    if (
-        first.maximumRoi
-        !=
-        second.maximumRoi
-    )
+    if (first.meanRoi != second.meanRoi)
     {
-        return
-            first.maximumRoi
-            <
-            second.maximumRoi;
+        return first.meanRoi < second.meanRoi;
     }
 
-
-    if (
-        first.successCount > 0
-        &&
-        second.successCount > 0
-        &&
-        first.meanRoi
-        !=
-        second.meanRoi
-    )
+    if (first.meanRedistributionAdvantage != second.meanRedistributionAdvantage)
     {
-        return
-            first.meanRoi
-            <
-            second.meanRoi;
+        return first.meanRedistributionAdvantage > second.meanRedistributionAdvantage;
     }
 
-
-    if (
-        first.meanRedistributionAdvantage
-        !=
-        second.meanRedistributionAdvantage
-    )
+    if (first.hardwareNodeCount != second.hardwareNodeCount)
     {
-        return
-            first.meanRedistributionAdvantage
-            >
-            second.meanRedistributionAdvantage;
+        return first.hardwareNodeCount < second.hardwareNodeCount;
     }
 
-
-    if (
-        first.hardwareNodeCount
-        !=
-        second.hardwareNodeCount
-    )
+    if (first.maximumRoi != second.maximumRoi)
     {
-        return
-            first.hardwareNodeCount
-            <
-            second.hardwareNodeCount;
+        return first.maximumRoi < second.maximumRoi;
     }
 
-
-    return
-        first.name
-        <
-        second.name;
+    return first.name < second.name;
 }
 
 }
