@@ -931,75 +931,34 @@ bool betterSummary(
     const CandidateSummary& second
 )
 {
-    if (
-        first.successCount
-        !=
-        second.successCount
-    )
+    // 固定硬件筛选：成功率 > 平均 ROI 破坏 > 平均重分布优势
+    // > 硬件节点数 > 最差 ROI（仅用于最后的同分比较）。
+    if (first.successCount != second.successCount)
     {
-        return
-            first.successCount
-            >
-            second.successCount;
+        return first.successCount > second.successCount;
     }
 
-
-    if (
-        first.maxRoi
-        !=
-        second.maxRoi
-    )
+    if (first.meanRoi != second.meanRoi)
     {
-        return
-            first.maxRoi
-            <
-            second.maxRoi;
+        return first.meanRoi < second.meanRoi;
     }
 
-
-    if (
-        first.meanRoi
-        !=
-        second.meanRoi
-    )
+    if (first.meanAdvantage != second.meanAdvantage)
     {
-        return
-            first.meanRoi
-            <
-            second.meanRoi;
+        return first.meanAdvantage > second.meanAdvantage;
     }
 
-
-    if (
-        first.meanAdvantage
-        !=
-        second.meanAdvantage
-    )
+    if (first.nodeCount != second.nodeCount)
     {
-        return
-            first.meanAdvantage
-            >
-            second.meanAdvantage;
+        return first.nodeCount < second.nodeCount;
     }
 
-
-    if (
-        first.nodeCount
-        !=
-        second.nodeCount
-    )
+    if (first.maxRoi != second.maxRoi)
     {
-        return
-            first.nodeCount
-            <
-            second.nodeCount;
+        return first.maxRoi < second.maxRoi;
     }
 
-
-    return
-        first.name
-        <
-        second.name;
+    return first.name < second.name;
 }
 
 }
