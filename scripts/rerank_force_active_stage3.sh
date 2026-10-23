@@ -8,8 +8,12 @@ cd "$ROOT_DIR"
 if [[ "$#" -gt 0 ]]; then
     SOURCE_DIR="$1"
 else
+    SEARCH_DIRS=("$ROOT_DIR")
+    if [[ -d "$ROOT_DIR/archive/experiments" ]]; then
+        SEARCH_DIRS+=("$ROOT_DIR/archive/experiments")
+    fi
     SOURCE_DIR="$(
-        find "$ROOT_DIR" -maxdepth 1 -type d \
+        find "${SEARCH_DIRS[@]}" -maxdepth 1 -type d \
             -name 'force_active_pipeline_*' -printf '%T@ %p\n' \
             | sort -nr | head -n 1 | cut -d' ' -f2-
     )"

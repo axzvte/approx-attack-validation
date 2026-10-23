@@ -1,5 +1,6 @@
 # CMake build
 build/
+build-*/
 cmake-build-*/
 
 # Experimental data
@@ -18,3 +19,31 @@ results/
 # System files
 .DS_Store
 Thumbs.db
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# New experiment runs generated in the project root
+/advantage_pipeline_*/
+/force_active_pipeline_*/
+/force_active_reranked_*/
+/overnight_results_*/
+/sharpen_formal_*/
+/conv_*.csv
+/dct_*.csv
+/sharpen_*.csv
+/sobel_*.csv
+/*_image_*.png
+/*_summary.txt
+/*_hardware.txt
+/*_per_image.txt
+/force_active_reranked_data.tar.gz
+/project_files.tsv
+
+# Preserve the complete historical record, including logs and old results.
+!/archive/
+!/archive/**
