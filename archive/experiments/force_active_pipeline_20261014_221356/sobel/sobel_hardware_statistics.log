@@ -1,0 +1,53 @@
+sobel hardware configuration statistics
+========================================
+Images loaded: 10
+Total selected node instances: 37
+
+1. Node selection frequency
+---------------------------
+Rank   Node          Count     ImageRate
+1      5(Y1)         9         90.00%
+2      3(X4)         8         80.00%
+3      1(X2)         7         70.00%
+4      8(Y4)         7         70.00%
+5      6(Y2)         6         60.00%
+
+2. Per-node monitor / unit modes
+---------------------------------
+Node          TopMonitor            MonitorCount  TopUnit       UnitCount
+5(Y1)         input2                6             5RP           3
+3(X4)         input1                3             5SB           4
+1(X2)         baseline_output       3             5RP           2
+8(Y4)         baseline_output       5             5SB           4
+6(Y2)         input2                4             5L8           2
+
+3. Full Node + Monitor + Unit frequency
+---------------------------------------
+Rank   Node          Monitor               Unit      Count   MeanCtr     CtrStd      MeanWidth   WidthStd
+1      3(X4)         input2                5SB       3       88.00       24.59       31.33       25.25
+2      5(Y1)         input2                5RP       3       155.00      19.25       160.67      142.82
+3      8(Y4)         baseline_output       5SB       3       436.33      129.81      123.33      57.05
+4      1(X2)         input2                5RP       2       159.75      44.75       58.50       11.50
+5      3(X4)         input1                5PN       2       349.00      150.00      230.00      182.00
+6      5(Y1)         input2                5Z0       2       216.00      193.00      66.00       28.00
+7      8(Y4)         baseline_output       5PN       2       547.00      264.50      175.00      22.00
+8      1(X2)         baseline_output       5L8       1       116.00      0.00        214.00      0.00
+9      1(X2)         baseline_output       5SB       1       535.00      0.00        176.00      0.00
+10     1(X2)         baseline_output       5TE       1       131.50      0.00        237.00      0.00
+11     1(X2)         input1                5SB       1       483.00      0.00        550.00      0.00
+12     1(X2)         input2                5PN       1       93.00       0.00        8.00        0.00
+13     3(X4)         baseline_output       5PN       1       841.50      0.00        139.00      0.00
+14     3(X4)         baseline_output       5SB       1       542.00      0.00        174.00      0.00
+15     3(X4)         input1                5Z0       1       184.50      0.00        359.00      0.00
+16     5(Y1)         baseline_output       5QC       1       461.50      0.00        591.00      0.00
+17     5(Y1)         input1                5PN       1       115.00      0.00        106.00      0.00
+18     5(Y1)         input1                5TE       1       169.00      0.00        136.00      0.00
+19     5(Y1)         input2                5PD       1       163.00      0.00        54.00       0.00
+20     6(Y2)         baseline_output       5L8       1       288.00      0.00        566.00      0.00
+21     6(Y2)         baseline_output       5SB       1       770.00      0.00        4.00        0.00
+22     6(Y2)         input2                5L8       1       31.00       0.00        58.00       0.00
+23     6(Y2)         input2                5PD       1       104.00      0.00        56.00       0.00
+24     6(Y2)         input2                5PN       1       134.50      0.00        45.00       0.00
+25     6(Y2)         input2                5RP       1       60.00       0.00        22.00       0.00
+26     8(Y4)         input2                5SB       1       100.00      0.00        54.00       0.00
+27     8(Y4)         input2                5TE       1       61.00       0.00        122.00      0.00

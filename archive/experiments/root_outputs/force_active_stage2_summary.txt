@@ -1,0 +1,159 @@
+conv Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      A       4         10/10       30.784598     26.769898     31.186229     102.442229      30.523991     30.037767
+2      B       4         10/10       30.945215     27.305740     31.320281     89.834752       30.527312     30.189361
+3      C       4         10/10       30.547736     26.896026     30.886710     96.334022       30.529735     30.064640
+4      D       3         9/10        31.186075     26.907302     31.609911     100.963506      30.398520     30.037791
+
+Selected H* = A
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+[conv-stage3] image 21 starting
+[conv-stage3] image 21 / node 0 / state 1/1                    
+[conv-stage3] image 21 / node 3 / state 1/4                    [conv-stage3] image 21 / node 3 / state 2/4                    [conv-stage3] image 21 / node 3 / state 3/4                    [conv-stage3] image 21 / node 3 / state 4/4                    
+[conv-stage3] image 21 / node 1 / state 1/10                    [conv-stage3] image 21 / node 1 / state 2/10                    [conv-stage3] image 21 / node 1 / state 3/10                    [conv-stage3] image 21 / node 1 / state 4/10                    [conv-stage3] image 21 / node 1 / state 5/10                    [conv-stage3] image 21 / node 1 / state 6/10                    [conv-stage3] image 21 / node 1 / state 7/10                    [conv-stage3] image 21 / node 1 / state 8/10                    [conv-stage3] image 21 / node 1 / state 9/10                    [conv-stage3] image 21 / node 1 / state 10/10                    
+[conv-stage3] image 21 / node 5 / state 1/10                    [conv-stage3] image 21 / node 5 / state 2/10                    [conv-stage3] image 21 / node 5 / state 3/10                    [conv-stage3] image 21 / node 5 / state 4/10                    [conv-stage3] image 21 / node 5 / state 5/10                    [conv-stage3] image 21 / node 5 / state 6/10                    [conv-stage3] image 21 / node 5 / state 7/10                    [conv-stage3] image 21 / node 5 / state 8/10                    [conv-stage3] image 21 / node 5 / state 9/10                    [conv-stage3] image 21 / node 5 / state 10/10                    
+--
+sharpen Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      C       4         10/10       30.512636     27.277593     30.779520     79.001547       29.452408     30.004792
+2      A       4         10/10       30.756790     26.153306     31.251254     134.431612      30.077922     30.004792
+3      B       4         10/10       30.454524     25.559335     31.027733     166.508452      30.077996     30.007926
+4      D       3         9/10        31.428945     27.424405     31.777943     89.563735       30.592618     30.009413
+
+Selected H* = C
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+[sharpen-stage3] image 21 starting
+[sharpen-stage3] image 21 / node 0 / state 1/1                    
+[sharpen-stage3] image 21 / node 1 / state 1/4                    [sharpen-stage3] image 21 / node 1 / state 2/4                    [sharpen-stage3] image 21 / node 1 / state 3/4                    [sharpen-stage3] image 21 / node 1 / state 4/4                    
+[sharpen-stage3] image 21 / node 2 / state 1/10                    [sharpen-stage3] image 21 / node 2 / state 2/10                    [sharpen-stage3] image 21 / node 2 / state 3/10                    [sharpen-stage3] image 21 / node 2 / state 4/10                    [sharpen-stage3] image 21 / node 2 / state 5/10                    [sharpen-stage3] image 21 / node 2 / state 6/10                    [sharpen-stage3] image 21 / node 2 / state 7/10                    [sharpen-stage3] image 21 / node 2 / state 8/10                    [sharpen-stage3] image 21 / node 2 / state 9/10                    [sharpen-stage3] image 21 / node 2 / state 10/10                    
+[sharpen-stage3] image 21 / node 3 / state 1/10                    [sharpen-stage3] image 21 / node 3 / state 2/10                    [sharpen-stage3] image 21 / node 3 / state 3/10                    [sharpen-stage3] image 21 / node 3 / state 4/10                    [sharpen-stage3] image 21 / node 3 / state 5/10                    [sharpen-stage3] image 21 / node 3 / state 6/10                    [sharpen-stage3] image 21 / node 3 / state 7/10                    [sharpen-stage3] image 21 / node 3 / state 8/10                    [sharpen-stage3] image 21 / node 3 / state 9/10                    [sharpen-stage3] image 21 / node 3 / state 10/10                    
+--
+dct Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      B       5         10/10       30.372871     26.996873     30.665296     85.831827       29.733780     30.032921
+2      C       5         10/10       30.437757     26.616916     30.792777     101.139570      29.753459     30.074385
+3      A       5         10/10       30.462970     26.615808     30.828454     104.407446      29.753633     30.040143
+4      D       4         10/10       30.414621     27.013396     30.711552     85.883542       29.755642     30.040123
+
+Selected H* = B
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / baseline_output / 5TE
+
+[dct-stage3] image 21 starting
+[dct-stage3] image 21 / node 0 / state 1/1                    
+[dct-stage3] image 21 / node 1 / state 1/3                    [dct-stage3] image 21 / node 1 / state 2/3                    [dct-stage3] image 21 / node 1 / state 3/3                    
+[dct-stage3] image 21 / node 2 / state 1/10                    [dct-stage3] image 21 / node 2 / state 2/10                    [dct-stage3] image 21 / node 2 / state 3/10                    [dct-stage3] image 21 / node 2 / state 4/10                    [dct-stage3] image 21 / node 2 / state 5/10                    [dct-stage3] image 21 / node 2 / state 6/10                    [dct-stage3] image 21 / node 2 / state 7/10                    [dct-stage3] image 21 / node 2 / state 8/10                    [dct-stage3] image 21 / node 2 / state 9/10                    [dct-stage3] image 21 / node 2 / state 10/10                    
+--
+sobel Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      C       5         10/10       30.221287     26.588213     30.552406     99.674236       28.842976     30.021812
+2      A       5         10/10       30.787807     25.848600     31.347267     146.050980      29.804204     30.031169
+3      D       4         10/10       30.805740     25.878155     31.362000     144.824476      29.836579     30.031163
+4      B       5         10/10       30.993836     25.310114     31.741424     183.421659      29.985523     30.042426
+
+Selected H* = C
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input1 / 5PN
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+[sobel-stage3] image 21 starting
+[sobel-stage3] image 21 / node 5 / state 1/1                    
+[sobel-stage3] image 21 / node 3 / state 1/4                    [sobel-stage3] image 21 / node 3 / state 2/4                    [sobel-stage3] image 21 / node 3 / state 3/4                    [sobel-stage3] image 21 / node 3 / state 4/4                    
+[sobel-stage3] image 21 / node 1 / state 1/10                    [sobel-stage3] image 21 / node 1 / state 2/10                    [sobel-stage3] image 21 / node 1 / state 3/10                    [sobel-stage3] image 21 / node 1 / state 4/10                    [sobel-stage3] image 21 / node 1 / state 5/10                    [sobel-stage3] image 21 / node 1 / state 6/10                    [sobel-stage3] image 21 / node 1 / state 7/10                    [sobel-stage3] image 21 / node 1 / state 8/10                    [sobel-stage3] image 21 / node 1 / state 9/10                    [sobel-stage3] image 21 / node 1 / state 10/10                    
+--
+conv Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      A       4         10/10       30.784598     26.769898     31.186229     102.442229      30.523991     30.037767
+2      B       4         10/10       30.945215     27.305740     31.320281     89.834752       30.527312     30.189361
+3      C       4         10/10       30.547736     26.896026     30.886710     96.334022       30.529735     30.064640
+4      D       3         9/10        31.186075     26.907302     31.609911     100.963506      30.398520     30.037791
+
+Selected H* = A
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+[conv-stage3] image 21 starting
+[conv-stage3] image 21 / node 0 / state 1/1                    
+[conv-stage3] image 21 / node 3 / state 1/4                    [conv-stage3] image 21 / node 3 / state 2/4                    [conv-stage3] image 21 / node 3 / state 3/4                    [conv-stage3] image 21 / node 3 / state 4/4                    
+[conv-stage3] image 21 / node 1 / state 1/10                    [conv-stage3] image 21 / node 1 / state 2/10                    [conv-stage3] image 21 / node 1 / state 3/10                    [conv-stage3] image 21 / node 1 / state 4/10                    [conv-stage3] image 21 / node 1 / state 5/10                    [conv-stage3] image 21 / node 1 / state 6/10                    [conv-stage3] image 21 / node 1 / state 7/10                    [conv-stage3] image 21 / node 1 / state 8/10                    [conv-stage3] image 21 / node 1 / state 9/10                    [conv-stage3] image 21 / node 1 / state 10/10                    
+[conv-stage3] image 21 / node 5 / state 1/10                    [conv-stage3] image 21 / node 5 / state 2/10                    [conv-stage3] image 21 / node 5 / state 3/10                    [conv-stage3] image 21 / node 5 / state 4/10                    [conv-stage3] image 21 / node 5 / state 5/10                    [conv-stage3] image 21 / node 5 / state 6/10                    [conv-stage3] image 21 / node 5 / state 7/10                    [conv-stage3] image 21 / node 5 / state 8/10                    [conv-stage3] image 21 / node 5 / state 9/10                    [conv-stage3] image 21 / node 5 / state 10/10                    
+--
+sharpen Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      C       4         10/10       30.512636     27.277593     30.779520     79.001547       29.452408     30.004792
+2      A       4         10/10       30.756790     26.153306     31.251254     134.431612      30.077922     30.004792
+3      B       4         10/10       30.454524     25.559335     31.027733     166.508452      30.077996     30.007926
+4      D       3         9/10        31.428945     27.424405     31.777943     89.563735       30.592618     30.009413
+
+Selected H* = C
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+[sharpen-stage3] image 21 starting
+[sharpen-stage3] image 21 / node 0 / state 1/1                    
+[sharpen-stage3] image 21 / node 1 / state 1/4                    [sharpen-stage3] image 21 / node 1 / state 2/4                    [sharpen-stage3] image 21 / node 1 / state 3/4                    [sharpen-stage3] image 21 / node 1 / state 4/4                    
+[sharpen-stage3] image 21 / node 2 / state 1/10                    [sharpen-stage3] image 21 / node 2 / state 2/10                    [sharpen-stage3] image 21 / node 2 / state 3/10                    [sharpen-stage3] image 21 / node 2 / state 4/10                    [sharpen-stage3] image 21 / node 2 / state 5/10                    [sharpen-stage3] image 21 / node 2 / state 6/10                    [sharpen-stage3] image 21 / node 2 / state 7/10                    [sharpen-stage3] image 21 / node 2 / state 8/10                    [sharpen-stage3] image 21 / node 2 / state 9/10                    [sharpen-stage3] image 21 / node 2 / state 10/10                    
+[sharpen-stage3] image 21 / node 3 / state 1/10                    [sharpen-stage3] image 21 / node 3 / state 2/10                    [sharpen-stage3] image 21 / node 3 / state 3/10                    [sharpen-stage3] image 21 / node 3 / state 4/10                    [sharpen-stage3] image 21 / node 3 / state 5/10                    [sharpen-stage3] image 21 / node 3 / state 6/10                    [sharpen-stage3] image 21 / node 3 / state 7/10                    [sharpen-stage3] image 21 / node 3 / state 8/10                    [sharpen-stage3] image 21 / node 3 / state 9/10                    [sharpen-stage3] image 21 / node 3 / state 10/10                    
+--
+dct Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      B       5         10/10       30.372871     26.996873     30.665296     85.831827       29.733780     30.032921
+2      C       5         10/10       30.437757     26.616916     30.792777     101.139570      29.753459     30.074385
+3      A       5         10/10       30.462970     26.615808     30.828454     104.407446      29.753633     30.040143
+4      D       4         10/10       30.414621     27.013396     30.711552     85.883542       29.755642     30.040123
+
+Selected H* = B
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / baseline_output / 5TE
+
+[dct-stage3] image 21 starting
+[dct-stage3] image 21 / node 0 / state 1/1                    
+[dct-stage3] image 21 / node 1 / state 1/3                    [dct-stage3] image 21 / node 1 / state 2/3                    [dct-stage3] image 21 / node 1 / state 3/3                    
+[dct-stage3] image 21 / node 2 / state 1/10                    [dct-stage3] image 21 / node 2 / state 2/10                    [dct-stage3] image 21 / node 2 / state 3/10                    [dct-stage3] image 21 / node 2 / state 4/10                    [dct-stage3] image 21 / node 2 / state 5/10                    [dct-stage3] image 21 / node 2 / state 6/10                    [dct-stage3] image 21 / node 2 / state 7/10                    [dct-stage3] image 21 / node 2 / state 8/10                    [dct-stage3] image 21 / node 2 / state 9/10                    [dct-stage3] image 21 / node 2 / state 10/10                    
+--
+sobel Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MaxROI        MinGlobal
+1      C       5         10/10       30.221287     26.588213     30.552406     99.674236       28.842976     30.021812
+2      A       5         10/10       30.787807     25.848600     31.347267     146.050980      29.804204     30.031169
+3      D       4         10/10       30.805740     25.878155     31.362000     144.824476      29.836579     30.031163
+4      B       5         10/10       30.993836     25.310114     31.741424     183.421659      29.985523     30.042426
+
+Selected H* = C
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input1 / 5PN
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+[sobel-stage3] image 21 starting
+[sobel-stage3] image 21 / node 5 / state 1/1                    
+[sobel-stage3] image 21 / node 3 / state 1/4                    [sobel-stage3] image 21 / node 3 / state 2/4                    [sobel-stage3] image 21 / node 3 / state 3/4                    [sobel-stage3] image 21 / node 3 / state 4/4                    
+[sobel-stage3] image 21 / node 1 / state 1/10                    [sobel-stage3] image 21 / node 1 / state 2/10                    [sobel-stage3] image 21 / node 1 / state 3/10                    [sobel-stage3] image 21 / node 1 / state 4/10                    [sobel-stage3] image 21 / node 1 / state 5/10                    [sobel-stage3] image 21 / node 1 / state 6/10                    [sobel-stage3] image 21 / node 1 / state 7/10                    [sobel-stage3] image 21 / node 1 / state 8/10                    [sobel-stage3] image 21 / node 1 / state 9/10                    [sobel-stage3] image 21 / node 1 / state 10/10                    

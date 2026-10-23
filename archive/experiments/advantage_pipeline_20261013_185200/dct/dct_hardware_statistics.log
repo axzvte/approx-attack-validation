@@ -1,0 +1,59 @@
+dct hardware configuration statistics
+========================================
+Images loaded: 10
+Total selected node instances: 46
+
+1. Node selection frequency
+---------------------------
+Rank   Node          Count     ImageRate
+1      0(ADD_00_S0)  10        100.00%
+2      2(ADD_02_S2)  10        100.00%
+3      1(ADD_01_S1)  9         90.00%
+4      7(ADD_07_D3)  9         90.00%
+5      5(ADD_05_D1)  8         80.00%
+
+2. Per-node monitor / unit modes
+---------------------------------
+Node          TopMonitor            MonitorCount  TopUnit       UnitCount
+0(ADD_00_S0)  baseline_output       5             5PD           5
+2(ADD_02_S2)  baseline_output       4             5PD           4
+1(ADD_01_S1)  baseline_output       5             5Z0           6
+7(ADD_07_D3)  baseline_output       3             5Z0           5
+5(ADD_05_D1)  input1                4             5Z0           7
+
+3. Full Node + Monitor + Unit frequency
+---------------------------------------
+Rank   Node          Monitor               Unit      Count   MeanCtr     CtrStd      MeanWidth   WidthStd
+1      1(ADD_01_S1)  baseline_output       5Z0       4       -151.62     232.77      366.75      247.83
+2      0(ADD_00_S0)  baseline_output       5PD       3       -54.17      30.27       113.67      65.75
+3      5(ADD_05_D1)  input1                5Z0       3       11.83       84.50       121.00      152.09
+4      5(ADD_05_D1)  input2                5Z0       3       23.83       134.54      202.33      130.79
+5      2(ADD_02_S2)  baseline_output       5PD       2       -75.25      2.25        61.50       31.50
+6      2(ADD_02_S2)  baseline_output       5SB       2       -140.00     287.00      300.00      252.00
+7      7(ADD_07_D3)  input1                5Z0       2       13.25       58.75       18.50       4.50
+8      7(ADD_07_D3)  input2                5Z0       2       106.50      67.50       177.00      169.00
+9      0(ADD_00_S0)  baseline_output       5SB       1       -359.00     0.00        678.00      0.00
+10     0(ADD_00_S0)  baseline_output       5Z0       1       -444.00     0.00        482.00      0.00
+11     0(ADD_00_S0)  input1                5PD       1       -53.00      0.00        346.00      0.00
+12     0(ADD_00_S0)  input1                5RP       1       -30.50      0.00        55.00       0.00
+13     0(ADD_00_S0)  input1                5Z0       1       114.50      0.00        269.00      0.00
+14     0(ADD_00_S0)  input2                5PD       1       -56.50      0.00        21.00       0.00
+15     0(ADD_00_S0)  input2                5SB       1       143.50      0.00        263.00      0.00
+16     1(ADD_01_S1)  baseline_output       5PD       1       -301.00     0.00        572.00      0.00
+17     1(ADD_01_S1)  input1                5PD       1       -26.50      0.00        39.00       0.00
+18     1(ADD_01_S1)  input1                5SB       1       -47.00      0.00        64.00       0.00
+19     1(ADD_01_S1)  input1                5Z0       1       -36.50      0.00        45.00       0.00
+20     1(ADD_01_S1)  input2                5Z0       1       -66.50      0.00        9.00        0.00
+21     2(ADD_02_S2)  input1                5PD       1       26.00       0.00        42.00       0.00
+22     2(ADD_02_S2)  input1                5TE       1       -26.50      0.00        45.00       0.00
+23     2(ADD_02_S2)  input1                5Z0       1       -201.00     0.00        270.00      0.00
+24     2(ADD_02_S2)  input2                5PD       1       -60.50      0.00        25.00       0.00
+25     2(ADD_02_S2)  input2                5SB       1       -17.50      0.00        29.00       0.00
+26     2(ADD_02_S2)  input2                5Z0       1       -67.50      0.00        9.00        0.00
+27     5(ADD_05_D1)  baseline_output       5Z0       1       110.50      0.00        159.00      0.00
+28     5(ADD_05_D1)  input1                5RP       1       -100.00     0.00        210.00      0.00
+29     7(ADD_07_D3)  baseline_output       5PN       1       1.50        0.00        3.00        0.00
+30     7(ADD_07_D3)  baseline_output       5TE       1       0.00        0.00        4.00        0.00
+31     7(ADD_07_D3)  baseline_output       5Z0       1       68.00       0.00        130.00      0.00
+32     7(ADD_07_D3)  input1                5SB       1       115.00      0.00        226.00      0.00
+33     7(ADD_07_D3)  input2                5PN       1       -16.00      0.00        32.00       0.00

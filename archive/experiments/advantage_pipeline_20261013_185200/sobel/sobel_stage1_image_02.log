@@ -1,0 +1,47 @@
+Sobel error-redistribution joint search
+=======================================
+Image: image_02.jpg
+Baseline: nodes 0,2,4,7,9 = 5RP; others exact
+Candidate nodes used: 5
+Adaptive candidate boundaries / monitor: 24
+Local representatives / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Global PSNR threshold: 30 dB
+Final objective: Global >= 30 dB; maximize Redistribution Advantage; tie-break: minimize ROI PSNR
+
+Candidate nodes
+---------------
+  1. Node 8 / Y4
+  2. Node 3 / X4
+  3. Node 5 / Y1
+  4. Node 6 / Y2
+  5. Node 1 / X2
+[sobel-joint] pass 0 / node 8 / state 1/1                    
+[sobel-joint] pass 0 / node 3 / state 1/10                    [sobel-joint] pass 0 / node 3 / state 2/10                    [sobel-joint] pass 0 / node 3 / state 3/10                    [sobel-joint] pass 0 / node 3 / state 4/10                    [sobel-joint] pass 0 / node 3 / state 5/10                    [sobel-joint] pass 0 / node 3 / state 6/10                    [sobel-joint] pass 0 / node 3 / state 7/10                    [sobel-joint] pass 0 / node 3 / state 8/10                    [sobel-joint] pass 0 / node 3 / state 9/10                    [sobel-joint] pass 0 / node 3 / state 10/10                    
+[sobel-joint] pass 0 / node 5 / state 1/10                    [sobel-joint] pass 0 / node 5 / state 2/10                    [sobel-joint] pass 0 / node 5 / state 3/10                    [sobel-joint] pass 0 / node 5 / state 4/10                    [sobel-joint] pass 0 / node 5 / state 5/10                    [sobel-joint] pass 0 / node 5 / state 6/10                    [sobel-joint] pass 0 / node 5 / state 7/10                    [sobel-joint] pass 0 / node 5 / state 8/10                    [sobel-joint] pass 0 / node 5 / state 9/10                    [sobel-joint] pass 0 / node 5 / state 10/10                    
+[sobel-joint] pass 0 / node 6 / state 1/10                    [sobel-joint] pass 0 / node 6 / state 2/10                    [sobel-joint] pass 0 / node 6 / state 3/10                    [sobel-joint] pass 0 / node 6 / state 4/10                    [sobel-joint] pass 0 / node 6 / state 5/10                    [sobel-joint] pass 0 / node 6 / state 6/10                    [sobel-joint] pass 0 / node 6 / state 7/10                    [sobel-joint] pass 0 / node 6 / state 8/10                    [sobel-joint] pass 0 / node 6 / state 9/10                    [sobel-joint] pass 0 / node 6 / state 10/10                    
+[sobel-joint] pass 0 / node 1 / state 1/10                    [sobel-joint] pass 0 / node 1 / state 2/10                    [sobel-joint] pass 0 / node 1 / state 3/10                    [sobel-joint] pass 0 / node 1 / state 4/10                    [sobel-joint] pass 0 / node 1 / state 5/10                    [sobel-joint] pass 0 / node 1 / state 6/10                    [sobel-joint] pass 0 / node 1 / state 7/10                    [sobel-joint] pass 0 / node 1 / state 8/10                    [sobel-joint] pass 0 / node 1 / state 9/10                    [sobel-joint] pass 0 / node 1 / state 10/10                    
+
+Sobel initial metrics
+---------------------
+Global: 36.389214
+ROI: 36.286543
+Non-ROI: 36.394113
+
+Best feasible Sobel state
+-------------------------
+Global PSNR: 30.129796
+ROI PSNR: 21.676944
+Non-ROI PSNR: 31.573785
+ROI MSE increase: 426.672381
+Non-ROI MSE increase: 30.342107
+Redistribution advantage: 396.330274
+Active redistribution nodes: 3
+  Node 1 / X2 / baseline_output / 5TE / [13, 250]
+  Node 5 / Y1 / input2 / 5Z0 / [4, 42]
+  Node 6 / Y2 / input2 / 5L8 / [2, 60]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/advantage_pipeline_20261013_185200/sobel/sobel_joint_search_best_image_02.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/advantage_pipeline_20261013_185200/sobel/sobel_baseline_image_02.png
+Best final image: /home/axzvte/projects/approx_attack_validation/advantage_pipeline_20261013_185200/sobel/sobel_joint_search_best_image_02.png

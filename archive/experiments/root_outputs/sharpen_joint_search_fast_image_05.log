@@ -1,0 +1,31 @@
+Automatically selected sharpening node / monitor pairs
+-----------------------------------------------------
+  Node 0 / A1 / input1 / mean gap 0.2504
+  Node 1 / A2 / input2 / mean gap 0.2511
+  Node 2 / A3 / input2 / mean gap 0.2508
+  Node 3 / A4 / input2 / mean gap 0.2500
+[joint-search] pass 0 / node 0 / forward / state 1/1                    
+[joint-search] pass 0 / node 1 / forward / state 1/10                    [joint-search] pass 0 / node 1 / forward / state 2/10                    [joint-search] pass 0 / node 1 / forward / state 3/10                    [joint-search] pass 0 / node 1 / forward / state 4/10                    [joint-search] pass 0 / node 1 / forward / state 5/10                    [joint-search] pass 0 / node 1 / forward / state 6/10                    [joint-search] pass 0 / node 1 / forward / state 7/10                    [joint-search] pass 0 / node 1 / forward / state 8/10                    [joint-search] pass 0 / node 1 / forward / state 9/10                    [joint-search] pass 0 / node 1 / forward / state 10/10                    
+[joint-search] pass 0 / node 2 / forward / state 1/10                    [joint-search] pass 0 / node 2 / forward / state 2/10                    [joint-search] pass 0 / node 2 / forward / state 3/10                    [joint-search] pass 0 / node 2 / forward / state 4/10                    [joint-search] pass 0 / node 2 / forward / state 5/10                    [joint-search] pass 0 / node 2 / forward / state 6/10                    [joint-search] pass 0 / node 2 / forward / state 7/10                    [joint-search] pass 0 / node 2 / forward / state 8/10                    [joint-search] pass 0 / node 2 / forward / state 9/10                    [joint-search] pass 0 / node 2 / forward / state 10/10                    
+[joint-search] pass 0 / node 3 / forward / state 1/10                    [joint-search] pass 0 / node 3 / forward / state 2/10                    [joint-search] pass 0 / node 3 / forward / state 3/10                    [joint-search] pass 0 / node 3 / forward / state 4/10                    [joint-search] pass 0 / node 3 / forward / state 5/10                    [joint-search] pass 0 / node 3 / forward / state 6/10                    [joint-search] pass 0 / node 3 / forward / state 7/10                    [joint-search] pass 0 / node 3 / forward / state 8/10                    [joint-search] pass 0 / node 3 / forward / state 9/10                    [joint-search] pass 0 / node 3 / forward / state 10/10                    
+
+Sharpening initial metrics
+---------------------------
+Global: 34.301472
+ROI: 34.655791
+Non-ROI: 34.229275
+
+Best feasible sharpening state
+--------------------------------
+Global PSNR: 30.142235
+ROI PSNR: 27.580834
+Non-ROI PSNR: 30.961609
+Active redistribution nodes: 4
+  Node 0 / A1 / input1 / 5PD / [335, 1035]
+  Node 1 / A2 / input2 / 5PD / [-170, -82]
+  Node 2 / A3 / input2 / 5QC / [-55, -33]
+  Node 3 / A4 / input2 / 5Z0 / [-207, -196]
+
+Best-result CSV: ./sharpen_joint_search_best_image_05.csv
+Baseline image: ./sharpen_baseline_image_05.png
+Best final image: ./sharpen_joint_search_best_image_05.png

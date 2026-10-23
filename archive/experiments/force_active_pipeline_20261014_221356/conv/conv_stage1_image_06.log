@@ -1,0 +1,48 @@
+Conv error-redistribution joint search
+======================================
+Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]
+Image: image_06.jpg
+Baseline: nodes 1,2,4,7 = 5RP; others exact
+Candidate nodes used: 5
+Adaptive candidate boundaries / monitor: 24
+Local representatives / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Global PSNR threshold: 30 dB
+Final objective: Global >= 30 dB; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage
+
+Candidate nodes
+---------------
+  1. Node 0 / C1
+  2. Node 3 / C4
+  3. Node 5 / C6
+  4. Node 1 / C2
+  5. Node 6 / C7
+[conv-joint] pass 0 / node 0 / state 1/1                    
+[conv-joint] pass 0 / node 3 / state 1/10                    [conv-joint] pass 0 / node 3 / state 2/10                    [conv-joint] pass 0 / node 3 / state 3/10                    [conv-joint] pass 0 / node 3 / state 4/10                    [conv-joint] pass 0 / node 3 / state 5/10                    [conv-joint] pass 0 / node 3 / state 6/10                    [conv-joint] pass 0 / node 3 / state 7/10                    [conv-joint] pass 0 / node 3 / state 8/10                    [conv-joint] pass 0 / node 3 / state 9/10                    [conv-joint] pass 0 / node 3 / state 10/10                    
+[conv-joint] pass 0 / node 5 / state 1/10                    [conv-joint] pass 0 / node 5 / state 2/10                    [conv-joint] pass 0 / node 5 / state 3/10                    [conv-joint] pass 0 / node 5 / state 4/10                    [conv-joint] pass 0 / node 5 / state 5/10                    [conv-joint] pass 0 / node 5 / state 6/10                    [conv-joint] pass 0 / node 5 / state 7/10                    [conv-joint] pass 0 / node 5 / state 8/10                    [conv-joint] pass 0 / node 5 / state 9/10                    [conv-joint] pass 0 / node 5 / state 10/10                    
+[conv-joint] pass 0 / node 1 / state 1/10                    [conv-joint] pass 0 / node 1 / state 2/10                    [conv-joint] pass 0 / node 1 / state 3/10                    [conv-joint] pass 0 / node 1 / state 4/10                    [conv-joint] pass 0 / node 1 / state 5/10                    [conv-joint] pass 0 / node 1 / state 6/10                    [conv-joint] pass 0 / node 1 / state 7/10                    [conv-joint] pass 0 / node 1 / state 8/10                    [conv-joint] pass 0 / node 1 / state 9/10                    [conv-joint] pass 0 / node 1 / state 10/10                    
+[conv-joint] pass 0 / node 6 / state 1/10                    [conv-joint] pass 0 / node 6 / state 2/10                    [conv-joint] pass 0 / node 6 / state 3/10                    [conv-joint] pass 0 / node 6 / state 4/10                    [conv-joint] pass 0 / node 6 / state 5/10                    [conv-joint] pass 0 / node 6 / state 6/10                    [conv-joint] pass 0 / node 6 / state 7/10                    [conv-joint] pass 0 / node 6 / state 8/10                    [conv-joint] pass 0 / node 6 / state 9/10                    [conv-joint] pass 0 / node 6 / state 10/10                    
+
+Conv initial metrics
+--------------------
+Global: 34.823761
+ROI: 34.748476
+Non-ROI: 34.827341
+
+Best feasible Conv state
+------------------------
+Global PSNR: 30.067831
+ROI PSNR: 28.769987
+Non-ROI PSNR: 30.139698
+ROI MSE increase: 64.525318
+Non-ROI MSE increase: 41.569975
+Redistribution advantage: 22.955343
+Active redistribution nodes: 3
+  Node 0 / C1 / baseline_output / 5PN / [-212, 55]
+  Node 3 / C4 / input1 / 5PD / [-109, 27]
+  Node 5 / C6 / input1 / 5TE / [-194, 772]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/conv/conv_joint_search_best_image_06.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/conv/conv_baseline_image_06.png
+Best final image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/conv/conv_joint_search_best_image_06.png

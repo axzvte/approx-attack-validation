@@ -1,0 +1,46 @@
+Conv error-redistribution joint search
+======================================
+Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]
+Image: image_10.jpg
+Baseline: nodes 1,2,4,7 = 5RP; others exact
+Candidate nodes used: 5
+Adaptive candidate boundaries / monitor: 24
+Local representatives / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Global PSNR threshold: 30 dB
+Final objective: Global >= 30 dB, DeltaMSE_ROI > DeltaMSE_NonROI, then minimize ROI PSNR
+
+Candidate nodes
+---------------
+  1. Node 0 / C1
+  2. Node 5 / C6
+  3. Node 3 / C4
+  4. Node 1 / C2
+  5. Node 6 / C7
+[conv-joint] pass 0 / node 0 / state 1/1                    
+[conv-joint] pass 0 / node 5 / state 1/10                    [conv-joint] pass 0 / node 5 / state 2/10                    [conv-joint] pass 0 / node 5 / state 3/10                    [conv-joint] pass 0 / node 5 / state 4/10                    [conv-joint] pass 0 / node 5 / state 5/10                    [conv-joint] pass 0 / node 5 / state 6/10                    [conv-joint] pass 0 / node 5 / state 7/10                    [conv-joint] pass 0 / node 5 / state 8/10                    [conv-joint] pass 0 / node 5 / state 9/10                    [conv-joint] pass 0 / node 5 / state 10/10                    
+[conv-joint] pass 0 / node 3 / state 1/10                    [conv-joint] pass 0 / node 3 / state 2/10                    [conv-joint] pass 0 / node 3 / state 3/10                    [conv-joint] pass 0 / node 3 / state 4/10                    [conv-joint] pass 0 / node 3 / state 5/10                    [conv-joint] pass 0 / node 3 / state 6/10                    [conv-joint] pass 0 / node 3 / state 7/10                    [conv-joint] pass 0 / node 3 / state 8/10                    [conv-joint] pass 0 / node 3 / state 9/10                    [conv-joint] pass 0 / node 3 / state 10/10                    
+[conv-joint] pass 0 / node 1 / state 1/10                    [conv-joint] pass 0 / node 1 / state 2/10                    [conv-joint] pass 0 / node 1 / state 3/10                    [conv-joint] pass 0 / node 1 / state 4/10                    [conv-joint] pass 0 / node 1 / state 5/10                    [conv-joint] pass 0 / node 1 / state 6/10                    [conv-joint] pass 0 / node 1 / state 7/10                    [conv-joint] pass 0 / node 1 / state 8/10                    [conv-joint] pass 0 / node 1 / state 9/10                    [conv-joint] pass 0 / node 1 / state 10/10                    
+[conv-joint] pass 0 / node 6 / state 1/10                    [conv-joint] pass 0 / node 6 / state 2/10                    [conv-joint] pass 0 / node 6 / state 3/10                    [conv-joint] pass 0 / node 6 / state 4/10                    [conv-joint] pass 0 / node 6 / state 5/10                    [conv-joint] pass 0 / node 6 / state 6/10                    [conv-joint] pass 0 / node 6 / state 7/10                    [conv-joint] pass 0 / node 6 / state 8/10                    [conv-joint] pass 0 / node 6 / state 9/10                    [conv-joint] pass 0 / node 6 / state 10/10                    
+
+Conv initial metrics
+--------------------
+Global: 35.135050
+ROI: 35.187525
+Non-ROI: 35.123904
+
+Best feasible Conv state
+------------------------
+Global PSNR: 30.217770
+ROI PSNR: 28.884597
+Non-ROI PSNR: 30.565176
+ROI MSE increase: 64.372322
+Non-ROI MSE increase: 37.106012
+Redistribution advantage: 27.266310
+Active redistribution nodes: 1
+  Node 6 / C7 / input1 / 5SB / [155, 203]
+
+Best-result CSV: ./conv_joint_search_best_image_10.csv
+Baseline image: ./conv_baseline_image_10.png
+Best final image: ./conv_joint_search_best_image_10.png

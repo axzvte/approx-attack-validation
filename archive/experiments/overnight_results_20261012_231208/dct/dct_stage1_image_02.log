@@ -1,0 +1,79 @@
+DCT error-redistribution interval + joint search
+===============================================
+Image: image_02.jpg
+Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)
+Node source: /home/axzvte/projects/approx_attack_validation/overnight_results_20261012_231208/dct/dct_node_sensitivity_summary.csv
+Candidate nodes used: 5
+Redistribution implementations: 9
+Adaptive candidate boundaries / monitor: 24
+Local representative intervals / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Refinement rounds: 0
+Final Global PSNR threshold: 30 dB
+Monitor signals searched jointly: input1 / input2 / baseline_output
+Final ranking: Global >= threshold, then minimize ROI PSNR
+
+Candidate nodes
+---------------
+  1. Node 7 / ADD_07_D3
+  2. Node 5 / ADD_05_D1
+  3. Node 1 / ADD_01_S1
+  4. Node 0 / ADD_00_S0
+  5. Node 2 / ADD_02_S2
+
+Redistribution implementations searched: 5L8, 5PD, 5PN, 5QC, 5QT, 5RP, 5TE, 5SB, 5Z0
+
+[joint-search] pass 0 / node 7 / forward / state 1/1                    
+[joint-search] pass 0 / node 5 / forward / state 1/10                    [joint-search] pass 0 / node 5 / forward / state 2/10                    [joint-search] pass 0 / node 5 / forward / state 3/10                    [joint-search] pass 0 / node 5 / forward / state 4/10                    [joint-search] pass 0 / node 5 / forward / state 5/10                    [joint-search] pass 0 / node 5 / forward / state 6/10                    [joint-search] pass 0 / node 5 / forward / state 7/10                    [joint-search] pass 0 / node 5 / forward / state 8/10                    [joint-search] pass 0 / node 5 / forward / state 9/10                    [joint-search] pass 0 / node 5 / forward / state 10/10                    
+[joint-search] pass 0 / node 1 / forward / state 1/10                    [joint-search] pass 0 / node 1 / forward / state 2/10                    [joint-search] pass 0 / node 1 / forward / state 3/10                    [joint-search] pass 0 / node 1 / forward / state 4/10                    [joint-search] pass 0 / node 1 / forward / state 5/10                    [joint-search] pass 0 / node 1 / forward / state 6/10                    [joint-search] pass 0 / node 1 / forward / state 7/10                    [joint-search] pass 0 / node 1 / forward / state 8/10                    [joint-search] pass 0 / node 1 / forward / state 9/10                    [joint-search] pass 0 / node 1 / forward / state 10/10                    
+[joint-search] pass 0 / node 0 / forward / state 1/10                    [joint-search] pass 0 / node 0 / forward / state 2/10                    [joint-search] pass 0 / node 0 / forward / state 3/10                    [joint-search] pass 0 / node 0 / forward / state 4/10                    [joint-search] pass 0 / node 0 / forward / state 5/10                    [joint-search] pass 0 / node 0 / forward / state 6/10                    [joint-search] pass 0 / node 0 / forward / state 7/10                    [joint-search] pass 0 / node 0 / forward / state 8/10                    [joint-search] pass 0 / node 0 / forward / state 9/10                    [joint-search] pass 0 / node 0 / forward / state 10/10                    
+[joint-search] pass 0 / node 2 / forward / state 1/10                    [joint-search] pass 0 / node 2 / forward / state 2/10                    [joint-search] pass 0 / node 2 / forward / state 3/10                    [joint-search] pass 0 / node 2 / forward / state 4/10                    [joint-search] pass 0 / node 2 / forward / state 5/10                    [joint-search] pass 0 / node 2 / forward / state 6/10                    [joint-search] pass 0 / node 2 / forward / state 7/10                    [joint-search] pass 0 / node 2 / forward / state 8/10                    [joint-search] pass 0 / node 2 / forward / state 9/10                    [joint-search] pass 0 / node 2 / forward / state 10/10                    
+
+Initial metrics
+---------------
+Global: 36.002137
+ROI: 35.690301
+Non-ROI: 36.071869
+
+Layer summary
+-------------
+Pass    Node    Mode        Input       Expanded    Pareto      Kept
+0       7       forward     1           25          23          10
+0       5       forward     10          250         127         10
+0       1       forward     10          250         104         10
+0       0       forward     10          250         137         10
+0       2       forward     10          250         134         10
+
+Final beam states (Global-feasible states, lowest ROI first)
+------------------------------------------------------------
+Rank   Global        ROI           NonROI        ActiveNodes
+1      30.007812     28.699989     30.347262     5
+2      30.525829     30.202676     30.598208     3
+3      36.002137     35.690301     36.071869     0
+4      36.097528     35.825498     36.158012     1
+5      21.018298     20.802649     21.065862     5
+6      21.866811     21.906665     21.858331     5
+7      22.495691     22.015062     22.605818     5
+8      25.300901     24.839305     25.406375     5
+9      27.281972     25.821179     27.670375     5
+10     27.844894     26.659138     28.146872     5
+
+Best feasible redistribution state
+----------------------------------
+Global PSNR: 30.007812
+ROI PSNR: 28.699989
+Non-ROI PSNR: 30.347262
+ROI MSE increase: 70.175698
+Non-ROI MSE increase: 43.962566
+Redistribution advantage: 26.213133
+Active redistribution nodes: 5
+  Node 0 / input2 / 5SB / [-348, -76]
+  Node 1 / input1 / 5Z0 / [-340, -81]
+  Node 2 / baseline_output / 5RP / [-671, 546]
+  Node 5 / input1 / 5Z0 / [27, 274]
+  Node 7 / input1 / 5Z0 / [27, 270]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/overnight_results_20261012_231208/dct/dct_joint_search_best_image_02.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/overnight_results_20261012_231208/dct/dct_baseline_image_02.png
+Best final image: /home/axzvte/projects/approx_attack_validation/overnight_results_20261012_231208/dct/dct_joint_search_best_image_02.png

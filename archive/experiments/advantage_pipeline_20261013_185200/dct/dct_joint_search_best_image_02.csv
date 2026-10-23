@@ -1,0 +1,4 @@
+node_id,node_name,monitor,implementation,lower,upper,global_psnr,roi_psnr,non_roi_psnr
+0,ADD_00_S0,baseline_output,5Z0,-685,-203,30.367112914,27.8593817757,30.5300480479
+1,ADD_01_S1,baseline_output,5Z0,-669,-138,30.367112914,27.8593817757,30.5300480479
+2,ADD_02_S2,baseline_output,5SB,-703,-151,30.367112914,27.8593817757,30.5300480479

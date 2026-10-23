@@ -1,0 +1,79 @@
+DCT error-redistribution interval + joint search
+===============================================
+Image: image_10.jpg
+Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)
+Node source: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/dct/dct_node_sensitivity_summary.csv
+Candidate nodes used: 5
+Redistribution implementations: 9
+Adaptive candidate boundaries / monitor: 24
+Local representative intervals / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Refinement rounds: 0
+Final Global PSNR threshold: 30 dB
+Monitor signals searched jointly: input1 / input2 / baseline_output
+Final ranking: Global >= threshold; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage
+
+Candidate nodes
+---------------
+  1. Node 7 / ADD_07_D3
+  2. Node 5 / ADD_05_D1
+  3. Node 1 / ADD_01_S1
+  4. Node 0 / ADD_00_S0
+  5. Node 2 / ADD_02_S2
+
+Redistribution implementations searched: 5L8, 5PD, 5PN, 5QC, 5QT, 5RP, 5TE, 5SB, 5Z0
+
+[joint-search] pass 0 / node 7 / forward / state 1/1                    
+[joint-search] pass 0 / node 5 / forward / state 1/10                    [joint-search] pass 0 / node 5 / forward / state 2/10                    [joint-search] pass 0 / node 5 / forward / state 3/10                    [joint-search] pass 0 / node 5 / forward / state 4/10                    [joint-search] pass 0 / node 5 / forward / state 5/10                    [joint-search] pass 0 / node 5 / forward / state 6/10                    [joint-search] pass 0 / node 5 / forward / state 7/10                    [joint-search] pass 0 / node 5 / forward / state 8/10                    [joint-search] pass 0 / node 5 / forward / state 9/10                    [joint-search] pass 0 / node 5 / forward / state 10/10                    
+[joint-search] pass 0 / node 1 / forward / state 1/10                    [joint-search] pass 0 / node 1 / forward / state 2/10                    [joint-search] pass 0 / node 1 / forward / state 3/10                    [joint-search] pass 0 / node 1 / forward / state 4/10                    [joint-search] pass 0 / node 1 / forward / state 5/10                    [joint-search] pass 0 / node 1 / forward / state 6/10                    [joint-search] pass 0 / node 1 / forward / state 7/10                    [joint-search] pass 0 / node 1 / forward / state 8/10                    [joint-search] pass 0 / node 1 / forward / state 9/10                    [joint-search] pass 0 / node 1 / forward / state 10/10                    
+[joint-search] pass 0 / node 0 / forward / state 1/10                    [joint-search] pass 0 / node 0 / forward / state 2/10                    [joint-search] pass 0 / node 0 / forward / state 3/10                    [joint-search] pass 0 / node 0 / forward / state 4/10                    [joint-search] pass 0 / node 0 / forward / state 5/10                    [joint-search] pass 0 / node 0 / forward / state 6/10                    [joint-search] pass 0 / node 0 / forward / state 7/10                    [joint-search] pass 0 / node 0 / forward / state 8/10                    [joint-search] pass 0 / node 0 / forward / state 9/10                    [joint-search] pass 0 / node 0 / forward / state 10/10                    
+[joint-search] pass 0 / node 2 / forward / state 1/10                    [joint-search] pass 0 / node 2 / forward / state 2/10                    [joint-search] pass 0 / node 2 / forward / state 3/10                    [joint-search] pass 0 / node 2 / forward / state 4/10                    [joint-search] pass 0 / node 2 / forward / state 5/10                    [joint-search] pass 0 / node 2 / forward / state 6/10                    [joint-search] pass 0 / node 2 / forward / state 7/10                    [joint-search] pass 0 / node 2 / forward / state 8/10                    [joint-search] pass 0 / node 2 / forward / state 9/10                    [joint-search] pass 0 / node 2 / forward / state 10/10                    
+
+Initial metrics
+---------------
+Global: 35.273218
+ROI: 35.046988
+Non-ROI: 35.284174
+
+Layer summary
+-------------
+Pass    Node    Mode        Input       Expanded    Pareto      Kept
+0       7       forward     1           25          21          10
+0       5       forward     10          250         92          10
+0       1       forward     10          250         109         10
+0       0       forward     10          250         125         10
+0       2       forward     10          250         118         10
+
+Final beam states (Global-feasible states, lowest ROI first)
+------------------------------------------------------------
+Rank   Global        ROI           NonROI        ActiveNodes
+1      30.000190     27.411893     30.170218     5
+2      31.300679     28.851309     31.458565     4
+3      32.727041     30.527552     32.864120     4
+4      32.768575     32.068698     32.804508     3
+5      35.420240     35.182265     35.431781     1
+6      21.924775     21.167223     21.963950     5
+7      22.861293     21.600771     22.930760     5
+8      25.318046     22.888173     25.474262     5
+9      26.430209     24.480461     26.547748     5
+10     29.978082     27.339748     30.152587     4
+
+Best feasible redistribution state
+----------------------------------
+Global PSNR: 30.000190
+ROI PSNR: 27.411893
+Non-ROI PSNR: 30.170218
+ROI MSE increase: 97.661024
+Non-ROI MSE increase: 43.265403
+Redistribution advantage: 54.395621
+Active redistribution nodes: 5
+  Node 0 / input2 / 5TE / [-297, -5]
+  Node 1 / baseline_output / 5PD / [-587, 106]
+  Node 2 / input1 / 5PN / [-42, -30]
+  Node 5 / input1 / 5Z0 / [-44, -36]
+  Node 7 / input2 / 5Z0 / [35, 43]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/dct/dct_joint_search_best_image_10.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/dct/dct_baseline_image_10.png
+Best final image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/dct/dct_joint_search_best_image_10.png

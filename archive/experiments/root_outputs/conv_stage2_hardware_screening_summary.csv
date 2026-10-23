@@ -1,0 +1,5 @@
+rank,candidate,hardware_node_count,success_count,success_rate,mean_global,mean_roi,mean_non_roi,mean_redistribution_advantage,min_global,max_roi
+1,A,5,10,1,30.1312,27.4216,31.1295,73.066,30.0058,29.5155
+2,D,4,10,1,30.2618,27.5333,31.2765,71.5663,30.0058,29.6922
+3,B,5,10,1,30.214,27.7577,31.08,63.8988,30.0373,30.094
+4,C,5,10,1,30.2014,27.8367,31.0278,62.0029,30.0069,30.3539

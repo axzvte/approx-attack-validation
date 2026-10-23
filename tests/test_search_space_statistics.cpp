@@ -86,6 +86,17 @@ public:
     }
 
 
+    void collectConfiguredAddSamples(
+        const cv::Mat&,
+        const cv::Mat&,
+        const std::vector<core::AttackConfig>&,
+        std::vector<core::AddSample>& samples
+    ) const override
+    {
+        collectBaselineSamples(samples);
+    }
+
+
 private:
 
     static void collectBaselineSamples(

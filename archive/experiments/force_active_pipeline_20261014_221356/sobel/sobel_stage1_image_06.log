@@ -1,0 +1,47 @@
+Sobel error-redistribution joint search
+=======================================
+Image: image_06.jpg
+Baseline: nodes 0,2,4,7,9 = 5RP; others exact
+Candidate nodes used: 5
+Adaptive candidate boundaries / monitor: 24
+Local representatives / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Global PSNR threshold: 30 dB
+Final objective: Global >= 30 dB; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage
+
+Candidate nodes
+---------------
+  1. Node 8 / Y4
+  2. Node 3 / X4
+  3. Node 5 / Y1
+  4. Node 6 / Y2
+  5. Node 1 / X2
+[sobel-joint] pass 0 / node 8 / state 1/1                    
+[sobel-joint] pass 0 / node 3 / state 1/10                    [sobel-joint] pass 0 / node 3 / state 2/10                    [sobel-joint] pass 0 / node 3 / state 3/10                    [sobel-joint] pass 0 / node 3 / state 4/10                    [sobel-joint] pass 0 / node 3 / state 5/10                    [sobel-joint] pass 0 / node 3 / state 6/10                    [sobel-joint] pass 0 / node 3 / state 7/10                    [sobel-joint] pass 0 / node 3 / state 8/10                    [sobel-joint] pass 0 / node 3 / state 9/10                    [sobel-joint] pass 0 / node 3 / state 10/10                    
+[sobel-joint] pass 0 / node 5 / state 1/10                    [sobel-joint] pass 0 / node 5 / state 2/10                    [sobel-joint] pass 0 / node 5 / state 3/10                    [sobel-joint] pass 0 / node 5 / state 4/10                    [sobel-joint] pass 0 / node 5 / state 5/10                    [sobel-joint] pass 0 / node 5 / state 6/10                    [sobel-joint] pass 0 / node 5 / state 7/10                    [sobel-joint] pass 0 / node 5 / state 8/10                    [sobel-joint] pass 0 / node 5 / state 9/10                    [sobel-joint] pass 0 / node 5 / state 10/10                    
+[sobel-joint] pass 0 / node 6 / state 1/10                    [sobel-joint] pass 0 / node 6 / state 2/10                    [sobel-joint] pass 0 / node 6 / state 3/10                    [sobel-joint] pass 0 / node 6 / state 4/10                    [sobel-joint] pass 0 / node 6 / state 5/10                    [sobel-joint] pass 0 / node 6 / state 6/10                    [sobel-joint] pass 0 / node 6 / state 7/10                    [sobel-joint] pass 0 / node 6 / state 8/10                    [sobel-joint] pass 0 / node 6 / state 9/10                    [sobel-joint] pass 0 / node 6 / state 10/10                    
+[sobel-joint] pass 0 / node 1 / state 1/10                    [sobel-joint] pass 0 / node 1 / state 2/10                    [sobel-joint] pass 0 / node 1 / state 3/10                    [sobel-joint] pass 0 / node 1 / state 4/10                    [sobel-joint] pass 0 / node 1 / state 5/10                    [sobel-joint] pass 0 / node 1 / state 6/10                    [sobel-joint] pass 0 / node 1 / state 7/10                    [sobel-joint] pass 0 / node 1 / state 8/10                    [sobel-joint] pass 0 / node 1 / state 9/10                    [sobel-joint] pass 0 / node 1 / state 10/10                    
+
+Sobel initial metrics
+---------------------
+Global: 36.397640
+ROI: 36.436456
+Non-ROI: 36.395820
+
+Best feasible Sobel state
+-------------------------
+Global PSNR: 30.076289
+ROI PSNR: 28.706410
+Non-ROI PSNR: 30.152850
+ROI MSE increase: 72.815104
+Non-ROI MSE increase: 47.865538
+Redistribution advantage: 24.949566
+Active redistribution nodes: 3
+  Node 3 / X4 / input1 / 5PN / [293, 705]
+  Node 5 / Y1 / input1 / 5TE / [101, 237]
+  Node 8 / Y4 / baseline_output / 5SB / [435, 592]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_joint_search_best_image_06.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_baseline_image_06.png
+Best final image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_joint_search_best_image_06.png

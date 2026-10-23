@@ -1,0 +1,49 @@
+Sobel error-redistribution joint search
+=======================================
+Image: image_03.jpg
+Baseline: nodes 0,2,4,7,9 = 5RP; others exact
+Candidate nodes used: 5
+Adaptive candidate boundaries / monitor: 24
+Local representatives / monitor / implementation: 4
+Full-validation candidates / state / node: 24
+Beam width: 10
+Global PSNR threshold: 30 dB
+Final objective: Global >= 30 dB; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage
+
+Candidate nodes
+---------------
+  1. Node 8 / Y4
+  2. Node 3 / X4
+  3. Node 5 / Y1
+  4. Node 6 / Y2
+  5. Node 1 / X2
+[sobel-joint] pass 0 / node 8 / state 1/1                    
+[sobel-joint] pass 0 / node 3 / state 1/10                    [sobel-joint] pass 0 / node 3 / state 2/10                    [sobel-joint] pass 0 / node 3 / state 3/10                    [sobel-joint] pass 0 / node 3 / state 4/10                    [sobel-joint] pass 0 / node 3 / state 5/10                    [sobel-joint] pass 0 / node 3 / state 6/10                    [sobel-joint] pass 0 / node 3 / state 7/10                    [sobel-joint] pass 0 / node 3 / state 8/10                    [sobel-joint] pass 0 / node 3 / state 9/10                    [sobel-joint] pass 0 / node 3 / state 10/10                    
+[sobel-joint] pass 0 / node 5 / state 1/10                    [sobel-joint] pass 0 / node 5 / state 2/10                    [sobel-joint] pass 0 / node 5 / state 3/10                    [sobel-joint] pass 0 / node 5 / state 4/10                    [sobel-joint] pass 0 / node 5 / state 5/10                    [sobel-joint] pass 0 / node 5 / state 6/10                    [sobel-joint] pass 0 / node 5 / state 7/10                    [sobel-joint] pass 0 / node 5 / state 8/10                    [sobel-joint] pass 0 / node 5 / state 9/10                    [sobel-joint] pass 0 / node 5 / state 10/10                    
+[sobel-joint] pass 0 / node 6 / state 1/10                    [sobel-joint] pass 0 / node 6 / state 2/10                    [sobel-joint] pass 0 / node 6 / state 3/10                    [sobel-joint] pass 0 / node 6 / state 4/10                    [sobel-joint] pass 0 / node 6 / state 5/10                    [sobel-joint] pass 0 / node 6 / state 6/10                    [sobel-joint] pass 0 / node 6 / state 7/10                    [sobel-joint] pass 0 / node 6 / state 8/10                    [sobel-joint] pass 0 / node 6 / state 9/10                    [sobel-joint] pass 0 / node 6 / state 10/10                    
+[sobel-joint] pass 0 / node 1 / state 1/10                    [sobel-joint] pass 0 / node 1 / state 2/10                    [sobel-joint] pass 0 / node 1 / state 3/10                    [sobel-joint] pass 0 / node 1 / state 4/10                    [sobel-joint] pass 0 / node 1 / state 5/10                    [sobel-joint] pass 0 / node 1 / state 6/10                    [sobel-joint] pass 0 / node 1 / state 7/10                    [sobel-joint] pass 0 / node 1 / state 8/10                    [sobel-joint] pass 0 / node 1 / state 9/10                    [sobel-joint] pass 0 / node 1 / state 10/10                    
+
+Sobel initial metrics
+---------------------
+Global: 36.392212
+ROI: 37.071072
+Non-ROI: 36.362700
+
+Best feasible Sobel state
+-------------------------
+Global PSNR: 30.254775
+ROI PSNR: 24.816271
+Non-ROI PSNR: 30.798703
+ROI MSE increase: 201.749204
+Non-ROI MSE increase: 39.076734
+Redistribution advantage: 162.672470
+Active redistribution nodes: 5
+  Node 1 / X2 / baseline_output / 5SB / [447, 623]
+  Node 3 / X4 / baseline_output / 5SB / [455, 629]
+  Node 5 / Y1 / input1 / 5PN / [62, 168]
+  Node 6 / Y2 / input2 / 5PN / [112, 157]
+  Node 8 / Y4 / baseline_output / 5SB / [457, 627]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_joint_search_best_image_03.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_baseline_image_03.png
+Best final image: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356/sobel/sobel_joint_search_best_image_03.png

@@ -1,0 +1,48 @@
+sharpen hardware configuration statistics
+========================================
+Images loaded: 10
+Total selected node instances: 37
+
+1. Node selection frequency
+---------------------------
+Rank   Node          Count     ImageRate
+1      2(A3)         10        100.00%
+2      3(A4)         10        100.00%
+3      0(A1)         9         90.00%
+4      1(A2)         8         80.00%
+
+2. Per-node monitor / unit modes
+---------------------------------
+Node          TopMonitor            MonitorCount  TopUnit       UnitCount
+2(A3)         input1                5             5TE           4
+3(A4)         input2                5             5TE           3
+0(A1)         baseline_output       4             5QT           4
+1(A2)         input1                4             5QT           4
+
+3. Full Node + Monitor + Unit frequency
+---------------------------------------
+Rank   Node          Monitor               Unit      Count   MeanCtr     CtrStd      MeanWidth   WidthStd
+1      1(A2)         input1                5QT       4       543.25      55.31       951.00      105.03
+2      1(A2)         input2                5SB       3       -127.50     54.94       103.00      33.44
+3      2(A3)         input2                5TE       3       -80.50      27.36       101.67      32.74
+4      0(A1)         baseline_output       5QT       2       522.25      9.25        1065.50     23.50
+5      0(A1)         input1                5QT       2       635.00      7.50        1220.00     45.00
+6      0(A1)         input2                5SB       2       -74.75      48.75       71.50       23.50
+7      2(A3)         input1                5L8       2       240.00      146.50      537.00      378.00
+8      2(A3)         input1                5QT       2       378.00      2.00        764.00      38.00
+9      3(A4)         input2                5TE       2       -93.50      23.50       119.00      21.00
+10     0(A1)         baseline_output       5PN       1       809.00      0.00        244.00      0.00
+11     0(A1)         baseline_output       5SB       1       105.50      0.00        231.00      0.00
+12     0(A1)         input2                5PD       1       -70.50      0.00        141.00      0.00
+13     1(A2)         input2                5PN       1       -17.50      0.00        31.00       0.00
+14     2(A3)         baseline_output       5SB       1       82.00       0.00        178.00      0.00
+15     2(A3)         input1                5TE       1       78.00       0.00        188.00      0.00
+16     2(A3)         input2                5QT       1       -47.00      0.00        36.00       0.00
+17     3(A4)         baseline_output       5SB       1       61.00       0.00        32.00       0.00
+18     3(A4)         baseline_output       5TE       1       253.00      0.00        186.00      0.00
+19     3(A4)         input1                5L8       1       333.00      0.00        438.00      0.00
+20     3(A4)         input1                5QT       1       263.00      0.00        588.00      0.00
+21     3(A4)         input1                5SB       1       356.50      0.00        415.00      0.00
+22     3(A4)         input2                5L8       1       -20.00      0.00        0.00        0.00
+23     3(A4)         input2                5PD       1       -94.00      0.00        38.00       0.00
+24     3(A4)         input2                5QT       1       -206.00     0.00        70.00       0.00

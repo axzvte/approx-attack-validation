@@ -1,0 +1,47 @@
+conv Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MinGlobal
+1      B       5         10/10       30.942081     26.350408     31.429797     123.096430      30.085662
+2      A       5         10/10       30.981504     26.510141     31.447405     118.302591      30.111310
+3      C       5         10/10       31.155007     26.740676     31.612839     115.278890      30.020817
+4      D       4         10/10       31.629659     27.414569     32.066042     103.465922      30.111310
+
+Selected H* = B
+  Node 1 / C2 / input1 / 5QT
+  Node 6 / C7 / input2 / 5TE
+--
+sharpen Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MinGlobal
+1      A       4         10/10       32.087791     27.738268     32.518957     85.118195       30.004792
+2      B       4         10/10       32.773040     28.458836     33.199357     68.393130       30.068175
+3      C       4         10/10       34.939805     31.261283     35.279596     34.952932       30.870639
+4      D       3         10/10       34.392425     31.248397     34.645167     32.514446       30.662311
+
+Selected H* = A
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+--
+dct Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MinGlobal
+1      C       5         10/10       30.788861     27.164522     31.116688     86.674125       30.017051
+2      A       5         10/10       30.922026     27.277812     31.254467     82.989207       30.039805
+3      B       5         10/10       30.900756     27.365050     31.215912     81.839238       30.260868
+4      D       4         10/10       31.015290     27.753832     31.293047     72.169817       30.019513
+
+Selected H* = C
+  Node 0 / ADD_00_S0 / baseline_output / 5PD
+  Node 2 / ADD_02_S2 / baseline_output / 5SB
+--
+sobel Stage2 automatic hardware screening summary
+================================================
+Rank   HW      Nodes     Success     MeanGlobal    MeanROI       MeanNonROI    MeanAdv         MinGlobal
+1      B       5         10/10       30.999002     24.931178     31.856034     204.794225      30.007688
+2      C       5         10/10       30.854273     25.122882     31.636061     190.170156      30.140918
+3      A       5         10/10       31.046717     25.531693     31.772265     168.207346      30.049907
+4      D       4         10/10       31.351401     25.960243     32.039821     148.270453      30.049907
+
+Selected H* = B
+  Node 5 / Y1 / input2 / 5Z0
+  Node 1 / X2 / baseline_output / 5RP

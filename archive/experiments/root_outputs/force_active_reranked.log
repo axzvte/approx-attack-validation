@@ -1,0 +1,591 @@
+========================================
+Stage3 re-evaluation with reranked H*
+Previous Stage1 directory: /home/axzvte/projects/approx_attack_validation/force_active_pipeline_20261014_221356
+New results: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352
+Ranking: Success -> MeanROI -> MeanAdv -> Nodes -> MaxROI
+Constraints: Global >= 30dB and Advantage > 0
+             Every fixed H* node has an interval
+========================================
+-- Configuring done (0.0s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/axzvte/projects/approx_attack_validation/build
+[ 25%] Built target evoapprox_units
+[ 92%] Built target approx_framework
+[ 96%] Building CXX object CMakeFiles/automatic_fixed_hardware_pipeline.dir/app/automatic_fixed_hardware_pipeline.cpp.o
+[100%] Linking CXX executable automatic_fixed_hardware_pipeline
+[100%] Built target automatic_fixed_hardware_pipeline
+----------------------------------------
+conv, selected H* = A
+----------------------------------------
+
+Automatic fixed-hardware pipeline: conv
+========================================
+Derived candidates: 4
+
+Candidate A (4 nodes)
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+Candidate B (4 nodes)
+  Node 0 / C1 / input2 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+Candidate C (4 nodes)
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / baseline_output / 5TE
+  Node 5 / C6 / input2 / 5PN
+
+Candidate D (3 nodes)
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+
+Stage3-only mode: skip Stage2, reuse candidate A selected from earlier Stage2 results.
+
+Selected H* = A
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+[conv-stage3] image 21 starting
+[conv-stage3] image 21 / node 0 / state 1/1                    
+[conv-stage3] image 21 / node 3 / state 1/4                    [conv-stage3] image 21 / node 3 / state 2/4                    [conv-stage3] image 21 / node 3 / state 3/4                    [conv-stage3] image 21 / node 3 / state 4/4                    
+[conv-stage3] image 21 / node 1 / state 1/10                    [conv-stage3] image 21 / node 1 / state 2/10                    [conv-stage3] image 21 / node 1 / state 3/10                    [conv-stage3] image 21 / node 1 / state 4/10                    [conv-stage3] image 21 / node 1 / state 5/10                    [conv-stage3] image 21 / node 1 / state 6/10                    [conv-stage3] image 21 / node 1 / state 7/10                    [conv-stage3] image 21 / node 1 / state 8/10                    [conv-stage3] image 21 / node 1 / state 9/10                    [conv-stage3] image 21 / node 1 / state 10/10                    
+[conv-stage3] image 21 / node 5 / state 1/10                    [conv-stage3] image 21 / node 5 / state 2/10                    [conv-stage3] image 21 / node 5 / state 3/10                    [conv-stage3] image 21 / node 5 / state 4/10                    [conv-stage3] image 21 / node 5 / state 5/10                    [conv-stage3] image 21 / node 5 / state 6/10                    [conv-stage3] image 21 / node 5 / state 7/10                    [conv-stage3] image 21 / node 5 / state 8/10                    [conv-stage3] image 21 / node 5 / state 9/10                    [conv-stage3] image 21 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.370830 / ROI=26.801451 / NROI=30.641157 / Adv=78.001641 / Active=4
+
+[conv-stage3] image 22 starting
+[conv-stage3] image 22 / node 0 / state 1/1                    
+[conv-stage3] image 22 / node 3 / state 1/4                    [conv-stage3] image 22 / node 3 / state 2/4                    [conv-stage3] image 22 / node 3 / state 3/4                    [conv-stage3] image 22 / node 3 / state 4/4                    
+[conv-stage3] image 22 / node 1 / state 1/10                    [conv-stage3] image 22 / node 1 / state 2/10                    [conv-stage3] image 22 / node 1 / state 3/10                    [conv-stage3] image 22 / node 1 / state 4/10                    [conv-stage3] image 22 / node 1 / state 5/10                    [conv-stage3] image 22 / node 1 / state 6/10                    [conv-stage3] image 22 / node 1 / state 7/10                    [conv-stage3] image 22 / node 1 / state 8/10                    [conv-stage3] image 22 / node 1 / state 9/10                    [conv-stage3] image 22 / node 1 / state 10/10                    
+[conv-stage3] image 22 / node 5 / state 1/10                    [conv-stage3] image 22 / node 5 / state 2/10                    [conv-stage3] image 22 / node 5 / state 3/10                    [conv-stage3] image 22 / node 5 / state 4/10                    [conv-stage3] image 22 / node 5 / state 5/10                    [conv-stage3] image 22 / node 5 / state 6/10                    [conv-stage3] image 22 / node 5 / state 7/10                    [conv-stage3] image 22 / node 5 / state 8/10                    [conv-stage3] image 22 / node 5 / state 9/10                    [conv-stage3] image 22 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=35.078917 / ROI=33.860411 / NROI=35.146022 / Adv=7.295223 / Active=4
+
+[conv-stage3] image 23 starting
+[conv-stage3] image 23 / node 0 / state 1/1                    
+[conv-stage3] image 23 / node 3 / state 1/4                    [conv-stage3] image 23 / node 3 / state 2/4                    [conv-stage3] image 23 / node 3 / state 3/4                    [conv-stage3] image 23 / node 3 / state 4/4                    
+[conv-stage3] image 23 / node 1 / state 1/9                    [conv-stage3] image 23 / node 1 / state 2/9                    [conv-stage3] image 23 / node 1 / state 3/9                    [conv-stage3] image 23 / node 1 / state 4/9                    [conv-stage3] image 23 / node 1 / state 5/9                    [conv-stage3] image 23 / node 1 / state 6/9                    [conv-stage3] image 23 / node 1 / state 7/9                    [conv-stage3] image 23 / node 1 / state 8/9                    [conv-stage3] image 23 / node 1 / state 9/9                    
+[conv-stage3] image 23 / node 5 / state 1/10                    [conv-stage3] image 23 / node 5 / state 2/10                    [conv-stage3] image 23 / node 5 / state 3/10                    [conv-stage3] image 23 / node 5 / state 4/10                    [conv-stage3] image 23 / node 5 / state 5/10                    [conv-stage3] image 23 / node 5 / state 6/10                    [conv-stage3] image 23 / node 5 / state 7/10                    [conv-stage3] image 23 / node 5 / state 8/10                    [conv-stage3] image 23 / node 5 / state 9/10                    [conv-stage3] image 23 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=31.211435 / ROI=30.454032 / NROI=31.250785 / Adv=14.465946 / Active=4
+
+[conv-stage3] image 24 starting
+[conv-stage3] image 24 / node 0 / state 1/1                    
+[conv-stage3] image 24 / node 3 / state 1/4                    [conv-stage3] image 24 / node 3 / state 2/4                    [conv-stage3] image 24 / node 3 / state 3/4                    [conv-stage3] image 24 / node 3 / state 4/4                    
+[conv-stage3] image 24 / node 1 / state 1/8                    [conv-stage3] image 24 / node 1 / state 2/8                    [conv-stage3] image 24 / node 1 / state 3/8                    [conv-stage3] image 24 / node 1 / state 4/8                    [conv-stage3] image 24 / node 1 / state 5/8                    [conv-stage3] image 24 / node 1 / state 6/8                    [conv-stage3] image 24 / node 1 / state 7/8                    [conv-stage3] image 24 / node 1 / state 8/8                    
+[conv-stage3] image 24 / node 5 / state 1/10                    [conv-stage3] image 24 / node 5 / state 2/10                    [conv-stage3] image 24 / node 5 / state 3/10                    [conv-stage3] image 24 / node 5 / state 4/10                    [conv-stage3] image 24 / node 5 / state 5/10                    [conv-stage3] image 24 / node 5 / state 6/10                    [conv-stage3] image 24 / node 5 / state 7/10                    [conv-stage3] image 24 / node 5 / state 8/10                    [conv-stage3] image 24 / node 5 / state 9/10                    [conv-stage3] image 24 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.046559 / ROI=26.616245 / NROI=30.298294 / Adv=81.940949 / Active=4
+
+[conv-stage3] image 25 starting
+[conv-stage3] image 25 / node 0 / state 1/1                    
+[conv-stage3] image 25 / node 3 / state 1/4                    [conv-stage3] image 25 / node 3 / state 2/4                    [conv-stage3] image 25 / node 3 / state 3/4                    [conv-stage3] image 25 / node 3 / state 4/4                    
+[conv-stage3] image 25 / node 1 / state 1/10                    [conv-stage3] image 25 / node 1 / state 2/10                    [conv-stage3] image 25 / node 1 / state 3/10                    [conv-stage3] image 25 / node 1 / state 4/10                    [conv-stage3] image 25 / node 1 / state 5/10                    [conv-stage3] image 25 / node 1 / state 6/10                    [conv-stage3] image 25 / node 1 / state 7/10                    [conv-stage3] image 25 / node 1 / state 8/10                    [conv-stage3] image 25 / node 1 / state 9/10                    [conv-stage3] image 25 / node 1 / state 10/10                    
+[conv-stage3] image 25 / node 5 / state 1/10                    [conv-stage3] image 25 / node 5 / state 2/10                    [conv-stage3] image 25 / node 5 / state 3/10                    [conv-stage3] image 25 / node 5 / state 4/10                    [conv-stage3] image 25 / node 5 / state 5/10                    [conv-stage3] image 25 / node 5 / state 6/10                    [conv-stage3] image 25 / node 5 / state 7/10                    [conv-stage3] image 25 / node 5 / state 8/10                    [conv-stage3] image 25 / node 5 / state 9/10                    [conv-stage3] image 25 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=31.435218 / ROI=29.590191 / NROI=31.545432 / Adv=25.645068 / Active=4
+
+[conv-stage3] image 26 starting
+[conv-stage3] image 26 / node 0 / state 1/1                    
+[conv-stage3] image 26 / node 3 / state 1/4                    [conv-stage3] image 26 / node 3 / state 2/4                    [conv-stage3] image 26 / node 3 / state 3/4                    [conv-stage3] image 26 / node 3 / state 4/4                    
+[conv-stage3] image 26 / node 1 / state 1/9                    [conv-stage3] image 26 / node 1 / state 2/9                    [conv-stage3] image 26 / node 1 / state 3/9                    [conv-stage3] image 26 / node 1 / state 4/9                    [conv-stage3] image 26 / node 1 / state 5/9                    [conv-stage3] image 26 / node 1 / state 6/9                    [conv-stage3] image 26 / node 1 / state 7/9                    [conv-stage3] image 26 / node 1 / state 8/9                    [conv-stage3] image 26 / node 1 / state 9/9                    
+[conv-stage3] image 26 / node 5 / state 1/10                    [conv-stage3] image 26 / node 5 / state 2/10                    [conv-stage3] image 26 / node 5 / state 3/10                    [conv-stage3] image 26 / node 5 / state 4/10                    [conv-stage3] image 26 / node 5 / state 5/10                    [conv-stage3] image 26 / node 5 / state 6/10                    [conv-stage3] image 26 / node 5 / state 7/10                    [conv-stage3] image 26 / node 5 / state 8/10                    [conv-stage3] image 26 / node 5 / state 9/10                    [conv-stage3] image 26 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=31.129736 / ROI=30.247151 / NROI=31.176314 / Adv=12.253469 / Active=4
+
+[conv-stage3] image 27 starting
+[conv-stage3] image 27 / node 0 / state 1/1                    
+[conv-stage3] image 27 / node 3 / state 1/4                    [conv-stage3] image 27 / node 3 / state 2/4                    [conv-stage3] image 27 / node 3 / state 3/4                    [conv-stage3] image 27 / node 3 / state 4/4                    
+[conv-stage3] image 27 / node 1 / state 1/10                    [conv-stage3] image 27 / node 1 / state 2/10                    [conv-stage3] image 27 / node 1 / state 3/10                    [conv-stage3] image 27 / node 1 / state 4/10                    [conv-stage3] image 27 / node 1 / state 5/10                    [conv-stage3] image 27 / node 1 / state 6/10                    [conv-stage3] image 27 / node 1 / state 7/10                    [conv-stage3] image 27 / node 1 / state 8/10                    [conv-stage3] image 27 / node 1 / state 9/10                    [conv-stage3] image 27 / node 1 / state 10/10                    
+[conv-stage3] image 27 / node 5 / state 1/10                    [conv-stage3] image 27 / node 5 / state 2/10                    [conv-stage3] image 27 / node 5 / state 3/10                    [conv-stage3] image 27 / node 5 / state 4/10                    [conv-stage3] image 27 / node 5 / state 5/10                    [conv-stage3] image 27 / node 5 / state 6/10                    [conv-stage3] image 27 / node 5 / state 7/10                    [conv-stage3] image 27 / node 5 / state 8/10                    [conv-stage3] image 27 / node 5 / state 9/10                    [conv-stage3] image 27 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.137652 / ROI=28.738381 / NROI=30.217021 / Adv=30.808091 / Active=4
+
+[conv-stage3] image 28 starting
+[conv-stage3] image 28 / node 0 / state 1/1                    
+[conv-stage3] image 28 / node 3 / state 1/4                    [conv-stage3] image 28 / node 3 / state 2/4                    [conv-stage3] image 28 / node 3 / state 3/4                    [conv-stage3] image 28 / node 3 / state 4/4                    
+[conv-stage3] image 28 / node 1 / state 1/10                    [conv-stage3] image 28 / node 1 / state 2/10                    [conv-stage3] image 28 / node 1 / state 3/10                    [conv-stage3] image 28 / node 1 / state 4/10                    [conv-stage3] image 28 / node 1 / state 5/10                    [conv-stage3] image 28 / node 1 / state 6/10                    [conv-stage3] image 28 / node 1 / state 7/10                    [conv-stage3] image 28 / node 1 / state 8/10                    [conv-stage3] image 28 / node 1 / state 9/10                    [conv-stage3] image 28 / node 1 / state 10/10                    
+[conv-stage3] image 28 / node 5 / state 1/10                    [conv-stage3] image 28 / node 5 / state 2/10                    [conv-stage3] image 28 / node 5 / state 3/10                    [conv-stage3] image 28 / node 5 / state 4/10                    [conv-stage3] image 28 / node 5 / state 5/10                    [conv-stage3] image 28 / node 5 / state 6/10                    [conv-stage3] image 28 / node 5 / state 7/10                    [conv-stage3] image 28 / node 5 / state 8/10                    [conv-stage3] image 28 / node 5 / state 9/10                    [conv-stage3] image 28 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.118757 / ROI=26.595725 / NROI=30.380745 / Adv=82.869710 / Active=4
+
+[conv-stage3] image 29 starting
+[conv-stage3] image 29 / node 0 / state 1/1                    
+[conv-stage3] image 29 / node 3 / state 1/4                    [conv-stage3] image 29 / node 3 / state 2/4                    [conv-stage3] image 29 / node 3 / state 3/4                    [conv-stage3] image 29 / node 3 / state 4/4                    
+[conv-stage3] image 29 / node 1 / state 1/10                    [conv-stage3] image 29 / node 1 / state 2/10                    [conv-stage3] image 29 / node 1 / state 3/10                    [conv-stage3] image 29 / node 1 / state 4/10                    [conv-stage3] image 29 / node 1 / state 5/10                    [conv-stage3] image 29 / node 1 / state 6/10                    [conv-stage3] image 29 / node 1 / state 7/10                    [conv-stage3] image 29 / node 1 / state 8/10                    [conv-stage3] image 29 / node 1 / state 9/10                    [conv-stage3] image 29 / node 1 / state 10/10                    
+[conv-stage3] image 29 / node 5 / state 1/10                    [conv-stage3] image 29 / node 5 / state 2/10                    [conv-stage3] image 29 / node 5 / state 3/10                    [conv-stage3] image 29 / node 5 / state 4/10                    [conv-stage3] image 29 / node 5 / state 5/10                    [conv-stage3] image 29 / node 5 / state 6/10                    [conv-stage3] image 29 / node 5 / state 7/10                    [conv-stage3] image 29 / node 5 / state 8/10                    [conv-stage3] image 29 / node 5 / state 9/10                    [conv-stage3] image 29 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.555497 / ROI=28.127054 / NROI=30.712330 / Adv=44.869145 / Active=4
+
+[conv-stage3] image 30 starting
+[conv-stage3] image 30 / node 0 / state 1/1                    
+[conv-stage3] image 30 / node 3 / state 1/4                    [conv-stage3] image 30 / node 3 / state 2/4                    [conv-stage3] image 30 / node 3 / state 3/4                    [conv-stage3] image 30 / node 3 / state 4/4                    
+[conv-stage3] image 30 / node 1 / state 1/10                    [conv-stage3] image 30 / node 1 / state 2/10                    [conv-stage3] image 30 / node 1 / state 3/10                    [conv-stage3] image 30 / node 1 / state 4/10                    [conv-stage3] image 30 / node 1 / state 5/10                    [conv-stage3] image 30 / node 1 / state 6/10                    [conv-stage3] image 30 / node 1 / state 7/10                    [conv-stage3] image 30 / node 1 / state 8/10                    [conv-stage3] image 30 / node 1 / state 9/10                    [conv-stage3] image 30 / node 1 / state 10/10                    
+[conv-stage3] image 30 / node 5 / state 1/10                    [conv-stage3] image 30 / node 5 / state 2/10                    [conv-stage3] image 30 / node 5 / state 3/10                    [conv-stage3] image 30 / node 5 / state 4/10                    [conv-stage3] image 30 / node 5 / state 5/10                    [conv-stage3] image 30 / node 5 / state 6/10                    [conv-stage3] image 30 / node 5 / state 7/10                    [conv-stage3] image 30 / node 5 / state 8/10                    [conv-stage3] image 30 / node 5 / state 9/10                    [conv-stage3] image 30 / node 5 / state 10/10                    
+[conv-stage3] SUCCESS / G=30.660471 / ROI=27.322135 / NROI=30.905088 / Adv=67.072173 / Active=4
+
+
+conv Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 31.074507
+Mean ROI PSNR: 28.835278
+Mean Non-ROI PSNR: 31.227319
+Mean Redistribution Advantage: 44.522142
+Min Global PSNR: 30.046559
+Max ROI PSNR: 33.860411
+
+Stage3 per-image CSV: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/conv/stage3_detail_A.csv
+Stage3 final images: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/conv/stage3_final_A
+----------------------------------------
+sharpen, selected H* = B
+----------------------------------------
+
+Automatic fixed-hardware pipeline: sharpen
+========================================
+Derived candidates: 4
+
+Candidate A (4 nodes)
+  Node 0 / A1 / baseline_output / 5SB
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+Candidate B (4 nodes)
+  Node 0 / A1 / baseline_output / 5SB
+  Node 1 / A2 / input2 / 5SB
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+Candidate C (4 nodes)
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+Candidate D (3 nodes)
+  Node 0 / A1 / baseline_output / 5SB
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+
+Stage3-only mode: skip Stage2, reuse candidate B selected from earlier Stage2 results.
+
+Selected H* = B
+  Node 0 / A1 / baseline_output / 5SB
+  Node 1 / A2 / input2 / 5SB
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+[sharpen-stage3] image 21 starting
+[sharpen-stage3] image 21 / node 0 / state 1/1                    
+[sharpen-stage3] image 21 / node 1 / state 1/3                    [sharpen-stage3] image 21 / node 1 / state 2/3                    [sharpen-stage3] image 21 / node 1 / state 3/3                    
+[sharpen-stage3] image 21 / node 2 / state 1/7                    [sharpen-stage3] image 21 / node 2 / state 2/7                    [sharpen-stage3] image 21 / node 2 / state 3/7                    [sharpen-stage3] image 21 / node 2 / state 4/7                    [sharpen-stage3] image 21 / node 2 / state 5/7                    [sharpen-stage3] image 21 / node 2 / state 6/7                    [sharpen-stage3] image 21 / node 2 / state 7/7                    
+[sharpen-stage3] image 21 / node 3 / state 1/10                    [sharpen-stage3] image 21 / node 3 / state 2/10                    [sharpen-stage3] image 21 / node 3 / state 3/10                    [sharpen-stage3] image 21 / node 3 / state 4/10                    [sharpen-stage3] image 21 / node 3 / state 5/10                    [sharpen-stage3] image 21 / node 3 / state 6/10                    [sharpen-stage3] image 21 / node 3 / state 7/10                    [sharpen-stage3] image 21 / node 3 / state 8/10                    [sharpen-stage3] image 21 / node 3 / state 9/10                    [sharpen-stage3] image 21 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.599313 / ROI=27.843302 / NROI=30.785455 / Adv=59.012607 / Active=4
+
+[sharpen-stage3] image 22 starting
+[sharpen-stage3] image 22 / node 0 / state 1/1                    
+[sharpen-stage3] image 22 / node 1 / state 1/4                    [sharpen-stage3] image 22 / node 1 / state 2/4                    [sharpen-stage3] image 22 / node 1 / state 3/4                    [sharpen-stage3] image 22 / node 1 / state 4/4                    
+[sharpen-stage3] image 22 / node 2 / state 1/10                    [sharpen-stage3] image 22 / node 2 / state 2/10                    [sharpen-stage3] image 22 / node 2 / state 3/10                    [sharpen-stage3] image 22 / node 2 / state 4/10                    [sharpen-stage3] image 22 / node 2 / state 5/10                    [sharpen-stage3] image 22 / node 2 / state 6/10                    [sharpen-stage3] image 22 / node 2 / state 7/10                    [sharpen-stage3] image 22 / node 2 / state 8/10                    [sharpen-stage3] image 22 / node 2 / state 9/10                    [sharpen-stage3] image 22 / node 2 / state 10/10                    
+[sharpen-stage3] image 22 / node 3 / state 1/10                    [sharpen-stage3] image 22 / node 3 / state 2/10                    [sharpen-stage3] image 22 / node 3 / state 3/10                    [sharpen-stage3] image 22 / node 3 / state 4/10                    [sharpen-stage3] image 22 / node 3 / state 5/10                    [sharpen-stage3] image 22 / node 3 / state 6/10                    [sharpen-stage3] image 22 / node 3 / state 7/10                    [sharpen-stage3] image 22 / node 3 / state 8/10                    [sharpen-stage3] image 22 / node 3 / state 9/10                    [sharpen-stage3] image 22 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.407769 / ROI=28.721925 / NROI=30.506393 / Adv=37.188907 / Active=4
+
+[sharpen-stage3] image 23 starting
+[sharpen-stage3] image 23 / node 0 / state 1/1                    
+[sharpen-stage3] image 23 / node 1 / state 1/4                    [sharpen-stage3] image 23 / node 1 / state 2/4                    [sharpen-stage3] image 23 / node 1 / state 3/4                    [sharpen-stage3] image 23 / node 1 / state 4/4                    
+[sharpen-stage3] image 23 / node 2 / state 1/10                    [sharpen-stage3] image 23 / node 2 / state 2/10                    [sharpen-stage3] image 23 / node 2 / state 3/10                    [sharpen-stage3] image 23 / node 2 / state 4/10                    [sharpen-stage3] image 23 / node 2 / state 5/10                    [sharpen-stage3] image 23 / node 2 / state 6/10                    [sharpen-stage3] image 23 / node 2 / state 7/10                    [sharpen-stage3] image 23 / node 2 / state 8/10                    [sharpen-stage3] image 23 / node 2 / state 9/10                    [sharpen-stage3] image 23 / node 2 / state 10/10                    
+[sharpen-stage3] image 23 / node 3 / state 1/10                    [sharpen-stage3] image 23 / node 3 / state 2/10                    [sharpen-stage3] image 23 / node 3 / state 3/10                    [sharpen-stage3] image 23 / node 3 / state 4/10                    [sharpen-stage3] image 23 / node 3 / state 5/10                    [sharpen-stage3] image 23 / node 3 / state 6/10                    [sharpen-stage3] image 23 / node 3 / state 7/10                    [sharpen-stage3] image 23 / node 3 / state 8/10                    [sharpen-stage3] image 23 / node 3 / state 9/10                    [sharpen-stage3] image 23 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.201652 / ROI=26.121727 / NROI=30.534515 / Adv=98.451446 / Active=4
+
+[sharpen-stage3] image 24 starting
+[sharpen-stage3] image 24 / node 0 / state 1/1                    
+[sharpen-stage3] image 24 / node 1 / state 1/4                    [sharpen-stage3] image 24 / node 1 / state 2/4                    [sharpen-stage3] image 24 / node 1 / state 3/4                    [sharpen-stage3] image 24 / node 1 / state 4/4                    
+[sharpen-stage3] image 24 / node 2 / state 1/8                    [sharpen-stage3] image 24 / node 2 / state 2/8                    [sharpen-stage3] image 24 / node 2 / state 3/8                    [sharpen-stage3] image 24 / node 2 / state 4/8                    [sharpen-stage3] image 24 / node 2 / state 5/8                    [sharpen-stage3] image 24 / node 2 / state 6/8                    [sharpen-stage3] image 24 / node 2 / state 7/8                    [sharpen-stage3] image 24 / node 2 / state 8/8                    
+[sharpen-stage3] image 24 / node 3 / state 1/10                    [sharpen-stage3] image 24 / node 3 / state 2/10                    [sharpen-stage3] image 24 / node 3 / state 3/10                    [sharpen-stage3] image 24 / node 3 / state 4/10                    [sharpen-stage3] image 24 / node 3 / state 5/10                    [sharpen-stage3] image 24 / node 3 / state 6/10                    [sharpen-stage3] image 24 / node 3 / state 7/10                    [sharpen-stage3] image 24 / node 3 / state 8/10                    [sharpen-stage3] image 24 / node 3 / state 9/10                    [sharpen-stage3] image 24 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=31.056981 / ROI=28.409338 / NROI=31.231147 / Adv=48.010078 / Active=4
+
+[sharpen-stage3] image 25 starting
+[sharpen-stage3] image 25 / node 0 / state 1/1                    
+[sharpen-stage3] image 25 / node 1 / state 1/4                    [sharpen-stage3] image 25 / node 1 / state 2/4                    [sharpen-stage3] image 25 / node 1 / state 3/4                    [sharpen-stage3] image 25 / node 1 / state 4/4                    
+[sharpen-stage3] image 25 / node 2 / state 1/10                    [sharpen-stage3] image 25 / node 2 / state 2/10                    [sharpen-stage3] image 25 / node 2 / state 3/10                    [sharpen-stage3] image 25 / node 2 / state 4/10                    [sharpen-stage3] image 25 / node 2 / state 5/10                    [sharpen-stage3] image 25 / node 2 / state 6/10                    [sharpen-stage3] image 25 / node 2 / state 7/10                    [sharpen-stage3] image 25 / node 2 / state 8/10                    [sharpen-stage3] image 25 / node 2 / state 9/10                    [sharpen-stage3] image 25 / node 2 / state 10/10                    
+[sharpen-stage3] image 25 / node 3 / state 1/10                    [sharpen-stage3] image 25 / node 3 / state 2/10                    [sharpen-stage3] image 25 / node 3 / state 3/10                    [sharpen-stage3] image 25 / node 3 / state 4/10                    [sharpen-stage3] image 25 / node 3 / state 5/10                    [sharpen-stage3] image 25 / node 3 / state 6/10                    [sharpen-stage3] image 25 / node 3 / state 7/10                    [sharpen-stage3] image 25 / node 3 / state 8/10                    [sharpen-stage3] image 25 / node 3 / state 9/10                    [sharpen-stage3] image 25 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.012726 / ROI=27.390294 / NROI=30.186625 / Adv=58.008849 / Active=4
+
+[sharpen-stage3] image 26 starting
+[sharpen-stage3] image 26 / node 0 / state 1/1                    
+[sharpen-stage3] image 26 / node 1 / state 1/4                    [sharpen-stage3] image 26 / node 1 / state 2/4                    [sharpen-stage3] image 26 / node 1 / state 3/4                    [sharpen-stage3] image 26 / node 1 / state 4/4                    
+[sharpen-stage3] image 26 / node 2 / state 1/9                    [sharpen-stage3] image 26 / node 2 / state 2/9                    [sharpen-stage3] image 26 / node 2 / state 3/9                    [sharpen-stage3] image 26 / node 2 / state 4/9                    [sharpen-stage3] image 26 / node 2 / state 5/9                    [sharpen-stage3] image 26 / node 2 / state 6/9                    [sharpen-stage3] image 26 / node 2 / state 7/9                    [sharpen-stage3] image 26 / node 2 / state 8/9                    [sharpen-stage3] image 26 / node 2 / state 9/9                    
+[sharpen-stage3] image 26 / node 3 / state 1/10                    [sharpen-stage3] image 26 / node 3 / state 2/10                    [sharpen-stage3] image 26 / node 3 / state 3/10                    [sharpen-stage3] image 26 / node 3 / state 4/10                    [sharpen-stage3] image 26 / node 3 / state 5/10                    [sharpen-stage3] image 26 / node 3 / state 6/10                    [sharpen-stage3] image 26 / node 3 / state 7/10                    [sharpen-stage3] image 26 / node 3 / state 8/10                    [sharpen-stage3] image 26 / node 3 / state 9/10                    [sharpen-stage3] image 26 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.893879 / ROI=27.212962 / NROI=31.177173 / Adv=73.500106 / Active=4
+
+[sharpen-stage3] image 27 starting
+[sharpen-stage3] image 27 / node 0 / state 1/1                    
+[sharpen-stage3] image 27 / node 1 / state 1/4                    [sharpen-stage3] image 27 / node 1 / state 2/4                    [sharpen-stage3] image 27 / node 1 / state 3/4                    [sharpen-stage3] image 27 / node 1 / state 4/4                    
+[sharpen-stage3] image 27 / node 2 / state 1/10                    [sharpen-stage3] image 27 / node 2 / state 2/10                    [sharpen-stage3] image 27 / node 2 / state 3/10                    [sharpen-stage3] image 27 / node 2 / state 4/10                    [sharpen-stage3] image 27 / node 2 / state 5/10                    [sharpen-stage3] image 27 / node 2 / state 6/10                    [sharpen-stage3] image 27 / node 2 / state 7/10                    [sharpen-stage3] image 27 / node 2 / state 8/10                    [sharpen-stage3] image 27 / node 2 / state 9/10                    [sharpen-stage3] image 27 / node 2 / state 10/10                    
+[sharpen-stage3] image 27 / node 3 / state 1/10                    [sharpen-stage3] image 27 / node 3 / state 2/10                    [sharpen-stage3] image 27 / node 3 / state 3/10                    [sharpen-stage3] image 27 / node 3 / state 4/10                    [sharpen-stage3] image 27 / node 3 / state 5/10                    [sharpen-stage3] image 27 / node 3 / state 6/10                    [sharpen-stage3] image 27 / node 3 / state 7/10                    [sharpen-stage3] image 27 / node 3 / state 8/10                    [sharpen-stage3] image 27 / node 3 / state 9/10                    [sharpen-stage3] image 27 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.281900 / ROI=28.974766 / NROI=30.355169 / Adv=32.089459 / Active=4
+
+[sharpen-stage3] image 28 starting
+[sharpen-stage3] image 28 / node 0 / state 1/1                    
+[sharpen-stage3] image 28 / node 1 / state 1/4                    [sharpen-stage3] image 28 / node 1 / state 2/4                    [sharpen-stage3] image 28 / node 1 / state 3/4                    [sharpen-stage3] image 28 / node 1 / state 4/4                    
+[sharpen-stage3] image 28 / node 2 / state 1/10                    [sharpen-stage3] image 28 / node 2 / state 2/10                    [sharpen-stage3] image 28 / node 2 / state 3/10                    [sharpen-stage3] image 28 / node 2 / state 4/10                    [sharpen-stage3] image 28 / node 2 / state 5/10                    [sharpen-stage3] image 28 / node 2 / state 6/10                    [sharpen-stage3] image 28 / node 2 / state 7/10                    [sharpen-stage3] image 28 / node 2 / state 8/10                    [sharpen-stage3] image 28 / node 2 / state 9/10                    [sharpen-stage3] image 28 / node 2 / state 10/10                    
+[sharpen-stage3] image 28 / node 3 / state 1/10                    [sharpen-stage3] image 28 / node 3 / state 2/10                    [sharpen-stage3] image 28 / node 3 / state 3/10                    [sharpen-stage3] image 28 / node 3 / state 4/10                    [sharpen-stage3] image 28 / node 3 / state 5/10                    [sharpen-stage3] image 28 / node 3 / state 6/10                    [sharpen-stage3] image 28 / node 3 / state 7/10                    [sharpen-stage3] image 28 / node 3 / state 8/10                    [sharpen-stage3] image 28 / node 3 / state 9/10                    [sharpen-stage3] image 28 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.102716 / ROI=28.016431 / NROI=30.229931 / Adv=42.487493 / Active=4
+
+[sharpen-stage3] image 29 starting
+[sharpen-stage3] image 29 / node 0 / state 1/1                    
+[sharpen-stage3] image 29 / node 1 / state 1/4                    [sharpen-stage3] image 29 / node 1 / state 2/4                    [sharpen-stage3] image 29 / node 1 / state 3/4                    [sharpen-stage3] image 29 / node 1 / state 4/4                    
+[sharpen-stage3] image 29 / node 2 / state 1/10                    [sharpen-stage3] image 29 / node 2 / state 2/10                    [sharpen-stage3] image 29 / node 2 / state 3/10                    [sharpen-stage3] image 29 / node 2 / state 4/10                    [sharpen-stage3] image 29 / node 2 / state 5/10                    [sharpen-stage3] image 29 / node 2 / state 6/10                    [sharpen-stage3] image 29 / node 2 / state 7/10                    [sharpen-stage3] image 29 / node 2 / state 8/10                    [sharpen-stage3] image 29 / node 2 / state 9/10                    [sharpen-stage3] image 29 / node 2 / state 10/10                    
+[sharpen-stage3] image 29 / node 3 / state 1/10                    [sharpen-stage3] image 29 / node 3 / state 2/10                    [sharpen-stage3] image 29 / node 3 / state 3/10                    [sharpen-stage3] image 29 / node 3 / state 4/10                    [sharpen-stage3] image 29 / node 3 / state 5/10                    [sharpen-stage3] image 29 / node 3 / state 6/10                    [sharpen-stage3] image 29 / node 3 / state 7/10                    [sharpen-stage3] image 29 / node 3 / state 8/10                    [sharpen-stage3] image 29 / node 3 / state 9/10                    [sharpen-stage3] image 29 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.112068 / ROI=28.059310 / NROI=30.238113 / Adv=41.994600 / Active=4
+
+[sharpen-stage3] image 30 starting
+[sharpen-stage3] image 30 / node 0 / state 1/1                    
+[sharpen-stage3] image 30 / node 1 / state 1/4                    [sharpen-stage3] image 30 / node 1 / state 2/4                    [sharpen-stage3] image 30 / node 1 / state 3/4                    [sharpen-stage3] image 30 / node 1 / state 4/4                    
+[sharpen-stage3] image 30 / node 2 / state 1/10                    [sharpen-stage3] image 30 / node 2 / state 2/10                    [sharpen-stage3] image 30 / node 2 / state 3/10                    [sharpen-stage3] image 30 / node 2 / state 4/10                    [sharpen-stage3] image 30 / node 2 / state 5/10                    [sharpen-stage3] image 30 / node 2 / state 6/10                    [sharpen-stage3] image 30 / node 2 / state 7/10                    [sharpen-stage3] image 30 / node 2 / state 8/10                    [sharpen-stage3] image 30 / node 2 / state 9/10                    [sharpen-stage3] image 30 / node 2 / state 10/10                    
+[sharpen-stage3] image 30 / node 3 / state 1/10                    [sharpen-stage3] image 30 / node 3 / state 2/10                    [sharpen-stage3] image 30 / node 3 / state 3/10                    [sharpen-stage3] image 30 / node 3 / state 4/10                    [sharpen-stage3] image 30 / node 3 / state 5/10                    [sharpen-stage3] image 30 / node 3 / state 6/10                    [sharpen-stage3] image 30 / node 3 / state 7/10                    [sharpen-stage3] image 30 / node 3 / state 8/10                    [sharpen-stage3] image 30 / node 3 / state 9/10                    [sharpen-stage3] image 30 / node 3 / state 10/10                    
+[sharpen-stage3] SUCCESS / G=30.594239 / ROI=26.116923 / NROI=30.981864 / Adv=110.049551 / Active=4
+
+
+sharpen Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 30.426324
+Mean ROI PSNR: 27.686698
+Mean Non-ROI PSNR: 30.622638
+Mean Redistribution Advantage: 60.079310
+Min Global PSNR: 30.012726
+Max ROI PSNR: 28.974766
+
+Stage3 per-image CSV: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/sharpen/stage3_detail_B.csv
+Stage3 final images: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/sharpen/stage3_final_B
+----------------------------------------
+dct, selected H* = A
+----------------------------------------
+
+Automatic fixed-hardware pipeline: dct
+========================================
+Derived candidates: 4
+
+Candidate A (5 nodes)
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / input2 / 5Z0
+
+Candidate B (5 nodes)
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / baseline_output / 5TE
+
+Candidate C (5 nodes)
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / input1 / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / input2 / 5Z0
+
+Candidate D (4 nodes)
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+
+Stage3-only mode: skip Stage2, reuse candidate A selected from earlier Stage2 results.
+
+Selected H* = A
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / input2 / 5Z0
+
+[dct-stage3] image 21 starting
+[dct-stage3] image 21 / node 0 / state 1/1                    
+[dct-stage3] image 21 / node 1 / state 1/3                    [dct-stage3] image 21 / node 1 / state 2/3                    [dct-stage3] image 21 / node 1 / state 3/3                    
+[dct-stage3] image 21 / node 2 / state 1/10                    [dct-stage3] image 21 / node 2 / state 2/10                    [dct-stage3] image 21 / node 2 / state 3/10                    [dct-stage3] image 21 / node 2 / state 4/10                    [dct-stage3] image 21 / node 2 / state 5/10                    [dct-stage3] image 21 / node 2 / state 6/10                    [dct-stage3] image 21 / node 2 / state 7/10                    [dct-stage3] image 21 / node 2 / state 8/10                    [dct-stage3] image 21 / node 2 / state 9/10                    [dct-stage3] image 21 / node 2 / state 10/10                    
+[dct-stage3] image 21 / node 5 / state 1/10                    [dct-stage3] image 21 / node 5 / state 2/10                    [dct-stage3] image 21 / node 5 / state 3/10                    [dct-stage3] image 21 / node 5 / state 4/10                    [dct-stage3] image 21 / node 5 / state 5/10                    [dct-stage3] image 21 / node 5 / state 6/10                    [dct-stage3] image 21 / node 5 / state 7/10                    [dct-stage3] image 21 / node 5 / state 8/10                    [dct-stage3] image 21 / node 5 / state 9/10                    [dct-stage3] image 21 / node 5 / state 10/10                    
+[dct-stage3] image 21 / node 7 / state 1/10                    [dct-stage3] image 21 / node 7 / state 2/10                    [dct-stage3] image 21 / node 7 / state 3/10                    [dct-stage3] image 21 / node 7 / state 4/10                    [dct-stage3] image 21 / node 7 / state 5/10                    [dct-stage3] image 21 / node 7 / state 6/10                    [dct-stage3] image 21 / node 7 / state 7/10                    [dct-stage3] image 21 / node 7 / state 8/10                    [dct-stage3] image 21 / node 7 / state 9/10                    [dct-stage3] image 21 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.350970 / ROI=28.096920 / NROI=30.493152 / Adv=48.486408 / Active=5
+
+[dct-stage3] image 22 starting
+[dct-stage3] image 22 / node 0 / state 1/1                    
+[dct-stage3] image 22 / node 1 / state 1/3                    [dct-stage3] image 22 / node 1 / state 2/3                    [dct-stage3] image 22 / node 1 / state 3/3                    
+[dct-stage3] image 22 / node 2 / state 1/10                    [dct-stage3] image 22 / node 2 / state 2/10                    [dct-stage3] image 22 / node 2 / state 3/10                    [dct-stage3] image 22 / node 2 / state 4/10                    [dct-stage3] image 22 / node 2 / state 5/10                    [dct-stage3] image 22 / node 2 / state 6/10                    [dct-stage3] image 22 / node 2 / state 7/10                    [dct-stage3] image 22 / node 2 / state 8/10                    [dct-stage3] image 22 / node 2 / state 9/10                    [dct-stage3] image 22 / node 2 / state 10/10                    
+[dct-stage3] image 22 / node 5 / state 1/10                    [dct-stage3] image 22 / node 5 / state 2/10                    [dct-stage3] image 22 / node 5 / state 3/10                    [dct-stage3] image 22 / node 5 / state 4/10                    [dct-stage3] image 22 / node 5 / state 5/10                    [dct-stage3] image 22 / node 5 / state 6/10                    [dct-stage3] image 22 / node 5 / state 7/10                    [dct-stage3] image 22 / node 5 / state 8/10                    [dct-stage3] image 22 / node 5 / state 9/10                    [dct-stage3] image 22 / node 5 / state 10/10                    
+[dct-stage3] image 22 / node 7 / state 1/10                    [dct-stage3] image 22 / node 7 / state 2/10                    [dct-stage3] image 22 / node 7 / state 3/10                    [dct-stage3] image 22 / node 7 / state 4/10                    [dct-stage3] image 22 / node 7 / state 5/10                    [dct-stage3] image 22 / node 7 / state 6/10                    [dct-stage3] image 22 / node 7 / state 7/10                    [dct-stage3] image 22 / node 7 / state 8/10                    [dct-stage3] image 22 / node 7 / state 9/10                    [dct-stage3] image 22 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.096075 / ROI=28.191017 / NROI=30.210781 / Adv=30.431502 / Active=5
+
+[dct-stage3] image 23 starting
+[dct-stage3] image 23 / node 0 / state 1/1                    
+[dct-stage3] image 23 / node 1 / state 1/4                    [dct-stage3] image 23 / node 1 / state 2/4                    [dct-stage3] image 23 / node 1 / state 3/4                    [dct-stage3] image 23 / node 1 / state 4/4                    
+[dct-stage3] image 23 / node 2 / state 1/10                    [dct-stage3] image 23 / node 2 / state 2/10                    [dct-stage3] image 23 / node 2 / state 3/10                    [dct-stage3] image 23 / node 2 / state 4/10                    [dct-stage3] image 23 / node 2 / state 5/10                    [dct-stage3] image 23 / node 2 / state 6/10                    [dct-stage3] image 23 / node 2 / state 7/10                    [dct-stage3] image 23 / node 2 / state 8/10                    [dct-stage3] image 23 / node 2 / state 9/10                    [dct-stage3] image 23 / node 2 / state 10/10                    
+[dct-stage3] image 23 / node 5 / state 1/10                    [dct-stage3] image 23 / node 5 / state 2/10                    [dct-stage3] image 23 / node 5 / state 3/10                    [dct-stage3] image 23 / node 5 / state 4/10                    [dct-stage3] image 23 / node 5 / state 5/10                    [dct-stage3] image 23 / node 5 / state 6/10                    [dct-stage3] image 23 / node 5 / state 7/10                    [dct-stage3] image 23 / node 5 / state 8/10                    [dct-stage3] image 23 / node 5 / state 9/10                    [dct-stage3] image 23 / node 5 / state 10/10                    
+[dct-stage3] image 23 / node 7 / state 1/10                    [dct-stage3] image 23 / node 7 / state 2/10                    [dct-stage3] image 23 / node 7 / state 3/10                    [dct-stage3] image 23 / node 7 / state 4/10                    [dct-stage3] image 23 / node 7 / state 5/10                    [dct-stage3] image 23 / node 7 / state 6/10                    [dct-stage3] image 23 / node 7 / state 7/10                    [dct-stage3] image 23 / node 7 / state 8/10                    [dct-stage3] image 23 / node 7 / state 9/10                    [dct-stage3] image 23 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.074054 / ROI=26.263517 / NROI=30.372893 / Adv=92.959974 / Active=5
+
+[dct-stage3] image 24 starting
+[dct-stage3] image 24 / node 0 / state 1/1                    
+[dct-stage3] image 24 / node 1 / state 1/4                    [dct-stage3] image 24 / node 1 / state 2/4                    [dct-stage3] image 24 / node 1 / state 3/4                    [dct-stage3] image 24 / node 1 / state 4/4                    
+[dct-stage3] image 24 / node 2 / state 1/10                    [dct-stage3] image 24 / node 2 / state 2/10                    [dct-stage3] image 24 / node 2 / state 3/10                    [dct-stage3] image 24 / node 2 / state 4/10                    [dct-stage3] image 24 / node 2 / state 5/10                    [dct-stage3] image 24 / node 2 / state 6/10                    [dct-stage3] image 24 / node 2 / state 7/10                    [dct-stage3] image 24 / node 2 / state 8/10                    [dct-stage3] image 24 / node 2 / state 9/10                    [dct-stage3] image 24 / node 2 / state 10/10                    
+[dct-stage3] image 24 / node 5 / state 1/10                    [dct-stage3] image 24 / node 5 / state 2/10                    [dct-stage3] image 24 / node 5 / state 3/10                    [dct-stage3] image 24 / node 5 / state 4/10                    [dct-stage3] image 24 / node 5 / state 5/10                    [dct-stage3] image 24 / node 5 / state 6/10                    [dct-stage3] image 24 / node 5 / state 7/10                    [dct-stage3] image 24 / node 5 / state 8/10                    [dct-stage3] image 24 / node 5 / state 9/10                    [dct-stage3] image 24 / node 5 / state 10/10                    
+[dct-stage3] image 24 / node 7 / state 1/10                    [dct-stage3] image 24 / node 7 / state 2/10                    [dct-stage3] image 24 / node 7 / state 3/10                    [dct-stage3] image 24 / node 7 / state 4/10                    [dct-stage3] image 24 / node 7 / state 5/10                    [dct-stage3] image 24 / node 7 / state 6/10                    [dct-stage3] image 24 / node 7 / state 7/10                    [dct-stage3] image 24 / node 7 / state 8/10                    [dct-stage3] image 24 / node 7 / state 9/10                    [dct-stage3] image 24 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.527396 / ROI=29.021580 / NROI=30.612475 / Adv=28.675053 / Active=5
+
+[dct-stage3] image 25 starting
+[dct-stage3] image 25 / node 0 / state 1/1                    
+[dct-stage3] image 25 / node 1 / state 1/4                    [dct-stage3] image 25 / node 1 / state 2/4                    [dct-stage3] image 25 / node 1 / state 3/4                    [dct-stage3] image 25 / node 1 / state 4/4                    
+[dct-stage3] image 25 / node 2 / state 1/10                    [dct-stage3] image 25 / node 2 / state 2/10                    [dct-stage3] image 25 / node 2 / state 3/10                    [dct-stage3] image 25 / node 2 / state 4/10                    [dct-stage3] image 25 / node 2 / state 5/10                    [dct-stage3] image 25 / node 2 / state 6/10                    [dct-stage3] image 25 / node 2 / state 7/10                    [dct-stage3] image 25 / node 2 / state 8/10                    [dct-stage3] image 25 / node 2 / state 9/10                    [dct-stage3] image 25 / node 2 / state 10/10                    
+[dct-stage3] image 25 / node 5 / state 1/10                    [dct-stage3] image 25 / node 5 / state 2/10                    [dct-stage3] image 25 / node 5 / state 3/10                    [dct-stage3] image 25 / node 5 / state 4/10                    [dct-stage3] image 25 / node 5 / state 5/10                    [dct-stage3] image 25 / node 5 / state 6/10                    [dct-stage3] image 25 / node 5 / state 7/10                    [dct-stage3] image 25 / node 5 / state 8/10                    [dct-stage3] image 25 / node 5 / state 9/10                    [dct-stage3] image 25 / node 5 / state 10/10                    
+[dct-stage3] image 25 / node 7 / state 1/10                    [dct-stage3] image 25 / node 7 / state 2/10                    [dct-stage3] image 25 / node 7 / state 3/10                    [dct-stage3] image 25 / node 7 / state 4/10                    [dct-stage3] image 25 / node 7 / state 5/10                    [dct-stage3] image 25 / node 7 / state 6/10                    [dct-stage3] image 25 / node 7 / state 7/10                    [dct-stage3] image 25 / node 7 / state 8/10                    [dct-stage3] image 25 / node 7 / state 9/10                    [dct-stage3] image 25 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.566445 / ROI=29.688103 / NROI=30.612775 / Adv=16.746133 / Active=5
+
+[dct-stage3] image 26 starting
+[dct-stage3] image 26 / node 0 / state 1/1                    
+[dct-stage3] image 26 / node 1 / state 1/4                    [dct-stage3] image 26 / node 1 / state 2/4                    [dct-stage3] image 26 / node 1 / state 3/4                    [dct-stage3] image 26 / node 1 / state 4/4                    
+[dct-stage3] image 26 / node 2 / state 1/10                    [dct-stage3] image 26 / node 2 / state 2/10                    [dct-stage3] image 26 / node 2 / state 3/10                    [dct-stage3] image 26 / node 2 / state 4/10                    [dct-stage3] image 26 / node 2 / state 5/10                    [dct-stage3] image 26 / node 2 / state 6/10                    [dct-stage3] image 26 / node 2 / state 7/10                    [dct-stage3] image 26 / node 2 / state 8/10                    [dct-stage3] image 26 / node 2 / state 9/10                    [dct-stage3] image 26 / node 2 / state 10/10                    
+[dct-stage3] image 26 / node 5 / state 1/10                    [dct-stage3] image 26 / node 5 / state 2/10                    [dct-stage3] image 26 / node 5 / state 3/10                    [dct-stage3] image 26 / node 5 / state 4/10                    [dct-stage3] image 26 / node 5 / state 5/10                    [dct-stage3] image 26 / node 5 / state 6/10                    [dct-stage3] image 26 / node 5 / state 7/10                    [dct-stage3] image 26 / node 5 / state 8/10                    [dct-stage3] image 26 / node 5 / state 9/10                    [dct-stage3] image 26 / node 5 / state 10/10                    
+[dct-stage3] image 26 / node 7 / state 1/10                    [dct-stage3] image 26 / node 7 / state 2/10                    [dct-stage3] image 26 / node 7 / state 3/10                    [dct-stage3] image 26 / node 7 / state 4/10                    [dct-stage3] image 26 / node 7 / state 5/10                    [dct-stage3] image 26 / node 7 / state 6/10                    [dct-stage3] image 26 / node 7 / state 7/10                    [dct-stage3] image 26 / node 7 / state 8/10                    [dct-stage3] image 26 / node 7 / state 9/10                    [dct-stage3] image 26 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.362909 / ROI=27.879239 / NROI=30.524516 / Adv=47.532618 / Active=5
+
+[dct-stage3] image 27 starting
+[dct-stage3] image 27 / node 0 / state 1/1                    
+[dct-stage3] image 27 / node 1 / state 1/4                    [dct-stage3] image 27 / node 1 / state 2/4                    [dct-stage3] image 27 / node 1 / state 3/4                    [dct-stage3] image 27 / node 1 / state 4/4                    
+[dct-stage3] image 27 / node 2 / state 1/10                    [dct-stage3] image 27 / node 2 / state 2/10                    [dct-stage3] image 27 / node 2 / state 3/10                    [dct-stage3] image 27 / node 2 / state 4/10                    [dct-stage3] image 27 / node 2 / state 5/10                    [dct-stage3] image 27 / node 2 / state 6/10                    [dct-stage3] image 27 / node 2 / state 7/10                    [dct-stage3] image 27 / node 2 / state 8/10                    [dct-stage3] image 27 / node 2 / state 9/10                    [dct-stage3] image 27 / node 2 / state 10/10                    
+[dct-stage3] image 27 / node 5 / state 1/10                    [dct-stage3] image 27 / node 5 / state 2/10                    [dct-stage3] image 27 / node 5 / state 3/10                    [dct-stage3] image 27 / node 5 / state 4/10                    [dct-stage3] image 27 / node 5 / state 5/10                    [dct-stage3] image 27 / node 5 / state 6/10                    [dct-stage3] image 27 / node 5 / state 7/10                    [dct-stage3] image 27 / node 5 / state 8/10                    [dct-stage3] image 27 / node 5 / state 9/10                    [dct-stage3] image 27 / node 5 / state 10/10                    
+[dct-stage3] image 27 / node 7 / state 1/10                    [dct-stage3] image 27 / node 7 / state 2/10                    [dct-stage3] image 27 / node 7 / state 3/10                    [dct-stage3] image 27 / node 7 / state 4/10                    [dct-stage3] image 27 / node 7 / state 5/10                    [dct-stage3] image 27 / node 7 / state 6/10                    [dct-stage3] image 27 / node 7 / state 7/10                    [dct-stage3] image 27 / node 7 / state 8/10                    [dct-stage3] image 27 / node 7 / state 9/10                    [dct-stage3] image 27 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.040334 / ROI=28.047671 / NROI=30.162490 / Adv=44.883574 / Active=5
+
+[dct-stage3] image 28 starting
+[dct-stage3] image 28 / node 0 / state 1/1                    
+[dct-stage3] image 28 / node 1 / state 1/4                    [dct-stage3] image 28 / node 1 / state 2/4                    [dct-stage3] image 28 / node 1 / state 3/4                    [dct-stage3] image 28 / node 1 / state 4/4                    
+[dct-stage3] image 28 / node 2 / state 1/10                    [dct-stage3] image 28 / node 2 / state 2/10                    [dct-stage3] image 28 / node 2 / state 3/10                    [dct-stage3] image 28 / node 2 / state 4/10                    [dct-stage3] image 28 / node 2 / state 5/10                    [dct-stage3] image 28 / node 2 / state 6/10                    [dct-stage3] image 28 / node 2 / state 7/10                    [dct-stage3] image 28 / node 2 / state 8/10                    [dct-stage3] image 28 / node 2 / state 9/10                    [dct-stage3] image 28 / node 2 / state 10/10                    
+[dct-stage3] image 28 / node 5 / state 1/10                    [dct-stage3] image 28 / node 5 / state 2/10                    [dct-stage3] image 28 / node 5 / state 3/10                    [dct-stage3] image 28 / node 5 / state 4/10                    [dct-stage3] image 28 / node 5 / state 5/10                    [dct-stage3] image 28 / node 5 / state 6/10                    [dct-stage3] image 28 / node 5 / state 7/10                    [dct-stage3] image 28 / node 5 / state 8/10                    [dct-stage3] image 28 / node 5 / state 9/10                    [dct-stage3] image 28 / node 5 / state 10/10                    
+[dct-stage3] image 28 / node 7 / state 1/10                    [dct-stage3] image 28 / node 7 / state 2/10                    [dct-stage3] image 28 / node 7 / state 3/10                    [dct-stage3] image 28 / node 7 / state 4/10                    [dct-stage3] image 28 / node 7 / state 5/10                    [dct-stage3] image 28 / node 7 / state 6/10                    [dct-stage3] image 28 / node 7 / state 7/10                    [dct-stage3] image 28 / node 7 / state 8/10                    [dct-stage3] image 28 / node 7 / state 9/10                    [dct-stage3] image 28 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.661017 / ROI=29.111436 / NROI=30.749067 / Adv=25.518697 / Active=5
+
+[dct-stage3] image 29 starting
+[dct-stage3] image 29 / node 0 / state 1/1                    
+[dct-stage3] image 29 / node 1 / state 1/4                    [dct-stage3] image 29 / node 1 / state 2/4                    [dct-stage3] image 29 / node 1 / state 3/4                    [dct-stage3] image 29 / node 1 / state 4/4                    
+[dct-stage3] image 29 / node 2 / state 1/10                    [dct-stage3] image 29 / node 2 / state 2/10                    [dct-stage3] image 29 / node 2 / state 3/10                    [dct-stage3] image 29 / node 2 / state 4/10                    [dct-stage3] image 29 / node 2 / state 5/10                    [dct-stage3] image 29 / node 2 / state 6/10                    [dct-stage3] image 29 / node 2 / state 7/10                    [dct-stage3] image 29 / node 2 / state 8/10                    [dct-stage3] image 29 / node 2 / state 9/10                    [dct-stage3] image 29 / node 2 / state 10/10                    
+[dct-stage3] image 29 / node 5 / state 1/10                    [dct-stage3] image 29 / node 5 / state 2/10                    [dct-stage3] image 29 / node 5 / state 3/10                    [dct-stage3] image 29 / node 5 / state 4/10                    [dct-stage3] image 29 / node 5 / state 5/10                    [dct-stage3] image 29 / node 5 / state 6/10                    [dct-stage3] image 29 / node 5 / state 7/10                    [dct-stage3] image 29 / node 5 / state 8/10                    [dct-stage3] image 29 / node 5 / state 9/10                    [dct-stage3] image 29 / node 5 / state 10/10                    
+[dct-stage3] image 29 / node 7 / state 1/10                    [dct-stage3] image 29 / node 7 / state 2/10                    [dct-stage3] image 29 / node 7 / state 3/10                    [dct-stage3] image 29 / node 7 / state 4/10                    [dct-stage3] image 29 / node 7 / state 5/10                    [dct-stage3] image 29 / node 7 / state 6/10                    [dct-stage3] image 29 / node 7 / state 7/10                    [dct-stage3] image 29 / node 7 / state 8/10                    [dct-stage3] image 29 / node 7 / state 9/10                    [dct-stage3] image 29 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.175324 / ROI=28.442961 / NROI=30.277288 / Adv=35.113453 / Active=5
+
+[dct-stage3] image 30 starting
+[dct-stage3] image 30 / node 0 / state 1/1                    
+[dct-stage3] image 30 / node 1 / state 1/4                    [dct-stage3] image 30 / node 1 / state 2/4                    [dct-stage3] image 30 / node 1 / state 3/4                    [dct-stage3] image 30 / node 1 / state 4/4                    
+[dct-stage3] image 30 / node 2 / state 1/10                    [dct-stage3] image 30 / node 2 / state 2/10                    [dct-stage3] image 30 / node 2 / state 3/10                    [dct-stage3] image 30 / node 2 / state 4/10                    [dct-stage3] image 30 / node 2 / state 5/10                    [dct-stage3] image 30 / node 2 / state 6/10                    [dct-stage3] image 30 / node 2 / state 7/10                    [dct-stage3] image 30 / node 2 / state 8/10                    [dct-stage3] image 30 / node 2 / state 9/10                    [dct-stage3] image 30 / node 2 / state 10/10                    
+[dct-stage3] image 30 / node 5 / state 1/10                    [dct-stage3] image 30 / node 5 / state 2/10                    [dct-stage3] image 30 / node 5 / state 3/10                    [dct-stage3] image 30 / node 5 / state 4/10                    [dct-stage3] image 30 / node 5 / state 5/10                    [dct-stage3] image 30 / node 5 / state 6/10                    [dct-stage3] image 30 / node 5 / state 7/10                    [dct-stage3] image 30 / node 5 / state 8/10                    [dct-stage3] image 30 / node 5 / state 9/10                    [dct-stage3] image 30 / node 5 / state 10/10                    
+[dct-stage3] image 30 / node 7 / state 1/10                    [dct-stage3] image 30 / node 7 / state 2/10                    [dct-stage3] image 30 / node 7 / state 3/10                    [dct-stage3] image 30 / node 7 / state 4/10                    [dct-stage3] image 30 / node 7 / state 5/10                    [dct-stage3] image 30 / node 7 / state 6/10                    [dct-stage3] image 30 / node 7 / state 7/10                    [dct-stage3] image 30 / node 7 / state 8/10                    [dct-stage3] image 30 / node 7 / state 9/10                    [dct-stage3] image 30 / node 7 / state 10/10                    
+[dct-stage3] SUCCESS / G=30.890392 / ROI=24.640846 / NROI=31.607814 / Adv=183.867424 / Active=5
+
+
+dct Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 30.374492
+Mean ROI PSNR: 27.938329
+Mean Non-ROI PSNR: 30.562325
+Mean Redistribution Advantage: 55.421483
+Min Global PSNR: 30.040334
+Max ROI PSNR: 29.688103
+
+Stage3 per-image CSV: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/dct/stage3_detail_A.csv
+Stage3 final images: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/dct/stage3_final_A
+----------------------------------------
+sobel, selected H* = B
+----------------------------------------
+
+Automatic fixed-hardware pipeline: sobel
+========================================
+Derived candidates: 4
+
+Candidate A (5 nodes)
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input2 / 5SB
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+Candidate B (5 nodes)
+  Node 5 / Y1 / input2 / 5Z0
+  Node 3 / X4 / input2 / 5SB
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+Candidate C (5 nodes)
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input1 / 5PN
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+Candidate D (4 nodes)
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input2 / 5SB
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+
+Stage3-only mode: skip Stage2, reuse candidate B selected from earlier Stage2 results.
+
+Selected H* = B
+  Node 5 / Y1 / input2 / 5Z0
+  Node 3 / X4 / input2 / 5SB
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+[sobel-stage3] image 21 starting
+[sobel-stage3] image 21 / node 5 / state 1/1                    
+[sobel-stage3] image 21 / node 3 / state 1/4                    [sobel-stage3] image 21 / node 3 / state 2/4                    [sobel-stage3] image 21 / node 3 / state 3/4                    [sobel-stage3] image 21 / node 3 / state 4/4                    
+[sobel-stage3] image 21 / node 1 / state 1/10                    [sobel-stage3] image 21 / node 1 / state 2/10                    [sobel-stage3] image 21 / node 1 / state 3/10                    [sobel-stage3] image 21 / node 1 / state 4/10                    [sobel-stage3] image 21 / node 1 / state 5/10                    [sobel-stage3] image 21 / node 1 / state 6/10                    [sobel-stage3] image 21 / node 1 / state 7/10                    [sobel-stage3] image 21 / node 1 / state 8/10                    [sobel-stage3] image 21 / node 1 / state 9/10                    [sobel-stage3] image 21 / node 1 / state 10/10                    
+[sobel-stage3] image 21 / node 8 / state 1/10                    [sobel-stage3] image 21 / node 8 / state 2/10                    [sobel-stage3] image 21 / node 8 / state 3/10                    [sobel-stage3] image 21 / node 8 / state 4/10                    [sobel-stage3] image 21 / node 8 / state 5/10                    [sobel-stage3] image 21 / node 8 / state 6/10                    [sobel-stage3] image 21 / node 8 / state 7/10                    [sobel-stage3] image 21 / node 8 / state 8/10                    [sobel-stage3] image 21 / node 8 / state 9/10                    [sobel-stage3] image 21 / node 8 / state 10/10                    
+[sobel-stage3] image 21 / node 6 / state 1/10                    [sobel-stage3] image 21 / node 6 / state 2/10                    [sobel-stage3] image 21 / node 6 / state 3/10                    [sobel-stage3] image 21 / node 6 / state 4/10                    [sobel-stage3] image 21 / node 6 / state 5/10                    [sobel-stage3] image 21 / node 6 / state 6/10                    [sobel-stage3] image 21 / node 6 / state 7/10                    [sobel-stage3] image 21 / node 6 / state 8/10                    [sobel-stage3] image 21 / node 6 / state 9/10                    [sobel-stage3] image 21 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.382921 / ROI=26.345251 / NROI=30.710289 / Adv=95.495779 / Active=5
+
+[sobel-stage3] image 22 starting
+[sobel-stage3] image 22 / node 5 / state 1/1                    
+[sobel-stage3] image 22 / node 3 / state 1/4                    [sobel-stage3] image 22 / node 3 / state 2/4                    [sobel-stage3] image 22 / node 3 / state 3/4                    [sobel-stage3] image 22 / node 3 / state 4/4                    
+[sobel-stage3] image 22 / node 1 / state 1/8                    [sobel-stage3] image 22 / node 1 / state 2/8                    [sobel-stage3] image 22 / node 1 / state 3/8                    [sobel-stage3] image 22 / node 1 / state 4/8                    [sobel-stage3] image 22 / node 1 / state 5/8                    [sobel-stage3] image 22 / node 1 / state 6/8                    [sobel-stage3] image 22 / node 1 / state 7/8                    [sobel-stage3] image 22 / node 1 / state 8/8                    
+[sobel-stage3] image 22 / node 8 / state 1/10                    [sobel-stage3] image 22 / node 8 / state 2/10                    [sobel-stage3] image 22 / node 8 / state 3/10                    [sobel-stage3] image 22 / node 8 / state 4/10                    [sobel-stage3] image 22 / node 8 / state 5/10                    [sobel-stage3] image 22 / node 8 / state 6/10                    [sobel-stage3] image 22 / node 8 / state 7/10                    [sobel-stage3] image 22 / node 8 / state 8/10                    [sobel-stage3] image 22 / node 8 / state 9/10                    [sobel-stage3] image 22 / node 8 / state 10/10                    
+[sobel-stage3] image 22 / node 6 / state 1/10                    [sobel-stage3] image 22 / node 6 / state 2/10                    [sobel-stage3] image 22 / node 6 / state 3/10                    [sobel-stage3] image 22 / node 6 / state 4/10                    [sobel-stage3] image 22 / node 6 / state 5/10                    [sobel-stage3] image 22 / node 6 / state 6/10                    [sobel-stage3] image 22 / node 6 / state 7/10                    [sobel-stage3] image 22 / node 6 / state 8/10                    [sobel-stage3] image 22 / node 6 / state 9/10                    [sobel-stage3] image 22 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=36.158500 / ROI=35.695945 / NROI=36.181667 / Adv=0.558557 / Active=5
+
+[sobel-stage3] image 23 starting
+[sobel-stage3] image 23 / node 5 / state 1/1                    
+[sobel-stage3] image 23 / node 3 / state 1/4                    [sobel-stage3] image 23 / node 3 / state 2/4                    [sobel-stage3] image 23 / node 3 / state 3/4                    [sobel-stage3] image 23 / node 3 / state 4/4                    
+[sobel-stage3] image 23 / node 1 / state 1/10                    [sobel-stage3] image 23 / node 1 / state 2/10                    [sobel-stage3] image 23 / node 1 / state 3/10                    [sobel-stage3] image 23 / node 1 / state 4/10                    [sobel-stage3] image 23 / node 1 / state 5/10                    [sobel-stage3] image 23 / node 1 / state 6/10                    [sobel-stage3] image 23 / node 1 / state 7/10                    [sobel-stage3] image 23 / node 1 / state 8/10                    [sobel-stage3] image 23 / node 1 / state 9/10                    [sobel-stage3] image 23 / node 1 / state 10/10                    
+[sobel-stage3] image 23 / node 8 / state 1/10                    [sobel-stage3] image 23 / node 8 / state 2/10                    [sobel-stage3] image 23 / node 8 / state 3/10                    [sobel-stage3] image 23 / node 8 / state 4/10                    [sobel-stage3] image 23 / node 8 / state 5/10                    [sobel-stage3] image 23 / node 8 / state 6/10                    [sobel-stage3] image 23 / node 8 / state 7/10                    [sobel-stage3] image 23 / node 8 / state 8/10                    [sobel-stage3] image 23 / node 8 / state 9/10                    [sobel-stage3] image 23 / node 8 / state 10/10                    
+[sobel-stage3] image 23 / node 6 / state 1/10                    [sobel-stage3] image 23 / node 6 / state 2/10                    [sobel-stage3] image 23 / node 6 / state 3/10                    [sobel-stage3] image 23 / node 6 / state 4/10                    [sobel-stage3] image 23 / node 6 / state 5/10                    [sobel-stage3] image 23 / node 6 / state 6/10                    [sobel-stage3] image 23 / node 6 / state 7/10                    [sobel-stage3] image 23 / node 6 / state 8/10                    [sobel-stage3] image 23 / node 6 / state 9/10                    [sobel-stage3] image 23 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=36.172083 / ROI=35.806615 / NROI=36.190171 / Adv=2.602137 / Active=5
+
+[sobel-stage3] image 24 starting
+[sobel-stage3] image 24 / node 5 / state 1/1                    
+[sobel-stage3] image 24 / node 3 / state 1/4                    [sobel-stage3] image 24 / node 3 / state 2/4                    [sobel-stage3] image 24 / node 3 / state 3/4                    [sobel-stage3] image 24 / node 3 / state 4/4                    
+[sobel-stage3] image 24 / node 1 / state 1/10                    [sobel-stage3] image 24 / node 1 / state 2/10                    [sobel-stage3] image 24 / node 1 / state 3/10                    [sobel-stage3] image 24 / node 1 / state 4/10                    [sobel-stage3] image 24 / node 1 / state 5/10                    [sobel-stage3] image 24 / node 1 / state 6/10                    [sobel-stage3] image 24 / node 1 / state 7/10                    [sobel-stage3] image 24 / node 1 / state 8/10                    [sobel-stage3] image 24 / node 1 / state 9/10                    [sobel-stage3] image 24 / node 1 / state 10/10                    
+[sobel-stage3] image 24 / node 8 / state 1/10                    [sobel-stage3] image 24 / node 8 / state 2/10                    [sobel-stage3] image 24 / node 8 / state 3/10                    [sobel-stage3] image 24 / node 8 / state 4/10                    [sobel-stage3] image 24 / node 8 / state 5/10                    [sobel-stage3] image 24 / node 8 / state 6/10                    [sobel-stage3] image 24 / node 8 / state 7/10                    [sobel-stage3] image 24 / node 8 / state 8/10                    [sobel-stage3] image 24 / node 8 / state 9/10                    [sobel-stage3] image 24 / node 8 / state 10/10                    
+[sobel-stage3] image 24 / node 6 / state 1/10                    [sobel-stage3] image 24 / node 6 / state 2/10                    [sobel-stage3] image 24 / node 6 / state 3/10                    [sobel-stage3] image 24 / node 6 / state 4/10                    [sobel-stage3] image 24 / node 6 / state 5/10                    [sobel-stage3] image 24 / node 6 / state 6/10                    [sobel-stage3] image 24 / node 6 / state 7/10                    [sobel-stage3] image 24 / node 6 / state 8/10                    [sobel-stage3] image 24 / node 6 / state 9/10                    [sobel-stage3] image 24 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=31.368831 / ROI=28.718244 / NROI=31.543260 / Adv=42.792001 / Active=5
+
+[sobel-stage3] image 25 starting
+[sobel-stage3] image 25 / node 5 / state 1/1                    
+[sobel-stage3] image 25 / node 3 / state 1/4                    [sobel-stage3] image 25 / node 3 / state 2/4                    [sobel-stage3] image 25 / node 3 / state 3/4                    [sobel-stage3] image 25 / node 3 / state 4/4                    
+[sobel-stage3] image 25 / node 1 / state 1/10                    [sobel-stage3] image 25 / node 1 / state 2/10                    [sobel-stage3] image 25 / node 1 / state 3/10                    [sobel-stage3] image 25 / node 1 / state 4/10                    [sobel-stage3] image 25 / node 1 / state 5/10                    [sobel-stage3] image 25 / node 1 / state 6/10                    [sobel-stage3] image 25 / node 1 / state 7/10                    [sobel-stage3] image 25 / node 1 / state 8/10                    [sobel-stage3] image 25 / node 1 / state 9/10                    [sobel-stage3] image 25 / node 1 / state 10/10                    
+[sobel-stage3] image 25 / node 8 / state 1/10                    [sobel-stage3] image 25 / node 8 / state 2/10                    [sobel-stage3] image 25 / node 8 / state 3/10                    [sobel-stage3] image 25 / node 8 / state 4/10                    [sobel-stage3] image 25 / node 8 / state 5/10                    [sobel-stage3] image 25 / node 8 / state 6/10                    [sobel-stage3] image 25 / node 8 / state 7/10                    [sobel-stage3] image 25 / node 8 / state 8/10                    [sobel-stage3] image 25 / node 8 / state 9/10                    [sobel-stage3] image 25 / node 8 / state 10/10                    
+[sobel-stage3] image 25 / node 6 / state 1/10                    [sobel-stage3] image 25 / node 6 / state 2/10                    [sobel-stage3] image 25 / node 6 / state 3/10                    [sobel-stage3] image 25 / node 6 / state 4/10                    [sobel-stage3] image 25 / node 6 / state 5/10                    [sobel-stage3] image 25 / node 6 / state 6/10                    [sobel-stage3] image 25 / node 6 / state 7/10                    [sobel-stage3] image 25 / node 6 / state 8/10                    [sobel-stage3] image 25 / node 6 / state 9/10                    [sobel-stage3] image 25 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.276111 / ROI=27.668576 / NROI=30.448670 / Adv=53.258677 / Active=5
+
+[sobel-stage3] image 26 starting
+[sobel-stage3] image 26 / node 5 / state 1/1                    
+[sobel-stage3] image 26 / node 3 / state 1/4                    [sobel-stage3] image 26 / node 3 / state 2/4                    [sobel-stage3] image 26 / node 3 / state 3/4                    [sobel-stage3] image 26 / node 3 / state 4/4                    
+[sobel-stage3] image 26 / node 1 / state 1/10                    [sobel-stage3] image 26 / node 1 / state 2/10                    [sobel-stage3] image 26 / node 1 / state 3/10                    [sobel-stage3] image 26 / node 1 / state 4/10                    [sobel-stage3] image 26 / node 1 / state 5/10                    [sobel-stage3] image 26 / node 1 / state 6/10                    [sobel-stage3] image 26 / node 1 / state 7/10                    [sobel-stage3] image 26 / node 1 / state 8/10                    [sobel-stage3] image 26 / node 1 / state 9/10                    [sobel-stage3] image 26 / node 1 / state 10/10                    
+[sobel-stage3] image 26 / node 8 / state 1/10                    [sobel-stage3] image 26 / node 8 / state 2/10                    [sobel-stage3] image 26 / node 8 / state 3/10                    [sobel-stage3] image 26 / node 8 / state 4/10                    [sobel-stage3] image 26 / node 8 / state 5/10                    [sobel-stage3] image 26 / node 8 / state 6/10                    [sobel-stage3] image 26 / node 8 / state 7/10                    [sobel-stage3] image 26 / node 8 / state 8/10                    [sobel-stage3] image 26 / node 8 / state 9/10                    [sobel-stage3] image 26 / node 8 / state 10/10                    
+[sobel-stage3] image 26 / node 6 / state 1/10                    [sobel-stage3] image 26 / node 6 / state 2/10                    [sobel-stage3] image 26 / node 6 / state 3/10                    [sobel-stage3] image 26 / node 6 / state 4/10                    [sobel-stage3] image 26 / node 6 / state 5/10                    [sobel-stage3] image 26 / node 6 / state 6/10                    [sobel-stage3] image 26 / node 6 / state 7/10                    [sobel-stage3] image 26 / node 6 / state 8/10                    [sobel-stage3] image 26 / node 6 / state 9/10                    [sobel-stage3] image 26 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.013982 / ROI=27.484638 / NROI=30.179588 / Adv=53.272852 / Active=5
+
+[sobel-stage3] image 27 starting
+[sobel-stage3] image 27 / node 5 / state 1/1                    
+[sobel-stage3] image 27 / node 3 / state 1/4                    [sobel-stage3] image 27 / node 3 / state 2/4                    [sobel-stage3] image 27 / node 3 / state 3/4                    [sobel-stage3] image 27 / node 3 / state 4/4                    
+[sobel-stage3] image 27 / node 1 / state 1/10                    [sobel-stage3] image 27 / node 1 / state 2/10                    [sobel-stage3] image 27 / node 1 / state 3/10                    [sobel-stage3] image 27 / node 1 / state 4/10                    [sobel-stage3] image 27 / node 1 / state 5/10                    [sobel-stage3] image 27 / node 1 / state 6/10                    [sobel-stage3] image 27 / node 1 / state 7/10                    [sobel-stage3] image 27 / node 1 / state 8/10                    [sobel-stage3] image 27 / node 1 / state 9/10                    [sobel-stage3] image 27 / node 1 / state 10/10                    
+[sobel-stage3] image 27 / node 8 / state 1/10                    [sobel-stage3] image 27 / node 8 / state 2/10                    [sobel-stage3] image 27 / node 8 / state 3/10                    [sobel-stage3] image 27 / node 8 / state 4/10                    [sobel-stage3] image 27 / node 8 / state 5/10                    [sobel-stage3] image 27 / node 8 / state 6/10                    [sobel-stage3] image 27 / node 8 / state 7/10                    [sobel-stage3] image 27 / node 8 / state 8/10                    [sobel-stage3] image 27 / node 8 / state 9/10                    [sobel-stage3] image 27 / node 8 / state 10/10                    
+[sobel-stage3] image 27 / node 6 / state 1/10                    [sobel-stage3] image 27 / node 6 / state 2/10                    [sobel-stage3] image 27 / node 6 / state 3/10                    [sobel-stage3] image 27 / node 6 / state 4/10                    [sobel-stage3] image 27 / node 6 / state 5/10                    [sobel-stage3] image 27 / node 6 / state 6/10                    [sobel-stage3] image 27 / node 6 / state 7/10                    [sobel-stage3] image 27 / node 6 / state 8/10                    [sobel-stage3] image 27 / node 6 / state 9/10                    [sobel-stage3] image 27 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.004208 / ROI=27.885593 / NROI=30.136282 / Adv=44.725861 / Active=5
+
+[sobel-stage3] image 28 starting
+[sobel-stage3] image 28 / node 5 / state 1/1                    
+[sobel-stage3] image 28 / node 3 / state 1/4                    [sobel-stage3] image 28 / node 3 / state 2/4                    [sobel-stage3] image 28 / node 3 / state 3/4                    [sobel-stage3] image 28 / node 3 / state 4/4                    
+[sobel-stage3] image 28 / node 1 / state 1/10                    [sobel-stage3] image 28 / node 1 / state 2/10                    [sobel-stage3] image 28 / node 1 / state 3/10                    [sobel-stage3] image 28 / node 1 / state 4/10                    [sobel-stage3] image 28 / node 1 / state 5/10                    [sobel-stage3] image 28 / node 1 / state 6/10                    [sobel-stage3] image 28 / node 1 / state 7/10                    [sobel-stage3] image 28 / node 1 / state 8/10                    [sobel-stage3] image 28 / node 1 / state 9/10                    [sobel-stage3] image 28 / node 1 / state 10/10                    
+[sobel-stage3] image 28 / node 8 / state 1/10                    [sobel-stage3] image 28 / node 8 / state 2/10                    [sobel-stage3] image 28 / node 8 / state 3/10                    [sobel-stage3] image 28 / node 8 / state 4/10                    [sobel-stage3] image 28 / node 8 / state 5/10                    [sobel-stage3] image 28 / node 8 / state 6/10                    [sobel-stage3] image 28 / node 8 / state 7/10                    [sobel-stage3] image 28 / node 8 / state 8/10                    [sobel-stage3] image 28 / node 8 / state 9/10                    [sobel-stage3] image 28 / node 8 / state 10/10                    
+[sobel-stage3] image 28 / node 6 / state 1/10                    [sobel-stage3] image 28 / node 6 / state 2/10                    [sobel-stage3] image 28 / node 6 / state 3/10                    [sobel-stage3] image 28 / node 6 / state 4/10                    [sobel-stage3] image 28 / node 6 / state 5/10                    [sobel-stage3] image 28 / node 6 / state 6/10                    [sobel-stage3] image 28 / node 6 / state 7/10                    [sobel-stage3] image 28 / node 6 / state 8/10                    [sobel-stage3] image 28 / node 6 / state 9/10                    [sobel-stage3] image 28 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.592543 / ROI=26.424325 / NROI=30.933073 / Adv=95.722391 / Active=5
+
+[sobel-stage3] image 29 starting
+[sobel-stage3] image 29 / node 5 / state 1/1                    
+[sobel-stage3] image 29 / node 3 / state 1/4                    [sobel-stage3] image 29 / node 3 / state 2/4                    [sobel-stage3] image 29 / node 3 / state 3/4                    [sobel-stage3] image 29 / node 3 / state 4/4                    
+[sobel-stage3] image 29 / node 1 / state 1/10                    [sobel-stage3] image 29 / node 1 / state 2/10                    [sobel-stage3] image 29 / node 1 / state 3/10                    [sobel-stage3] image 29 / node 1 / state 4/10                    [sobel-stage3] image 29 / node 1 / state 5/10                    [sobel-stage3] image 29 / node 1 / state 6/10                    [sobel-stage3] image 29 / node 1 / state 7/10                    [sobel-stage3] image 29 / node 1 / state 8/10                    [sobel-stage3] image 29 / node 1 / state 9/10                    [sobel-stage3] image 29 / node 1 / state 10/10                    
+[sobel-stage3] image 29 / node 8 / state 1/10                    [sobel-stage3] image 29 / node 8 / state 2/10                    [sobel-stage3] image 29 / node 8 / state 3/10                    [sobel-stage3] image 29 / node 8 / state 4/10                    [sobel-stage3] image 29 / node 8 / state 5/10                    [sobel-stage3] image 29 / node 8 / state 6/10                    [sobel-stage3] image 29 / node 8 / state 7/10                    [sobel-stage3] image 29 / node 8 / state 8/10                    [sobel-stage3] image 29 / node 8 / state 9/10                    [sobel-stage3] image 29 / node 8 / state 10/10                    
+[sobel-stage3] image 29 / node 6 / state 1/10                    [sobel-stage3] image 29 / node 6 / state 2/10                    [sobel-stage3] image 29 / node 6 / state 3/10                    [sobel-stage3] image 29 / node 6 / state 4/10                    [sobel-stage3] image 29 / node 6 / state 5/10                    [sobel-stage3] image 29 / node 6 / state 6/10                    [sobel-stage3] image 29 / node 6 / state 7/10                    [sobel-stage3] image 29 / node 6 / state 8/10                    [sobel-stage3] image 29 / node 6 / state 9/10                    [sobel-stage3] image 29 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=30.699958 / ROI=28.173789 / NROI=30.865284 / Adv=45.643173 / Active=5
+
+[sobel-stage3] image 30 starting
+[sobel-stage3] image 30 / node 5 / state 1/1                    
+[sobel-stage3] image 30 / node 3 / state 1/4                    [sobel-stage3] image 30 / node 3 / state 2/4                    [sobel-stage3] image 30 / node 3 / state 3/4                    [sobel-stage3] image 30 / node 3 / state 4/4                    
+[sobel-stage3] image 30 / node 1 / state 1/10                    [sobel-stage3] image 30 / node 1 / state 2/10                    [sobel-stage3] image 30 / node 1 / state 3/10                    [sobel-stage3] image 30 / node 1 / state 4/10                    [sobel-stage3] image 30 / node 1 / state 5/10                    [sobel-stage3] image 30 / node 1 / state 6/10                    [sobel-stage3] image 30 / node 1 / state 7/10                    [sobel-stage3] image 30 / node 1 / state 8/10                    [sobel-stage3] image 30 / node 1 / state 9/10                    [sobel-stage3] image 30 / node 1 / state 10/10                    
+[sobel-stage3] image 30 / node 8 / state 1/10                    [sobel-stage3] image 30 / node 8 / state 2/10                    [sobel-stage3] image 30 / node 8 / state 3/10                    [sobel-stage3] image 30 / node 8 / state 4/10                    [sobel-stage3] image 30 / node 8 / state 5/10                    [sobel-stage3] image 30 / node 8 / state 6/10                    [sobel-stage3] image 30 / node 8 / state 7/10                    [sobel-stage3] image 30 / node 8 / state 8/10                    [sobel-stage3] image 30 / node 8 / state 9/10                    [sobel-stage3] image 30 / node 8 / state 10/10                    
+[sobel-stage3] image 30 / node 6 / state 1/10                    [sobel-stage3] image 30 / node 6 / state 2/10                    [sobel-stage3] image 30 / node 6 / state 3/10                    [sobel-stage3] image 30 / node 6 / state 4/10                    [sobel-stage3] image 30 / node 6 / state 5/10                    [sobel-stage3] image 30 / node 6 / state 6/10                    [sobel-stage3] image 30 / node 6 / state 7/10                    [sobel-stage3] image 30 / node 6 / state 8/10                    [sobel-stage3] image 30 / node 6 / state 9/10                    [sobel-stage3] image 30 / node 6 / state 10/10                    
+[sobel-stage3] SUCCESS / G=33.183235 / ROI=25.900559 / NROI=34.184361 / Adv=143.346192 / Active=5
+
+
+sobel Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 31.885237
+Mean ROI PSNR: 29.010354
+Mean Non-ROI PSNR: 32.137265
+Mean Redistribution Advantage: 57.741762
+Min Global PSNR: 30.004208
+Max ROI PSNR: 35.806615
+
+Stage3 per-image CSV: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/sobel/stage3_detail_B.csv
+Stage3 final images: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/sobel/stage3_final_B
+
+=============== Stage3 summaries ===============
+conv Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 31.074507
+Mean ROI PSNR: 28.835278
+Mean Non-ROI PSNR: 31.227319
+Mean Redistribution Advantage: 44.522142
+Min Global PSNR: 30.046559
+Max ROI PSNR: 33.860411
+
+
+sharpen Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 30.426324
+Mean ROI PSNR: 27.686698
+Mean Non-ROI PSNR: 30.622638
+Mean Redistribution Advantage: 60.079310
+Min Global PSNR: 30.012726
+Max ROI PSNR: 28.974766
+
+
+dct Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 30.374492
+Mean ROI PSNR: 27.938329
+Mean Non-ROI PSNR: 30.562325
+Mean Redistribution Advantage: 55.421483
+Min Global PSNR: 30.040334
+Max ROI PSNR: 29.688103
+
+
+sobel Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 31.885237
+Mean ROI PSNR: 29.010354
+Mean Non-ROI PSNR: 32.137265
+Mean Redistribution Advantage: 57.741762
+Min Global PSNR: 30.004208
+Max ROI PSNR: 35.806615
+
+
+Detailed metrics in /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/<app>/stage3_detail_<H*>.csv
+Final images in /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352/<app>/stage3_final_<H*>/
+Finished. Results: /home/axzvte/projects/approx_attack_validation/force_active_reranked_20261015_115352
