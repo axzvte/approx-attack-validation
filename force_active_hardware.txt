@@ -1,0 +1,79 @@
+Selected H* = A
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+[conv-stage3] image 21 starting
+[conv-stage3] image 21 / node 0 / state 1/1                    
+[conv-stage3] image 21 / node 3 / state 1/4                    [conv-stage3] image 21 / node 3 / state 2/4                    [conv-stage3] image 21 / node 3 / state 3/4                    [conv-stage3] image 21 / node 3 / state 4/4                    
+--
+Selected H* = C
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+[sharpen-stage3] image 21 starting
+[sharpen-stage3] image 21 / node 0 / state 1/1                    
+[sharpen-stage3] image 21 / node 1 / state 1/4                    [sharpen-stage3] image 21 / node 1 / state 2/4                    [sharpen-stage3] image 21 / node 1 / state 3/4                    [sharpen-stage3] image 21 / node 1 / state 4/4                    
+--
+Selected H* = B
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / baseline_output / 5TE
+
+[dct-stage3] image 21 starting
+[dct-stage3] image 21 / node 0 / state 1/1                    
+--
+Selected H* = C
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input1 / 5PN
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+[sobel-stage3] image 21 starting
+[sobel-stage3] image 21 / node 5 / state 1/1                    
+--
+Selected H* = A
+  Node 0 / C1 / input1 / 5SB
+  Node 3 / C4 / baseline_output / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 5 / C6 / input2 / 5PN
+
+[conv-stage3] image 21 starting
+[conv-stage3] image 21 / node 0 / state 1/1                    
+[conv-stage3] image 21 / node 3 / state 1/4                    [conv-stage3] image 21 / node 3 / state 2/4                    [conv-stage3] image 21 / node 3 / state 3/4                    [conv-stage3] image 21 / node 3 / state 4/4                    
+--
+Selected H* = C
+  Node 0 / A1 / input1 / 5PN
+  Node 1 / A2 / input1 / 5QT
+  Node 2 / A3 / input1 / 5QT
+  Node 3 / A4 / input2 / 5SB
+
+[sharpen-stage3] image 21 starting
+[sharpen-stage3] image 21 / node 0 / state 1/1                    
+[sharpen-stage3] image 21 / node 1 / state 1/4                    [sharpen-stage3] image 21 / node 1 / state 2/4                    [sharpen-stage3] image 21 / node 1 / state 3/4                    [sharpen-stage3] image 21 / node 1 / state 4/4                    
+--
+Selected H* = B
+  Node 0 / ADD_00_S0 / input2 / 5TE
+  Node 1 / ADD_01_S1 / baseline_output / 5Z0
+  Node 2 / ADD_02_S2 / baseline_output / 5Z0
+  Node 5 / ADD_05_D1 / input1 / 5Z0
+  Node 7 / ADD_07_D3 / baseline_output / 5TE
+
+[dct-stage3] image 21 starting
+[dct-stage3] image 21 / node 0 / state 1/1                    
+--
+Selected H* = C
+  Node 5 / Y1 / input2 / 5RP
+  Node 3 / X4 / input1 / 5PN
+  Node 1 / X2 / input2 / 5RP
+  Node 8 / Y4 / baseline_output / 5SB
+  Node 6 / Y2 / baseline_output / 5L8
+
+[sobel-stage3] image 21 starting
+[sobel-stage3] image 21 / node 5 / state 1/1                    

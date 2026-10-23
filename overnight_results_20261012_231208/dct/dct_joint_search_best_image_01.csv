@@ -1,0 +1,4 @@
+node_id,node_name,monitor,implementation,lower,upper,global_psnr,roi_psnr,non_roi_psnr
+1,ADD_01_S1,input2,5PD,-305,-16,30.0045232118,28.70195639,30.342330919
+5,ADD_05_D1,input1,5Z0,-77,-57,30.0045232118,28.70195639,30.342330919
+7,ADD_07_D3,input1,5SB,-307,0,30.0045232118,28.70195639,30.342330919

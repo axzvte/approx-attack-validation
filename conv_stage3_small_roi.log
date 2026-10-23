@@ -1,0 +1,131 @@
+Conv Stage3 final fixed-hardware validation
+===========================================
+Kernel: [-1 -1 -1; -1 8 -1; -1 -1 -1]
+Final hardware: H* = Candidate D
+Stage3 images: image_21 ~ image_30
+Fixed: Node + Monitor + Unit
+Per-image search: Interval only
+Constraint: Global >= 30 dB and DeltaMSE_ROI > DeltaMSE_NonROI
+Objective: minimize ROI PSNR
+
+Fixed hardware structure
+------------------------
+  Node 5 / C6 / input2 / 5PD
+  Node 0 / C1 / input1 / 5SB
+  Node 1 / C2 / input2 / 5L8
+  Node 3 / C4 / baseline_output / 5PN
+
+[stage3] image_21 starting
+[stage3] image 21 / pass 0 / node 5 / state 1/1                    
+[stage3] image 21 / pass 0 / node 0 / state 1/5                    [stage3] image 21 / pass 0 / node 0 / state 2/5                    [stage3] image 21 / pass 0 / node 0 / state 3/5                    [stage3] image 21 / pass 0 / node 0 / state 4/5                    [stage3] image 21 / pass 0 / node 0 / state 5/5                    
+[stage3] image 21 / pass 0 / node 1 / state 1/10                    [stage3] image 21 / pass 0 / node 1 / state 2/10                    [stage3] image 21 / pass 0 / node 1 / state 3/10                    [stage3] image 21 / pass 0 / node 1 / state 4/10                    [stage3] image 21 / pass 0 / node 1 / state 5/10                    [stage3] image 21 / pass 0 / node 1 / state 6/10                    [stage3] image 21 / pass 0 / node 1 / state 7/10                    [stage3] image 21 / pass 0 / node 1 / state 8/10                    [stage3] image 21 / pass 0 / node 1 / state 9/10                    [stage3] image 21 / pass 0 / node 1 / state 10/10                    
+[stage3] image 21 / pass 0 / node 3 / state 1/10                    [stage3] image 21 / pass 0 / node 3 / state 2/10                    [stage3] image 21 / pass 0 / node 3 / state 3/10                    [stage3] image 21 / pass 0 / node 3 / state 4/10                    [stage3] image 21 / pass 0 / node 3 / state 5/10                    [stage3] image 21 / pass 0 / node 3 / state 6/10                    [stage3] image 21 / pass 0 / node 3 / state 7/10                    [stage3] image 21 / pass 0 / node 3 / state 8/10                    [stage3] image 21 / pass 0 / node 3 / state 9/10                    [stage3] image 21 / pass 0 / node 3 / state 10/10                    
+[stage3] image_21 SUCCESS / G=30.328263 / ROI=26.323839 / NROI=30.651349 / ROI_dMSE=129.963894 / NROI_dMSE=36.042782 / Adv=93.921112 / Active=4
+    Node 0 / C1 / input1 / 5SB / [-28, -23]
+    Node 1 / C2 / input2 / 5L8 / [-127, 128]
+    Node 3 / C4 / baseline_output / 5PN / [-54, -17]
+    Node 5 / C6 / input2 / 5PD / [-54, 11]
+
+[stage3] image_22 starting
+[stage3] image 22 / pass 0 / node 5 / state 1/1                    
+[stage3] image 22 / pass 0 / node 0 / state 1/4                    [stage3] image 22 / pass 0 / node 0 / state 2/4                    [stage3] image 22 / pass 0 / node 0 / state 3/4                    [stage3] image 22 / pass 0 / node 0 / state 4/4                    
+[stage3] image 22 / pass 0 / node 1 / state 1/10                    [stage3] image 22 / pass 0 / node 1 / state 2/10                    [stage3] image 22 / pass 0 / node 1 / state 3/10                    [stage3] image 22 / pass 0 / node 1 / state 4/10                    [stage3] image 22 / pass 0 / node 1 / state 5/10                    [stage3] image 22 / pass 0 / node 1 / state 6/10                    [stage3] image 22 / pass 0 / node 1 / state 7/10                    [stage3] image 22 / pass 0 / node 1 / state 8/10                    [stage3] image 22 / pass 0 / node 1 / state 9/10                    [stage3] image 22 / pass 0 / node 1 / state 10/10                    
+[stage3] image 22 / pass 0 / node 3 / state 1/10                    [stage3] image 22 / pass 0 / node 3 / state 2/10                    [stage3] image 22 / pass 0 / node 3 / state 3/10                    [stage3] image 22 / pass 0 / node 3 / state 4/10                    [stage3] image 22 / pass 0 / node 3 / state 5/10                    [stage3] image 22 / pass 0 / node 3 / state 6/10                    [stage3] image 22 / pass 0 / node 3 / state 7/10                    [stage3] image 22 / pass 0 / node 3 / state 8/10                    [stage3] image 22 / pass 0 / node 3 / state 9/10                    [stage3] image 22 / pass 0 / node 3 / state 10/10                    
+[stage3] image_22 SUCCESS / G=30.110156 / ROI=29.898959 / NROI=30.120413 / ROI_dMSE=52.721416 / NROI_dMSE=48.967134 / Adv=3.754281 / Active=3
+    Node 1 / C2 / input2 / 5L8 / [-127, 128]
+    Node 3 / C4 / baseline_output / 5PN / [52, 57]
+    Node 5 / C6 / input2 / 5PD / [49, 63]
+
+[stage3] image_23 starting
+[stage3] image 23 / pass 0 / node 5 / state 1/1                    
+[stage3] image 23 / pass 0 / node 0 / state 1/5                    [stage3] image 23 / pass 0 / node 0 / state 2/5                    [stage3] image 23 / pass 0 / node 0 / state 3/5                    [stage3] image 23 / pass 0 / node 0 / state 4/5                    [stage3] image 23 / pass 0 / node 0 / state 5/5                    
+[stage3] image 23 / pass 0 / node 1 / state 1/10                    [stage3] image 23 / pass 0 / node 1 / state 2/10                    [stage3] image 23 / pass 0 / node 1 / state 3/10                    [stage3] image 23 / pass 0 / node 1 / state 4/10                    [stage3] image 23 / pass 0 / node 1 / state 5/10                    [stage3] image 23 / pass 0 / node 1 / state 6/10                    [stage3] image 23 / pass 0 / node 1 / state 7/10                    [stage3] image 23 / pass 0 / node 1 / state 8/10                    [stage3] image 23 / pass 0 / node 1 / state 9/10                    [stage3] image 23 / pass 0 / node 1 / state 10/10                    
+[stage3] image 23 / pass 0 / node 3 / state 1/10                    [stage3] image 23 / pass 0 / node 3 / state 2/10                    [stage3] image 23 / pass 0 / node 3 / state 3/10                    [stage3] image 23 / pass 0 / node 3 / state 4/10                    [stage3] image 23 / pass 0 / node 3 / state 5/10                    [stage3] image 23 / pass 0 / node 3 / state 6/10                    [stage3] image 23 / pass 0 / node 3 / state 7/10                    [stage3] image 23 / pass 0 / node 3 / state 8/10                    [stage3] image 23 / pass 0 / node 3 / state 9/10                    [stage3] image 23 / pass 0 / node 3 / state 10/10                    
+[stage3] image_23 SUCCESS / G=30.121891 / ROI=26.899865 / NROI=30.354128 / ROI_dMSE=113.032212 / NROI_dMSE=35.548543 / Adv=77.483669 / Active=3
+    Node 0 / C1 / input1 / 5SB / [128, 128]
+    Node 3 / C4 / baseline_output / 5PN / [-249, 14]
+    Node 5 / C6 / input2 / 5PD / [-199, 20]
+
+[stage3] image_24 starting
+[stage3] image 24 / pass 0 / node 5 / state 1/1                    
+[stage3] image 24 / pass 0 / node 0 / state 1/5                    [stage3] image 24 / pass 0 / node 0 / state 2/5                    [stage3] image 24 / pass 0 / node 0 / state 3/5                    [stage3] image 24 / pass 0 / node 0 / state 4/5                    [stage3] image 24 / pass 0 / node 0 / state 5/5                    
+[stage3] image 24 / pass 0 / node 1 / state 1/10                    [stage3] image 24 / pass 0 / node 1 / state 2/10                    [stage3] image 24 / pass 0 / node 1 / state 3/10                    [stage3] image 24 / pass 0 / node 1 / state 4/10                    [stage3] image 24 / pass 0 / node 1 / state 5/10                    [stage3] image 24 / pass 0 / node 1 / state 6/10                    [stage3] image 24 / pass 0 / node 1 / state 7/10                    [stage3] image 24 / pass 0 / node 1 / state 8/10                    [stage3] image 24 / pass 0 / node 1 / state 9/10                    [stage3] image 24 / pass 0 / node 1 / state 10/10                    
+[stage3] image 24 / pass 0 / node 3 / state 1/10                    [stage3] image 24 / pass 0 / node 3 / state 2/10                    [stage3] image 24 / pass 0 / node 3 / state 3/10                    [stage3] image 24 / pass 0 / node 3 / state 4/10                    [stage3] image 24 / pass 0 / node 3 / state 5/10                    [stage3] image 24 / pass 0 / node 3 / state 6/10                    [stage3] image 24 / pass 0 / node 3 / state 7/10                    [stage3] image 24 / pass 0 / node 3 / state 8/10                    [stage3] image 24 / pass 0 / node 3 / state 9/10                    [stage3] image 24 / pass 0 / node 3 / state 10/10                    
+[stage3] image_24 SUCCESS / G=30.067546 / ROI=27.161334 / NROI=30.265660 / ROI_dMSE=105.476680 / NROI_dMSE=40.711036 / Adv=64.765644 / Active=3
+    Node 0 / C1 / input1 / 5SB / [-1, 39]
+    Node 3 / C4 / baseline_output / 5PN / [-81, -81]
+    Node 5 / C6 / input2 / 5PD / [-18, 27]
+
+[stage3] image_25 starting
+[stage3] image 25 / pass 0 / node 5 / state 1/1                    
+[stage3] image 25 / pass 0 / node 0 / state 1/5                    [stage3] image 25 / pass 0 / node 0 / state 2/5                    [stage3] image 25 / pass 0 / node 0 / state 3/5                    [stage3] image 25 / pass 0 / node 0 / state 4/5                    [stage3] image 25 / pass 0 / node 0 / state 5/5                    
+[stage3] image 25 / pass 0 / node 1 / state 1/10                    [stage3] image 25 / pass 0 / node 1 / state 2/10                    [stage3] image 25 / pass 0 / node 1 / state 3/10                    [stage3] image 25 / pass 0 / node 1 / state 4/10                    [stage3] image 25 / pass 0 / node 1 / state 5/10                    [stage3] image 25 / pass 0 / node 1 / state 6/10                    [stage3] image 25 / pass 0 / node 1 / state 7/10                    [stage3] image 25 / pass 0 / node 1 / state 8/10                    [stage3] image 25 / pass 0 / node 1 / state 9/10                    [stage3] image 25 / pass 0 / node 1 / state 10/10                    
+[stage3] image 25 / pass 0 / node 3 / state 1/10                    [stage3] image 25 / pass 0 / node 3 / state 2/10                    [stage3] image 25 / pass 0 / node 3 / state 3/10                    [stage3] image 25 / pass 0 / node 3 / state 4/10                    [stage3] image 25 / pass 0 / node 3 / state 5/10                    [stage3] image 25 / pass 0 / node 3 / state 6/10                    [stage3] image 25 / pass 0 / node 3 / state 7/10                    [stage3] image 25 / pass 0 / node 3 / state 8/10                    [stage3] image 25 / pass 0 / node 3 / state 9/10                    [stage3] image 25 / pass 0 / node 3 / state 10/10                    
+[stage3] image_25 SUCCESS / G=30.236085 / ROI=27.996222 / NROI=30.377103 / ROI_dMSE=80.914690 / NROI_dMSE=37.643832 / Adv=43.270858 / Active=3
+    Node 1 / C2 / input2 / 5L8 / [-127, 99]
+    Node 3 / C4 / baseline_output / 5PN / [217, 256]
+    Node 5 / C6 / input2 / 5PD / [239, 253]
+
+[stage3] image_26 starting
+[stage3] image 26 / pass 0 / node 5 / state 1/1                    
+[stage3] image 26 / pass 0 / node 0 / state 1/4                    [stage3] image 26 / pass 0 / node 0 / state 2/4                    [stage3] image 26 / pass 0 / node 0 / state 3/4                    [stage3] image 26 / pass 0 / node 0 / state 4/4                    
+[stage3] image 26 / pass 0 / node 1 / state 1/10                    [stage3] image 26 / pass 0 / node 1 / state 2/10                    [stage3] image 26 / pass 0 / node 1 / state 3/10                    [stage3] image 26 / pass 0 / node 1 / state 4/10                    [stage3] image 26 / pass 0 / node 1 / state 5/10                    [stage3] image 26 / pass 0 / node 1 / state 6/10                    [stage3] image 26 / pass 0 / node 1 / state 7/10                    [stage3] image 26 / pass 0 / node 1 / state 8/10                    [stage3] image 26 / pass 0 / node 1 / state 9/10                    [stage3] image 26 / pass 0 / node 1 / state 10/10                    
+[stage3] image 26 / pass 0 / node 3 / state 1/10                    [stage3] image 26 / pass 0 / node 3 / state 2/10                    [stage3] image 26 / pass 0 / node 3 / state 3/10                    [stage3] image 26 / pass 0 / node 3 / state 4/10                    [stage3] image 26 / pass 0 / node 3 / state 5/10                    [stage3] image 26 / pass 0 / node 3 / state 6/10                    [stage3] image 26 / pass 0 / node 3 / state 7/10                    [stage3] image 26 / pass 0 / node 3 / state 8/10                    [stage3] image 26 / pass 0 / node 3 / state 9/10                    [stage3] image 26 / pass 0 / node 3 / state 10/10                    
+[stage3] image_26 SUCCESS / G=30.000383 / ROI=27.141699 / NROI=30.196220 / ROI_dMSE=105.218171 / NROI_dMSE=41.371641 / Adv=63.846530 / Active=2
+    Node 0 / C1 / input1 / 5SB / [-34, -4]
+    Node 1 / C2 / input2 / 5L8 / [-20, -20]
+
+[stage3] image_27 starting
+[stage3] image 27 / pass 0 / node 5 / state 1/1                    
+[stage3] image 27 / pass 0 / node 0 / state 1/5                    [stage3] image 27 / pass 0 / node 0 / state 2/5                    [stage3] image 27 / pass 0 / node 0 / state 3/5                    [stage3] image 27 / pass 0 / node 0 / state 4/5                    [stage3] image 27 / pass 0 / node 0 / state 5/5                    
+[stage3] image 27 / pass 0 / node 1 / state 1/10                    [stage3] image 27 / pass 0 / node 1 / state 2/10                    [stage3] image 27 / pass 0 / node 1 / state 3/10                    [stage3] image 27 / pass 0 / node 1 / state 4/10                    [stage3] image 27 / pass 0 / node 1 / state 5/10                    [stage3] image 27 / pass 0 / node 1 / state 6/10                    [stage3] image 27 / pass 0 / node 1 / state 7/10                    [stage3] image 27 / pass 0 / node 1 / state 8/10                    [stage3] image 27 / pass 0 / node 1 / state 9/10                    [stage3] image 27 / pass 0 / node 1 / state 10/10                    
+[stage3] image 27 / pass 0 / node 3 / state 1/10                    [stage3] image 27 / pass 0 / node 3 / state 2/10                    [stage3] image 27 / pass 0 / node 3 / state 3/10                    [stage3] image 27 / pass 0 / node 3 / state 4/10                    [stage3] image 27 / pass 0 / node 3 / state 5/10                    [stage3] image 27 / pass 0 / node 3 / state 6/10                    [stage3] image 27 / pass 0 / node 3 / state 7/10                    [stage3] image 27 / pass 0 / node 3 / state 8/10                    [stage3] image 27 / pass 0 / node 3 / state 9/10                    [stage3] image 27 / pass 0 / node 3 / state 10/10                    
+[stage3] image_27 SUCCESS / G=30.616091 / ROI=29.364174 / NROI=30.685771 / ROI_dMSE=58.411438 / NROI_dMSE=32.942157 / Adv=25.469282 / Active=3
+    Node 1 / C2 / input2 / 5L8 / [-127, 128]
+    Node 3 / C4 / baseline_output / 5PN / [-50, 184]
+    Node 5 / C6 / input2 / 5PD / [108, 175]
+
+[stage3] image_28 starting
+[stage3] image 28 / pass 0 / node 5 / state 1/1                    
+[stage3] image 28 / pass 0 / node 0 / state 1/4                    [stage3] image 28 / pass 0 / node 0 / state 2/4                    [stage3] image 28 / pass 0 / node 0 / state 3/4                    [stage3] image 28 / pass 0 / node 0 / state 4/4                    
+[stage3] image 28 / pass 0 / node 1 / state 1/10                    [stage3] image 28 / pass 0 / node 1 / state 2/10                    [stage3] image 28 / pass 0 / node 1 / state 3/10                    [stage3] image 28 / pass 0 / node 1 / state 4/10                    [stage3] image 28 / pass 0 / node 1 / state 5/10                    [stage3] image 28 / pass 0 / node 1 / state 6/10                    [stage3] image 28 / pass 0 / node 1 / state 7/10                    [stage3] image 28 / pass 0 / node 1 / state 8/10                    [stage3] image 28 / pass 0 / node 1 / state 9/10                    [stage3] image 28 / pass 0 / node 1 / state 10/10                    
+[stage3] image 28 / pass 0 / node 3 / state 1/10                    [stage3] image 28 / pass 0 / node 3 / state 2/10                    [stage3] image 28 / pass 0 / node 3 / state 3/10                    [stage3] image 28 / pass 0 / node 3 / state 4/10                    [stage3] image 28 / pass 0 / node 3 / state 5/10                    [stage3] image 28 / pass 0 / node 3 / state 6/10                    [stage3] image 28 / pass 0 / node 3 / state 7/10                    [stage3] image 28 / pass 0 / node 3 / state 8/10                    [stage3] image 28 / pass 0 / node 3 / state 9/10                    [stage3] image 28 / pass 0 / node 3 / state 10/10                    
+[stage3] image_28 SUCCESS / G=30.130885 / ROI=25.530335 / NROI=30.531928 / ROI_dMSE=162.481823 / NROI_dMSE=37.983794 / Adv=124.498028 / Active=4
+    Node 0 / C1 / input1 / 5SB / [-127, -79]
+    Node 1 / C2 / input2 / 5L8 / [-44, -44]
+    Node 3 / C4 / baseline_output / 5PN / [-253, -122]
+    Node 5 / C6 / input2 / 5PD / [-254, -124]
+
+[stage3] image_29 starting
+[stage3] image 29 / pass 0 / node 5 / state 1/1                    
+[stage3] image 29 / pass 0 / node 0 / state 1/4                    [stage3] image 29 / pass 0 / node 0 / state 2/4                    [stage3] image 29 / pass 0 / node 0 / state 3/4                    [stage3] image 29 / pass 0 / node 0 / state 4/4                    
+[stage3] image 29 / pass 0 / node 1 / state 1/10                    [stage3] image 29 / pass 0 / node 1 / state 2/10                    [stage3] image 29 / pass 0 / node 1 / state 3/10                    [stage3] image 29 / pass 0 / node 1 / state 4/10                    [stage3] image 29 / pass 0 / node 1 / state 5/10                    [stage3] image 29 / pass 0 / node 1 / state 6/10                    [stage3] image 29 / pass 0 / node 1 / state 7/10                    [stage3] image 29 / pass 0 / node 1 / state 8/10                    [stage3] image 29 / pass 0 / node 1 / state 9/10                    [stage3] image 29 / pass 0 / node 1 / state 10/10                    
+[stage3] image 29 / pass 0 / node 3 / state 1/10                    [stage3] image 29 / pass 0 / node 3 / state 2/10                    [stage3] image 29 / pass 0 / node 3 / state 3/10                    [stage3] image 29 / pass 0 / node 3 / state 4/10                    [stage3] image 29 / pass 0 / node 3 / state 5/10                    [stage3] image 29 / pass 0 / node 3 / state 6/10                    [stage3] image 29 / pass 0 / node 3 / state 7/10                    [stage3] image 29 / pass 0 / node 3 / state 8/10                    [stage3] image 29 / pass 0 / node 3 / state 9/10                    [stage3] image 29 / pass 0 / node 3 / state 10/10                    
+[stage3] image_29 SUCCESS / G=30.555641 / ROI=28.127054 / NROI=30.712487 / ROI_dMSE=79.343481 / NROI_dMSE=34.472347 / Adv=44.871133 / Active=3
+    Node 0 / C1 / input1 / 5SB / [-63, -33]
+    Node 1 / C2 / input2 / 5L8 / [11, 12]
+    Node 5 / C6 / input2 / 5PD / [-252, -252]
+
+[stage3] image_30 starting
+[stage3] image 30 / pass 0 / node 5 / state 1/1                    
+[stage3] image 30 / pass 0 / node 0 / state 1/5                    [stage3] image 30 / pass 0 / node 0 / state 2/5                    [stage3] image 30 / pass 0 / node 0 / state 3/5                    [stage3] image 30 / pass 0 / node 0 / state 4/5                    [stage3] image 30 / pass 0 / node 0 / state 5/5                    
+[stage3] image 30 / pass 0 / node 1 / state 1/10                    [stage3] image 30 / pass 0 / node 1 / state 2/10                    [stage3] image 30 / pass 0 / node 1 / state 3/10                    [stage3] image 30 / pass 0 / node 1 / state 4/10                    [stage3] image 30 / pass 0 / node 1 / state 5/10                    [stage3] image 30 / pass 0 / node 1 / state 6/10                    [stage3] image 30 / pass 0 / node 1 / state 7/10                    [stage3] image 30 / pass 0 / node 1 / state 8/10                    [stage3] image 30 / pass 0 / node 1 / state 9/10                    [stage3] image 30 / pass 0 / node 1 / state 10/10                    
+[stage3] image 30 / pass 0 / node 3 / state 1/10                    [stage3] image 30 / pass 0 / node 3 / state 2/10                    [stage3] image 30 / pass 0 / node 3 / state 3/10                    [stage3] image 30 / pass 0 / node 3 / state 4/10                    [stage3] image 30 / pass 0 / node 3 / state 5/10                    [stage3] image 30 / pass 0 / node 3 / state 6/10                    [stage3] image 30 / pass 0 / node 3 / state 7/10                    [stage3] image 30 / pass 0 / node 3 / state 8/10                    [stage3] image 30 / pass 0 / node 3 / state 9/10                    [stage3] image 30 / pass 0 / node 3 / state 10/10                    
+[stage3] image_30 SUCCESS / G=30.886578 / ROI=27.468866 / NROI=31.139856 / ROI_dMSE=96.401534 / NROI_dMSE=30.553431 / Adv=65.848103 / Active=2
+    Node 0 / C1 / input1 / 5SB / [-26, -24]
+    Node 5 / C6 / input2 / 5PD / [137, 211]
+
+
+Conv Stage3 final validation summary
+====================================
+Fixed hardware: H* = D
+Success: 10/10
+Mean Global PSNR: 30.305352
+Mean ROI PSNR: 27.591235
+Mean Non-ROI PSNR: 30.503492
+Mean Redistribution Advantage: 60.772864
+Min Global PSNR: 30.000383
+Max ROI PSNR: 29.898959
+
+Detail CSV: ./conv_stage3_final_validation_detail.csv
+Interval CSV: ./conv_stage3_final_intervals.csv

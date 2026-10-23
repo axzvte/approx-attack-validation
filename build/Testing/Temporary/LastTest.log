@@ -1,0 +1,19 @@
+Start testing: Oct 11 22:14 CST
+----------------------------------------------------------
+5/22 Testing: conv_application
+5/22 Test: conv_application
+Command: "/home/axzvte/projects/approx_attack_validation/build/test_conv_application"
+Directory: /home/axzvte/projects/approx_attack_validation/build
+"conv_application" start time: Oct 11 22:14 CST
+Output:
+----------------------------------------------------------
+ConvApplication generic-interface test passed.
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"conv_application" end time: Oct 11 22:14 CST
+"conv_application" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 11 22:14 CST

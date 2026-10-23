@@ -1,0 +1,12 @@
+NodeId,NodeName,L1Gain,L2Gain,MaxAbsGain,AffectedOutputs,OutputGain,AbsOutputGain
+0,ADD_00_X1,1,1,1,1,1,1
+1,ADD_01_X2,1,1,1,1,1,1
+2,ADD_02_X3,1,1,1,1,-1,1
+3,ADD_03_X4,1,1,1,1,-1,1
+4,ADD_04_GX,1,1,1,1,1,1
+5,ADD_05_Y1,1,1,1,1,1,1
+6,ADD_06_Y2,1,1,1,1,1,1
+7,ADD_07_Y3,1,1,1,1,-1,1
+8,ADD_08_Y4,1,1,1,1,-1,1
+9,ADD_09_GY,1,1,1,1,1,1
+10,ADD_10_M3,1,1,1,1,1,1

@@ -1,0 +1,39 @@
+Sharpening candidate nodes
+--------------------------
+  Node 0 / A1
+  Node 1 / A2
+  Node 2 / A3
+  Node 3 / A4
+Search objective: Global >= 30 dB; Advantage > 0; minimize ROI PSNR; tie-break: maximize Advantage.
+Monitor signals searched jointly: input1 / input2 / baseline_output
+Adaptive candidate boundaries per monitor: 24
+Local representatives per monitor / implementation: 4
+Full-validation candidates per state / node: 24
+
+[joint-search] pass 0 / node 0 / forward / state 1/1                    
+[joint-search] pass 0 / node 1 / forward / state 1/10                    [joint-search] pass 0 / node 1 / forward / state 2/10                    [joint-search] pass 0 / node 1 / forward / state 3/10                    [joint-search] pass 0 / node 1 / forward / state 4/10                    [joint-search] pass 0 / node 1 / forward / state 5/10                    [joint-search] pass 0 / node 1 / forward / state 6/10                    [joint-search] pass 0 / node 1 / forward / state 7/10                    [joint-search] pass 0 / node 1 / forward / state 8/10                    [joint-search] pass 0 / node 1 / forward / state 9/10                    [joint-search] pass 0 / node 1 / forward / state 10/10                    
+[joint-search] pass 0 / node 2 / forward / state 1/10                    [joint-search] pass 0 / node 2 / forward / state 2/10                    [joint-search] pass 0 / node 2 / forward / state 3/10                    [joint-search] pass 0 / node 2 / forward / state 4/10                    [joint-search] pass 0 / node 2 / forward / state 5/10                    [joint-search] pass 0 / node 2 / forward / state 6/10                    [joint-search] pass 0 / node 2 / forward / state 7/10                    [joint-search] pass 0 / node 2 / forward / state 8/10                    [joint-search] pass 0 / node 2 / forward / state 9/10                    [joint-search] pass 0 / node 2 / forward / state 10/10                    
+[joint-search] pass 0 / node 3 / forward / state 1/10                    [joint-search] pass 0 / node 3 / forward / state 2/10                    [joint-search] pass 0 / node 3 / forward / state 3/10                    [joint-search] pass 0 / node 3 / forward / state 4/10                    [joint-search] pass 0 / node 3 / forward / state 5/10                    [joint-search] pass 0 / node 3 / forward / state 6/10                    [joint-search] pass 0 / node 3 / forward / state 7/10                    [joint-search] pass 0 / node 3 / forward / state 8/10                    [joint-search] pass 0 / node 3 / forward / state 9/10                    [joint-search] pass 0 / node 3 / forward / state 10/10                    
+
+Sharpening initial metrics
+---------------------------
+Global: 34.505503
+ROI: 34.038970
+Non-ROI: 34.528772
+
+Best feasible sharpening state
+--------------------------------
+Global PSNR: 30.068851
+ROI PSNR: 26.497118
+Non-ROI PSNR: 30.338154
+ROI MSE increase: 120.013817
+Non-ROI MSE increase: 37.234665
+Redistribution advantage: 82.779152
+Active redistribution nodes: 3
+  Node 0 / A1 / baseline_output / 5SB / [4, 238]
+  Node 1 / A2 / baseline_output / 5PN / [-6, 66]
+  Node 3 / A4 / input2 / 5TE / [-60, -2]
+
+Best-result CSV: /home/axzvte/projects/approx_attack_validation/sharpen_formal_20261014_103818/sharpen_joint_search_best_image_02.csv
+Baseline image: /home/axzvte/projects/approx_attack_validation/sharpen_formal_20261014_103818/sharpen_baseline_image_02.png
+Best final image: /home/axzvte/projects/approx_attack_validation/sharpen_formal_20261014_103818/sharpen_joint_search_best_image_02.png

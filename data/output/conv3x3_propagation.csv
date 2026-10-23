@@ -1,0 +1,9 @@
+NodeId,NodeName,L1Gain,L2Gain,MaxAbsGain,AffectedOutputs,OutputGain
+0,ADD_00_ACC1,1,1,1,1,1
+1,ADD_01_ACC2,1,1,1,1,1
+2,ADD_02_ACC3,1,1,1,1,1
+3,ADD_03_ACC4,1,1,1,1,1
+4,ADD_04_ACC5,1,1,1,1,1
+5,ADD_05_ACC6,1,1,1,1,1
+6,ADD_06_ACC7,1,1,1,1,1
+7,ADD_07_ACC8,1,1,1,1,1

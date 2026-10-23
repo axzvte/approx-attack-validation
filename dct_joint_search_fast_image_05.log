@@ -1,0 +1,73 @@
+DCT error-redistribution interval + joint search
+===============================================
+Image: image_05.jpg
+Baseline: Balanced-10 (nodes 8, 10, 11, 13, 16, 19, 22, 25, 28, 31 = 5RP; others exact)
+Node source: ./dct_node_sensitivity_summary.csv
+Monitor source: ./dct_monitor_signal_summary.csv
+Candidate nodes used: 5
+Redistribution implementations: 9
+Representative intervals / implementation / state / node: 4
+Beam width: 10
+Refinement rounds: 0
+Final Global PSNR threshold: 30 dB
+
+Automatically selected node / monitor pairs
+-------------------------------------------
+  1. Node 7 / ADD_07_D3 / input1
+  2. Node 5 / ADD_05_D1 / input1
+  3. Node 1 / ADD_01_S1 / baseline_output
+  4. Node 0 / ADD_00_S0 / baseline_output
+  5. Node 2 / ADD_02_S2 / baseline_output
+
+Redistribution implementations searched: 5L8, 5PD, 5PN, 5QC, 5QT, 5RP, 5TE, 5SB, 5Z0
+
+[joint-search] pass 0 / node 7 / forward / state 1/1                    
+[joint-search] pass 0 / node 5 / forward / state 1/10                    [joint-search] pass 0 / node 5 / forward / state 2/10                    [joint-search] pass 0 / node 5 / forward / state 3/10                    [joint-search] pass 0 / node 5 / forward / state 4/10                    [joint-search] pass 0 / node 5 / forward / state 5/10                    [joint-search] pass 0 / node 5 / forward / state 6/10                    [joint-search] pass 0 / node 5 / forward / state 7/10                    [joint-search] pass 0 / node 5 / forward / state 8/10                    [joint-search] pass 0 / node 5 / forward / state 9/10                    [joint-search] pass 0 / node 5 / forward / state 10/10                    
+[joint-search] pass 0 / node 1 / forward / state 1/10                    [joint-search] pass 0 / node 1 / forward / state 2/10                    [joint-search] pass 0 / node 1 / forward / state 3/10                    [joint-search] pass 0 / node 1 / forward / state 4/10                    [joint-search] pass 0 / node 1 / forward / state 5/10                    [joint-search] pass 0 / node 1 / forward / state 6/10                    [joint-search] pass 0 / node 1 / forward / state 7/10                    [joint-search] pass 0 / node 1 / forward / state 8/10                    [joint-search] pass 0 / node 1 / forward / state 9/10                    [joint-search] pass 0 / node 1 / forward / state 10/10                    
+[joint-search] pass 0 / node 0 / forward / state 1/10                    [joint-search] pass 0 / node 0 / forward / state 2/10                    [joint-search] pass 0 / node 0 / forward / state 3/10                    [joint-search] pass 0 / node 0 / forward / state 4/10                    [joint-search] pass 0 / node 0 / forward / state 5/10                    [joint-search] pass 0 / node 0 / forward / state 6/10                    [joint-search] pass 0 / node 0 / forward / state 7/10                    [joint-search] pass 0 / node 0 / forward / state 8/10                    [joint-search] pass 0 / node 0 / forward / state 9/10                    [joint-search] pass 0 / node 0 / forward / state 10/10                    
+[joint-search] pass 0 / node 2 / forward / state 1/10                    [joint-search] pass 0 / node 2 / forward / state 2/10                    [joint-search] pass 0 / node 2 / forward / state 3/10                    [joint-search] pass 0 / node 2 / forward / state 4/10                    [joint-search] pass 0 / node 2 / forward / state 5/10                    [joint-search] pass 0 / node 2 / forward / state 6/10                    [joint-search] pass 0 / node 2 / forward / state 7/10                    [joint-search] pass 0 / node 2 / forward / state 8/10                    [joint-search] pass 0 / node 2 / forward / state 9/10                    [joint-search] pass 0 / node 2 / forward / state 10/10                    
+
+Initial metrics
+---------------
+Global: 34.926598
+ROI: 35.513681
+Non-ROI: 34.810667
+
+Layer summary
+-------------
+Pass    Node    Mode        Input       Expanded    Pareto      Kept
+0       7       forward     1           37          16          10
+0       5       forward     10          370         110         10
+0       1       forward     10          370         132         10
+0       0       forward     10          370         150         10
+0       2       forward     10          370         144         10
+
+Final beam states (lowest ROI first)
+------------------------------------
+Rank   Global        ROI           NonROI        ActiveNodes
+1      20.243000     20.857909     20.122024     5
+2      23.329125     21.908936     23.704312     5
+3      25.782123     23.721998     26.386289     5
+4      27.837505     25.843138     28.415958     5
+5      29.986403     28.035291     30.548236     5
+6      30.000747     28.042859     30.565167     5
+7      31.664633     30.165347     32.065718     5
+8      32.577336     31.890653     32.739501     5
+9      33.921000     33.774120     33.953082     5
+10     35.195027     35.701019     35.094017     5
+
+Best feasible redistribution state
+----------------------------------
+Global PSNR: 30.000747
+ROI PSNR: 28.042859
+Non-ROI PSNR: 30.565167
+Active redistribution nodes: 5
+  Node 0 / baseline_output / 5Z0 / [112, 352]
+  Node 1 / baseline_output / 5PD / [-107, -15]
+  Node 2 / baseline_output / 5Z0 / [136, 386]
+  Node 5 / input1 / 5Z0 / [-47, -7]
+  Node 7 / input1 / 5SB / [-343, 228]
+
+Best-result CSV: ./dct_joint_search_best_image_05.csv
+Baseline image: ./dct_baseline_image_05.png
+Best final image: ./dct_joint_search_best_image_05.png

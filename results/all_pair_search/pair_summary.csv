@@ -1,0 +1,7 @@
+pair,evaluated_candidates,pareto_size,validation_global_difference,validation_roi_difference
+A1_A2,6695000,736,0,0
+A1_A3,6760000,855,0,0
+A1_A4,6760000,809,0,0
+A2_A3,6632600,846,0,0
+A2_A4,6760000,906,0,0
+A3_A4,6567600,836,0,0

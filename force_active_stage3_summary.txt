@@ -1,0 +1,95 @@
+conv Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 31.074507
+Mean ROI PSNR: 28.835278
+Mean Non-ROI PSNR: 31.227319
+Mean Redistribution Advantage: 44.522142
+Min Global PSNR: 30.046559
+Max ROI PSNR: 33.860411
+
+--
+sharpen Stage3 final validation summary
+========================================
+Fixed hardware: H* = C
+Success: 10/10
+Mean Global PSNR: 30.489094
+Mean ROI PSNR: 27.750820
+Mean Non-ROI PSNR: 30.696308
+Mean Redistribution Advantage: 66.261882
+Min Global PSNR: 30.009353
+Max ROI PSNR: 32.086335
+
+--
+dct Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 30.478894
+Mean ROI PSNR: 28.175205
+Mean Non-ROI PSNR: 30.649249
+Mean Redistribution Advantage: 49.796541
+Min Global PSNR: 30.002645
+Max ROI PSNR: 29.662355
+
+--
+sobel Stage3 final validation summary
+========================================
+Fixed hardware: H* = C
+Success: 10/10
+Mean Global PSNR: 30.499446
+Mean ROI PSNR: 27.858992
+Mean Non-ROI PSNR: 30.686782
+Mean Redistribution Advantage: 56.708329
+Min Global PSNR: 30.016921
+Max ROI PSNR: 30.664820
+
+--
+conv Stage3 final validation summary
+========================================
+Fixed hardware: H* = A
+Success: 10/10
+Mean Global PSNR: 31.074507
+Mean ROI PSNR: 28.835278
+Mean Non-ROI PSNR: 31.227319
+Mean Redistribution Advantage: 44.522142
+Min Global PSNR: 30.046559
+Max ROI PSNR: 33.860411
+
+--
+sharpen Stage3 final validation summary
+========================================
+Fixed hardware: H* = C
+Success: 10/10
+Mean Global PSNR: 30.489094
+Mean ROI PSNR: 27.750820
+Mean Non-ROI PSNR: 30.696308
+Mean Redistribution Advantage: 66.261882
+Min Global PSNR: 30.009353
+Max ROI PSNR: 32.086335
+
+--
+dct Stage3 final validation summary
+========================================
+Fixed hardware: H* = B
+Success: 10/10
+Mean Global PSNR: 30.478894
+Mean ROI PSNR: 28.175205
+Mean Non-ROI PSNR: 30.649249
+Mean Redistribution Advantage: 49.796541
+Min Global PSNR: 30.002645
+Max ROI PSNR: 29.662355
+
+--
+sobel Stage3 final validation summary
+========================================
+Fixed hardware: H* = C
+Success: 10/10
+Mean Global PSNR: 30.499446
+Mean ROI PSNR: 27.858992
+Mean Non-ROI PSNR: 30.686782
+Mean Redistribution Advantage: 56.708329
+Min Global PSNR: 30.016921
+Max ROI PSNR: 30.664820
+
