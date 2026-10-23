@@ -44,3 +44,8 @@ bash scripts/rerank_force_active_stage3.sh \
 其他历史工具若需要旧结果目录，请将其参数指向 `archive/experiments/` 下对应目录；原先散落在根目录的结果位于 `archive/experiments/root_outputs/`。当前运行脚本的算法参数不变。
 
 完整备份分支为 `backup/before-cleanup-20261023`。本次移除项和验证记录见 [整理记录](docs/CLEANUP.md)。
+
+## Sharpening 位翻转试验
+
+单节点、单个位翻转的三阶段验证已单独提供入口，保留原近似基准与 ROI。
+使用方法及评价口径见 [位翻转验证说明](docs/SHARPEN_BITFLIP.md)。

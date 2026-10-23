@@ -27,6 +27,12 @@ using MonitorInput =
     MonitorSignal;
 
 
+enum class AttackPayload
+{
+    ApproximateUnit,
+    BitFlip
+};
+
 struct AttackConfig
 {
     int nodeId;
@@ -42,6 +48,10 @@ struct AttackConfig
 
     int lower;
     int upper;
+
+    // Defaults preserve the existing five-field aggregate initializers.
+    AttackPayload payload = AttackPayload::ApproximateUnit;
+    int bitIndex = 0; // BitFlip only: fixed non-sign bit of a 13-bit output.
 };
 
 }

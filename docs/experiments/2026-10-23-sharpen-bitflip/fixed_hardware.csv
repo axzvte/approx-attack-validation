@@ -1,0 +1,2 @@
+node_id,node_name,monitor,bit,baseline,global_psnr_threshold,boundary_budget
+1,A2,input2,8,all_5RP,30,24

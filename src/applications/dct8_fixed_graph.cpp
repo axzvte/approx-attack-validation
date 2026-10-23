@@ -658,6 +658,9 @@ Dct8FixedGraph::runApprox(
     // 先检查配置是否合法
     for (const auto& config : configs)
     {
+        if (config.payload != core::AttackPayload::ApproximateUnit)
+            throw std::runtime_error("Bit-flip payload is currently supported only by Sharpening.");
+
         if (
             config.nodeId < 0
             ||

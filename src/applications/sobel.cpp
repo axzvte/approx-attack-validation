@@ -307,6 +307,9 @@ void SobelApplication::validateConfiguration(
 
     for (const auto& config : configs)
     {
+        if (config.payload != core::AttackPayload::ApproximateUnit)
+            throw std::runtime_error("Bit-flip payload is currently supported only by Sharpening.");
+
         if (
             config.nodeId < 0
             ||

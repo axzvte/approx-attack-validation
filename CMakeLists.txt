@@ -50,6 +50,7 @@ add_library(
     src/approximate/evoapprox_adapter.cpp
 
     src/analysis/add_sample_collector.cpp
+    src/analysis/sharpen_bitflip_search.cpp
     src/analysis/brute_force_search.cpp
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
@@ -93,6 +94,27 @@ target_link_libraries(
 # =========================================================
 
 enable_testing()
+
+add_executable(test_sharpen_bitflip tests/test_sharpen_bitflip.cpp)
+target_link_libraries(test_sharpen_bitflip PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip COMMAND test_sharpen_bitflip)
+
+add_executable(test_sharpen_bitflip_search tests/test_sharpen_bitflip_search.cpp)
+target_link_libraries(test_sharpen_bitflip_search PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_search COMMAND test_sharpen_bitflip_search)
+
+add_executable(sharpen_bitflip_validation app/sharpen_bitflip_validation.cpp)
+target_link_libraries(sharpen_bitflip_validation PRIVATE approx_framework)
+if(UNIX AND EXISTS "/dev/full")
+    add_test(NAME sharpen_bitflip_report_failure
+        COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_report_failure.sh
+        $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
+endif()
+if(UNIX)
+    add_test(NAME sharpen_bitflip_fixed_cli
+        COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_fixed_cli.sh
+        $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
+endif()
 
 
 add_executable(

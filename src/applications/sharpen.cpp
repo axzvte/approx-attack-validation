@@ -2,6 +2,7 @@
 
 #include "approximate/evoapprox_adapter.hpp"
 #include "region/region_mask.hpp"
+#include "core/output_bitflip.hpp"
 
 #include <algorithm>
 #include <set>
@@ -220,6 +221,11 @@ void SharpenApplication::validateConfiguration(
 
     for (const auto& config : configs)
     {
+        if (config.payload == core::AttackPayload::BitFlip)
+            core::flipNonSignOutputBit(0, config.bitIndex);
+        else if (config.payload != core::AttackPayload::ApproximateUnit)
+            throw std::runtime_error("Unknown sharpening attack payload.");
+
         if (
             config.nodeId < 0
             ||
@@ -351,8 +357,9 @@ int SharpenApplication::runNode(
             monitorValue <= config.upper
         )
         {
-            output =
-                approximate::addSigned12(
+            output = config.payload == core::AttackPayload::BitFlip
+                ? core::flipNonSignOutputBit(baselineOutput, config.bitIndex)
+                : approximate::addSigned12(
                     input1,
                     input2,
                     config.unit

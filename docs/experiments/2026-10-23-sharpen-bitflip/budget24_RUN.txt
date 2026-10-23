@@ -1,0 +1,9 @@
+Single-node Sharpening bit-flip feasibility trial. Existing images reused; not unseen-data evidence.
+Stage1 free search; Stage2 screens all 144 fixed structures; Stage3 frozen structure, per-image intervals.
+Stage2 summary rows are free-search diagnostics; actual hardware ranking uses all Stage2 candidates.
+No hardware synthesis or area/delay claim. Fixed output bit needs no runtime bit selector.
+Errors relative to exact Sharpening output. ROI is existing resized data/mask/roi_mask.jpg, >=128.
+Success: feasible Global>=30, ROI MSE increases, and deltaROI-deltaNonROI>0.
+Boundary budget 24; 0 enumerates all observed endpoints, otherwise evenly spaced distinct-value grid.
+Images per stage 10; indices 1..N,11..10+N,21..20+N.
+trigger_rate: interior evaluated pixels; ROI/non-ROI trigger rates: all pixels in each region.
