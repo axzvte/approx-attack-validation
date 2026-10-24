@@ -56,3 +56,5 @@ bash scripts/rerank_force_active_stage3.sh \
 运行与数据口径见 [中间数据诊断说明](docs/SHARPEN_BITFLIP_DIAGNOSTICS.md)。
 
 对照不触发、全范围触发、区间触发的入口与运行命令见 [触发区间对照](docs/SHARPEN_BITFLIP_INTERVALS.md)。同时筛选 ROI 放大区间和背景补偿区间；由用户在自己的终端运行。
+
+多节点联合位反转、条件区间评分、候选图像与节点消融见 [多节点联合搜索](docs/SHARPEN_BITFLIP_JOINT.md)。该入口允许多个节点协同，最终数值达标与视觉确认分别记录。
