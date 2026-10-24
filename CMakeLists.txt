@@ -112,6 +112,8 @@ target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME sharpen_bitflip_batch
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_batch.py)
         add_test(NAME sharpen_bitflip_joint_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_joint_cli.py
             $<TARGET_FILE:sharpen_bitflip_joint>)

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # User-invoked only. Authoring agents must not compile or run this experiment.
 set -euo pipefail
-if [[ $# -lt 2 || $# -gt 9 ]]; then
-    echo "Usage: bash scripts/run_sharpen_bitflip_joint.sh DATA_DIR NEW_OUTPUT_DIR [image=1] [beam=4] [refinement=1] [boundary_budget=24] [top_per_count=2] [restarts=2] [global_psnr=30]" >&2
+if [[ $# -lt 2 || $# -gt 11 ]]; then
+    echo "Usage: bash scripts/run_sharpen_bitflip_joint.sh DATA_DIR NEW_OUTPUT_DIR [image=1] [beam=4] [refinement=1] [boundary_budget=24] [top_per_count=2] [restarts=2] [global_psnr=30] [--image-mode compact|full|none]" >&2
     exit 2
 fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

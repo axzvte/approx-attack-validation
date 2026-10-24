@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix="joint-bitflip-cli-") as tmp:
     (data/"stage1/input/image_01.jpg").write_bytes(b"P5\n7 6\n255\n"+image)
     (data/"mask/roi_mask.jpg").write_bytes(b"P5\n7 6\n255\n"+mask)
     # Small search, permissive final threshold ensures report paths are exercised.
-    run(data,out,1,1,0,4,1,1,0)
+    run(data,out,1,1,0,4,1,1,0,"--image-mode","full")
     summary=rows(out/"summary.csv")
     numeric=[r for r in summary if r["status"]=="numeric_eligible"]
     assert numeric,"Fixture must produce a multi-node candidate"
@@ -42,6 +42,26 @@ with tempfile.TemporaryDirectory(prefix="joint-bitflip-cli-") as tmp:
     ablations=rows(out/"ablations.csv")
     assert len(ablations)==sum(int(r["active_nodes"]) for r in numeric)
     assert rows(out/"tiles.csv") and "completed=1" in (out/"RUN.txt").read_text()
+    # Export policy must not alter any numerical search result.
+    def metrics(report):
+        return {r["candidate_id"]:tuple(r[k] for k in ("status","global_mse","roi_mse","non_roi_mse"))
+                for r in rows(report/"summary.csv")}
+    compact=root/"compact"
+    run(data,compact,1,1,0,4,1,1,0)
+    assert metrics(compact)==metrics(out)
+    manifest=rows(compact/"images.csv")
+    assert len(manifest)==3 and len(list(compact.glob("*.png")))==3
+    assert len({r["candidate_id"] for r in manifest})==1
+    assert {r["image_kind"] for r in manifest}=={"output","roi_comparison","background_comparison"}
+    chosen=[r for r in rows(compact/"summary.csv") if r["images_exported"]=="1"]
+    assert len(chosen)==1
+    assert float(chosen[0]["roi_mse"])==max(float(r["roi_mse"]) for r in numeric)
+    assert len(rows(compact/"configurations.csv"))==len(configs)
+    assert len(rows(compact/"ablations.csv"))==len(ablations)
+    none=root/"none"
+    run(data,none,1,1,0,4,1,1,0,"--image-mode","none")
+    assert metrics(none)==metrics(out) and not list(none.glob("*.png"))
+    assert rows(none/"images.csv")==[]
     original=(out/"summary.csv").read_bytes()
     run(data,out,ok=False)
     assert original==(out/"summary.csv").read_bytes()
@@ -49,6 +69,6 @@ with tempfile.TemporaryDirectory(prefix="joint-bitflip-cli-") as tmp:
     missing=rows(root/"empty/summary.csv")
     assert {int(r["active_nodes"]) for r in missing if r["status"]=="no_numeric_candidate"}=={2,3,4}
     assert not any(r["status"]=="numeric_eligible" for r in missing)
-    for args in [(0,),(1,0),(1,1,0,1),("1x",)]:
+    for args in [(0,),(1,0),(1,1,0,1),("1x",),("--image-mode","bad")]:
         run(data,root/"bad",*args,ok=False)
 print("Joint reports preserve numeric/visual distinction, active-node counts and failures")

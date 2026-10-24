@@ -4,7 +4,7 @@
 
 没有背景 MSE/PSNR 的额外硬阈值，不要求全局指标恢复到基准，也没有 deltaROI>deltaNonROI 的硬门槛。阈值16的覆盖率、背景均方误差与空间统计都只是辅助诊断，不是视觉成功判据。
 
-新增代码和测试由用户在终端执行。编写方完成静态自查，未编译、运行测试或实验；独立审查服务因额度限制未完成。历史版本测试通过不代表本版本已经通过。
+新增代码和测试由用户在终端执行。当前批量与图片导出改动完成静态自查和独立静态审查，未编译、运行测试或实验。静态审查不能代替运行验证，历史版本测试通过不代表本版本已经通过。
 
 ## 更新及运行
 
@@ -20,6 +20,8 @@ bash scripts/run_sharpen_bitflip_joint.sh data results/bitflip/joint_trial_01 1
 ```
 
 输出目录必须不存在。脚本编译新工具、记录代码版本与日志，再在本机运行。联合搜索比独立单节点分析更耗时，进度输出给出 restart/pass/目标节点/状态数，不提供未经测量的时间估计。
+
+一次运行前10张图见 [批量运行说明](SHARPEN_BITFLIP_BATCH.md)。单图和批量入口默认均为 `compact` 图片模式。
 
 可显式调整参数，例如增加保留状态和调整轮数：
 
@@ -57,10 +59,19 @@ bash scripts/run_sharpen_bitflip_joint.sh data results/bitflip/joint_trial_01_wi
 | `tiles.csv` | 8×8空间网格内分别统计ROI/背景误差和变化覆盖率 |
 | `search_stats.csv` | 条件上下文次数、缓存、区间评价数、越界拒绝数、中间质量失败保留数 |
 | `RUN.txt` | 参数、基准、ROI、质量参考与完成状态 |
+| `images.csv` | 实际导出的图片、对应候选及相对路径 |
 
 数值候选标记 `status=numeric_eligible`、`visual_status=pending_user_review`，不自动标记研究成功。`no_numeric_candidate` 保留空的攻击指标，不能用基准伪装成成功。参与节点数以最终执行实际触发为准，并不意味着每个节点的单独边际作用都非零，具体作用由消融结果观察。
 
-每个候选的图像包括：
+默认 `compact` 模式只在2/3/4节点候选中选择一个数值最优候选，保存 `*_output.png`、`*_roi_comparison.png`、`*_background_comparison.png` 三张图。排序依次为 ROI MSE 更高、全局 MSE 更低、实际节点更少；数值最优仍需人工检查视觉效果。没有数值候选时不保存图片。所有候选的CSV指标、配置、消融及空间统计照常保留，`summary.csv` 中 `images_exported=1` 标识已导出图片的候选。
+
+需要旧版全部图像时，添加 `--image-mode full`：
+
+```bash
+bash scripts/run_sharpen_bitflip_joint.sh data results/bitflip/joint_full_01 1 --image-mode full
+```
+
+`--image-mode none` 仅导出数据。图片模式不参与搜索和评分。以下完整图像列表仅在 `full` 模式下适用，另含根目录的精确结果、基准和ROI掩膜：
 
 - `*_output.png`：原尺寸联合输出。
 - `*_comparison.png`：从左到右为精确、近似基准、联合输出，原比例。
@@ -81,6 +92,6 @@ cmake --build build-bitflip -j4
 ctest --test-dir build-bitflip --output-on-failure
 ```
 
-新增 C++ 测试按完整应用执行核对条件区间评分，包括下游触发改变、负数、高位越界、混合精确/近似后级、移除节点后越界而区间能修复的情形，以及多节点搜索与中间状态保留。CLI 测试检查实际触发节点数、图像导出、消融、空候选和输出覆盖保护。测试代码已编写但未由编写方执行。
+新增 C++ 测试按完整应用执行核对条件区间评分，包括下游触发改变、负数、高位越界、混合精确/近似后级、移除节点后越界而区间能修复的情形，以及多节点搜索与中间状态保留。CLI 测试检查实际触发节点数、三种图片模式的数值一致性、消融、空候选和输出覆盖保护。批量测试使用模拟程序检查十图调度、失败继续、汇总路径及未完成报告识别。测试代码已编写但未由编写方执行。
 
 请返回 `report/summary.csv`、`report/configurations.csv`、`report/ablations.csv`，以及有代表性的 `*_roi_comparison.png` 和 `*_background_comparison.png`，再根据实际结果判断可行性。

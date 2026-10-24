@@ -1,6 +1,6 @@
 # Approximate Attack Validation
 
-原有近似计算攻击验证工程，包含 Conv、Sharpening、DCT、Sobel、区间搜索和固定硬件配置验证。此分支只整理文件，尚未加入位翻转方法。
+近似计算攻击验证工程，包含 Conv、Sharpening、DCT、Sobel、区间搜索和固定硬件配置验证，以及 Sharpening 位反转分析与多节点联合搜索。
 
 ## 目录
 
@@ -58,3 +58,5 @@ bash scripts/rerank_force_active_stage3.sh \
 对照不触发、全范围触发、区间触发的入口与运行命令见 [触发区间对照](docs/SHARPEN_BITFLIP_INTERVALS.md)。同时筛选 ROI 放大区间和背景补偿区间；由用户在自己的终端运行。
 
 多节点联合位反转、条件区间评分、候选图像与节点消融见 [多节点联合搜索](docs/SHARPEN_BITFLIP_JOINT.md)。该入口允许多个节点协同，最终数值达标与视觉确认分别记录。
+
+一次运行前10张图片并精简图片输出，见 [十图批量运行说明](docs/SHARPEN_BITFLIP_BATCH.md)。默认每张图只保存一个候选的输出、ROI对比和背景对比，所有候选的数值指标与消融记录仍然保留。
