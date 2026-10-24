@@ -1,6 +1,7 @@
 #include "applications/conv.hpp"
 
 #include "approximate/evoapprox_adapter.hpp"
+#include "core/bitflip_payload.hpp"
 #include "region/region_mask.hpp"
 
 #include <algorithm>
@@ -302,8 +303,7 @@ void ConvApplication::validateConfiguration(
 
     for (const auto& config : configs)
     {
-        if (config.payload != core::AttackPayload::ApproximateUnit)
-            throw std::runtime_error("Bit-flip payload is currently supported only by Sharpening.");
+        core::validateOutputPayload(config);
 
         if (
             config.nodeId < 0
@@ -437,12 +437,9 @@ int ConvApplication::runNode(
             monitorValue <= config.upper
         )
         {
-            output =
-                approximate::addSigned12(
-                    input1,
-                    input2,
-                    config.unit
-                );
+            output = config.payload == core::AttackPayload::BitFlip
+                ? core::flipNonSignOutputBit(baselineOutput, config.bitIndex)
+                : approximate::addSigned12(input1, input2, config.unit);
         }
 
 

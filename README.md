@@ -60,3 +60,5 @@ bash scripts/rerank_force_active_stage3.sh \
 多节点联合位反转、条件区间评分、候选图像与节点消融见 [多节点联合搜索](docs/SHARPEN_BITFLIP_JOINT.md)。该入口允许多个节点协同，最终数值达标与视觉确认分别记录。
 
 一次运行前10张图片并精简图片输出，见 [十图批量运行说明](docs/SHARPEN_BITFLIP_BATCH.md)。默认每张图只保存一个候选的输出、ROI对比和背景对比，所有候选的数值指标与消融记录仍然保留。
+
+Conv、Sobel、DCT 三个电路的多节点位反转验证见 [跨电路位反转说明](docs/CIRCUIT_BITFLIP.md)。默认各运行前10张图，每项三张关键图片，原基准和ROI保持不变；本轮入口不执行消融。
