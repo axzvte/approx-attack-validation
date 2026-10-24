@@ -51,6 +51,7 @@ add_library(
 
     src/analysis/add_sample_collector.cpp
     src/analysis/sharpen_bitflip_search.cpp
+    src/analysis/sharpen_bitflip_diagnostics.cpp
     src/analysis/brute_force_search.cpp
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
@@ -94,6 +95,23 @@ target_link_libraries(
 # =========================================================
 
 enable_testing()
+
+add_executable(test_sharpen_bitflip_diagnostics tests/test_sharpen_bitflip_diagnostics.cpp)
+target_link_libraries(test_sharpen_bitflip_diagnostics PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_diagnostics COMMAND test_sharpen_bitflip_diagnostics)
+
+add_executable(sharpen_bitflip_diagnostics app/sharpen_bitflip_diagnostics.cpp)
+target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
+if(UNIX)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME bitflip_trigger_intervals
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_trigger_intervals.py)
+        add_test(NAME sharpen_bitflip_diagnostics_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_diagnostics_cli.py
+            $<TARGET_FILE:sharpen_bitflip_diagnostics>)
+    endif()
+endif()
 
 add_executable(test_sharpen_bitflip tests/test_sharpen_bitflip.cpp)
 target_link_libraries(test_sharpen_bitflip PRIVATE approx_framework)

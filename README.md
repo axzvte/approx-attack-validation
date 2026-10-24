@@ -49,3 +49,10 @@ bash scripts/rerank_force_active_stage3.sh \
 
 单节点、单个位翻转的三阶段验证已单独提供入口，保留原近似基准与 ROI。
 使用方法及评价口径见 [位翻转验证说明](docs/SHARPEN_BITFLIP.md)。
+
+## 基准中间数据与位反转响应
+
+`sharpen_bitflip_diagnostics` 导出原基准逐节点中间值，并按区域、节点、位和原监测值统计位反转后的局部及最终误差变化。它用于分析放大/补偿潜力，不搜索或选择攻击方案。
+运行与数据口径见 [中间数据诊断说明](docs/SHARPEN_BITFLIP_DIAGNOSTICS.md)。
+
+对照不触发、全范围触发、区间触发的入口与运行命令见 [触发区间对照](docs/SHARPEN_BITFLIP_INTERVALS.md)。同时筛选 ROI 放大区间和背景补偿区间；由用户在自己的终端运行。
