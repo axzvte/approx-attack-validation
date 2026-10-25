@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
+from unittest.mock import patch
+from concurrent.futures import ThreadPoolExecutor
 
 script=Path(__file__).resolve().parents[1]/"scripts/run_sharpen_bitflip_hardware.py"
 sys.path.insert(0,str(script.parent))
@@ -19,6 +22,60 @@ def read(path):
     with path.open(newline="") as f:return list(csv.DictReader(f))
 
 class PipelineTests(unittest.TestCase):
+    def test_closing_scheduler_cancels_queue_and_waits_for_active_tasks(self):
+        active=threading.Event();release=threading.Event();cancelled=threading.Event();closed=threading.Event()
+        started=[];errors=[]
+        class ObservedExecutor(ThreadPoolExecutor):
+            def shutdown(self,wait=True):
+                cancelled.set()  # Scheduler has already called cancel on every future.
+                return super().shutdown(wait=wait)
+        def work(value):
+            started.append(value)
+            if value:active.set();release.wait(30)
+            return value
+        with patch.object(module,"ThreadPoolExecutor",ObservedExecutor):
+            results=module.ordered_screen_results(list(range(20)),work,2)
+            self.assertEqual(next(results),(0,0));self.assertTrue(active.wait(10))
+            def close():
+                try:results.close()
+                except BaseException as exc:errors.append(exc)
+                finally:closed.set()
+            closer=threading.Thread(target=close);closer.start()
+            try:
+                self.assertTrue(cancelled.wait(10));self.assertFalse(closed.is_set())
+            finally:release.set();closer.join(10)
+            self.assertFalse(closer.is_alive());self.assertFalse(errors)
+            self.assertLessEqual(len(started),3,"Queued tasks ran after scheduler cancellation")
+    def test_screening_interrupt_never_freezes_hardware(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root);out=root/"interrupted"
+            with patch.object(module,"ordered_screen_results",side_effect=KeyboardInterrupt):
+                self.assertEqual(module.main(self.args(data,source,exe,out)),130)
+            self.assertFalse((out/"frozen_hardware.csv").exists())
+            self.assertFalse(json.loads((out/"RUN.json").read_text())["completed"])
+    def test_parallel_scheduler_overlaps_and_returns_original_order(self):
+        barrier=threading.Barrier(2,timeout=10)
+        def work(value):barrier.wait();return value*2
+        self.assertEqual(list(module.ordered_screen_results([1,2,3,4],work,2)),[(0,2),(1,4),(2,6),(3,8)])
+    def test_serial_parallel_selection_and_new_test_split_agree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root);outputs=[]
+            for workers in (1,2):
+                out=root/f"workers_{workers}";args=self.args(data,source,exe,out)
+                # Exercise the actual new default rather than an explicit test split.
+                pos=args.index("--test");del args[pos:pos+2]
+                self.assertEqual(module.main(args+["--screen-workers",str(workers)]),0)
+                outputs.append(out)
+                self.assertEqual([int(r["image"]) for r in read(out/"best_per_image.csv")],list(range(31,41)))
+                run=json.loads((out/"RUN.json").read_text())
+                self.assertEqual(run["screen_task_count"],4)
+                self.assertEqual(run["screen_workers"],workers)
+                self.assertGreaterEqual(run["screen_wall_seconds"],0)
+            for name in ("frozen_hardware.csv","frozen_seeds.csv","screening_ranking.csv"):
+                self.assertEqual((outputs[0]/name).read_bytes(),(outputs[1]/name).read_bytes())
+            for image in range(31,41):
+                for name in ("summary.csv","configurations.csv"):
+                    self.assertEqual((outputs[0]/f"test/h0001/image_{image:02d}"/name).read_bytes(),(outputs[1]/f"test/h0001/image_{image:02d}"/name).read_bytes())
     def fixture(self,root):
         data=root/"data";(data/"mask").mkdir(parents=True);(data/"mask/roi_mask.jpg").write_bytes(b"fixture")
         source=root/"training";source.mkdir()
@@ -107,12 +164,21 @@ table("images.csv",["candidate_id","image_kind","path"],images)
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);data,source,exe=self.fixture(root);(root/"fail_screen").write_text("simulate external failure")
             out=root/"failed"
-            self.assertEqual(module.main(self.args(data,source,exe,out)),1)
+            self.assertEqual(module.main(self.args(data,source,exe,out)+["--screen-workers","2"]),1)
             results=read(out/"screening_results.csv")
             self.assertEqual(len(results),4)
             self.assertEqual(sum(r["status"]=="run_failed" for r in results),2)
             self.assertFalse((out/"frozen_hardware.csv").exists())
             self.assertFalse(read(out/"best_per_image.csv"))
+    def test_invalid_workers_and_out_of_range_split_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root)
+            for workers in (0,65):
+                out=root/f"workers_bad_{workers}"
+                self.assertEqual(module.main(self.args(data,source,exe,out)+["--screen-workers",str(workers)]),1)
+                self.assertFalse(out.exists())
+            self.assertEqual(module.split_range("31:40"),list(range(31,41)))
+            with self.assertRaises(ValueError):module.split_range("31:41")
     def test_unknown_source_status_and_non_candidate_configuration_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);data,source,exe=self.fixture(root)
@@ -186,3 +252,4 @@ table("images.csv",["candidate_id","image_kind","path"],images)
             self.assertFalse(run["completed"])
             self.assertFalse((out/f"logs/test_{run['selected_hardware_id']}_image_06.log").exists())
 if __name__=="__main__":unittest.main()
+

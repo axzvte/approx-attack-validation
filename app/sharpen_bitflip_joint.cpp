@@ -192,7 +192,7 @@ int main(int argc,char** argv) {
         const int rounds=argc>5?integer(argv[5]):1,budget=argc>6?integer(argv[6]):24;
         const int top=argc>7?integer(argv[7]):2,restarts=argc>8?integer(argv[8]):2;
         std::size_t used=0;const double threshold=argc>9?std::stod(argv[9],&used):30;
-        if(imageIndex<1 || imageIndex>30 || beam<1 || beam>64 || rounds<0 || rounds>10 ||
+        if(imageIndex<1 || imageIndex>40 || beam<1 || beam>64 || rounds<0 || rounds>10 ||
                 budget<0 || budget==1 || budget>8192 || top<1 || top>10 || restarts<1 || restarts>8 ||
                 !std::isfinite(threshold) || threshold<0 || threshold>1000 || (argc>9 && used!=std::string(argv[9]).size()))
             throw std::runtime_error("Invalid joint search arguments.");

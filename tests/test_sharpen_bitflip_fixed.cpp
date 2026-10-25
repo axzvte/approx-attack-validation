@@ -148,6 +148,12 @@ void fullHardwareProfileRecomputesDownstreamAndRepair() {
     const auto profile=profileJointBitflip(repairApp,dark,m,repair,1,9,Signal::BaselineOutput);
     require(profile.offInvalid==1,"Removal fixture must be invalid off path");
     require(scoreJointInterval(profile,-1534,-1534).valid,"Exact interval scorer must repair invalid removal");
+    SharpenBitflipProfileWorkspace repairWorkspace(repairApp,dark,m);
+    const auto cachedRepair=repairWorkspace.profile(repair,1,9,Signal::BaselineOutput);
+    require(cachedRepair.offInvalid==1,"Cached path hid invalid target removal");
+    const auto cachedScore=scoreJointInterval(cachedRepair,-1534,-1534);
+    require(cachedScore.valid,"Cached path failed off-path validity repair");
+    close(cachedScore.metrics.globalMse,scoreJointInterval(profile,-1534,-1534).metrics.globalMse);
     const FixedBitflipHardware repairH{{0,Signal::Input1,10},{1,Signal::BaselineOutput,9},{2,Signal::Input1,11}};
     opt.seeds={repair};opt.maxContexts=4;
     const auto repaired=searchFixedBitflipIntervals(repairApp,dark,m,repairH,opt);
@@ -171,12 +177,41 @@ void multipleBinsMatchOriginalApplication() {
     assertHardware(result.bestLegal->configuration,h);oracle(app,im,m,*result.bestLegal);
     for(const auto& state:result.candidates) {assertHardware(state.configuration,h);oracle(app,im,m,state);}
 }
+// Equivalence against the unchanged legacy profiler, including every bin.
+void cachedProfilesMatchLegacyAndReuseTrace() {
+    struct CountReference:applications::SharpenApplication {
+        mutable unsigned calls=0;
+        cv::Mat runExact(const cv::Mat& im) const override {++calls;return applications::SharpenApplication::runExact(im);}
+    } app;
+    cv::Mat im(5,5,CV_8UC1),m(5,5,CV_8UC1,cv::Scalar(0));
+    for(int r=0;r<5;++r) for(int c=0;c<5;++c) im.at<unsigned char>(r,c)=40+(r*19+c*31)%140;
+    m(cv::Rect(1,1,2,2)).setTo(255);
+    JointBitflipConfiguration c{flip(0,0,Signal::Input1,0,1000),flip(2,2,Signal::BaselineOutput,0,1000)};
+    SharpenBitflipProfileWorkspace workspace(app,im,m);
+    require(app.calls==1,"Workspace did not prepare exactly one reference");unsigned legacyCalls=0;
+    for(int n=0;n<4;++n) for(auto signal:{Signal::Input1,Signal::Input2,Signal::BaselineOutput}) {
+        const auto old=profileJointBitflip(app,im,m,c,n,3,signal),fast=workspace.profile(c,n,3,signal);
+        require(app.calls==1+(++legacyCalls),"Cached profiler recomputed the exact reference");
+        require(old.offInvalid==fast.offInvalid && old.offRoiSse==fast.offRoiSse && old.offNonRoiSse==fast.offNonRoiSse,"Cached off-path differs");
+        require(old.roiPixels==fast.roiPixels && old.nonRoiPixels==fast.nonRoiPixels && old.bins.size()==fast.bins.size(),"Cached denominators/bins differ");
+        for(const auto& p:old.bins) {
+            const auto& b=fast.bins.at(p.first);const auto& a=p.second;
+            require(a.roiDelta==b.roiDelta && a.nonRoiDelta==b.nonRoiDelta && a.invalidDelta==b.invalidDelta && a.roiHits==b.roiHits && a.nonRoiHits==b.nonRoiHits,"Cached monitor bin differs");
+        }
+    }
+    require(workspace.stats().traceBuilds==1 && workspace.stats().traceCacheHits==11,"Identical configured trace was not reused");
+    c[0].lower=1;workspace.profile(c,0,3,Signal::Input1);
+    require(workspace.stats().traceBuilds==2,"Changed configuration reused stale trace");
+    for(double t:{workspace.stats().referenceSeconds,workspace.stats().traceSeconds,workspace.stats().profileSeconds})
+        require(std::isfinite(t) && t>=0,"Invalid profiler timing");
+}
 }
 int main() {
     try {
         dormantSeedKeepsSignedDomainsAndAllNodes();budgetsCoverTargetsBeforeManyBeamsAndRetainLegalFailures();
         oneTriggerWithDormantInstalledNodeIsNumericCandidate();warmSeedsValidateIdentityDomainsAndArithmeticRejection();
         fullHardwareProfileRecomputesDownstreamAndRepair();multipleBinsMatchOriginalApplication();
+        cachedProfilesMatchLegacyAndReuseTrace();
         std::cout<<"Fixed hardware interval contracts passed\n";return 0;
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
 }

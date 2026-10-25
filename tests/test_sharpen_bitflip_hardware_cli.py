@@ -38,6 +38,16 @@ with tempfile.TemporaryDirectory() as tmp:
     assert metrics(out)==metrics(none) and not list(none.glob("*.png"))
     full=root/"full";run(data,full,hardware,*common,"--image-mode","full")
     assert metrics(out)==metrics(full)
+    stats=rows(out/"search_stats.csv")[0]
+    for field in ("reference_seconds","initialization_seconds","trace_seconds","profile_seconds","interval_seconds","final_replay_seconds"):
+        assert float(stats[field])>=0,field
+    assert int(stats["trace_builds"])==1
+    (data/"stage4/input").mkdir(parents=True)
+    for image in (31,40):
+        (data/f"stage4/input/image_{image:02d}.jpg").write_bytes((data/"stage1/input/image_01.jpg").read_bytes())
+        stage4=root/f"stage4_{image}";run(data,stage4,hardware,*common,"--image",image,"--image-mode","none")
+        assert metrics(stage4)==metrics(out),"Stage4 must load its own numbered image"
+    run(data,root/"bad_image",hardware,*common,"--image",41,ok=False)
     original=(out/"summary.csv").read_bytes();run(data,out,hardware,*common,ok=False)
     assert original==(out/"summary.csv").read_bytes()
     malformed=root/"bad.csv";table(malformed,["node_id","monitor","bit"],[h[0],h[0]])

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 
 namespace analysis {
 using JointBitflipConfiguration=std::vector<core::AttackConfig>;
@@ -33,6 +34,26 @@ JointBitflipProfile profileJointBitflip(const applications::SharpenApplication& 
     const cv::Mat& image,const cv::Mat& mask,const JointBitflipConfiguration& current,
     int node,int bit,core::MonitorSignal monitor);
 JointIntervalScore scoreJointInterval(const JointBitflipProfile& profile,int lower,int upper);
+
+struct SharpenProfileStats {
+    std::uint64_t traceBuilds=0,traceCacheHits=0;
+    double referenceSeconds=0,traceSeconds=0,profileSeconds=0;
+};
+// One immutable image/application per workspace. Holds at most one full trace.
+// The legacy profiler remains independent for regression/oracle comparisons.
+class SharpenBitflipProfileWorkspace {
+public:
+    SharpenBitflipProfileWorkspace(const applications::SharpenApplication&,const cv::Mat&,const cv::Mat&);
+    ~SharpenBitflipProfileWorkspace();
+    SharpenBitflipProfileWorkspace(const SharpenBitflipProfileWorkspace&)=delete;
+    SharpenBitflipProfileWorkspace& operator=(const SharpenBitflipProfileWorkspace&)=delete;
+    JointBitflipProfile profile(const JointBitflipConfiguration&,int node,int bit,core::MonitorSignal);
+    const cv::Mat& reference() const;
+    const SharpenProfileStats& stats() const;
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 struct JointBitflipState {
     JointBitflipConfiguration configuration;

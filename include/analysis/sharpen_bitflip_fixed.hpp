@@ -21,6 +21,9 @@ struct FixedBitflipStats {
     std::uint64_t retainedQualityFailures=0,acceptedSeeds=0,rejectedSeeds=0;
     std::array<std::uint64_t,4> contextsByNode{};
     bool contextBudgetExhausted=false;
+    std::uint64_t traceBuilds=0,traceCacheHits=0;
+    double referenceSeconds=0,initializationSeconds=0,traceSeconds=0,profileSeconds=0;
+    double intervalSeconds=0,finalReplaySeconds=0;
 };
 struct FixedBitflipProgress {
     std::size_t restart=0,pass=0,node=0,completedStates=0,totalStates=0;

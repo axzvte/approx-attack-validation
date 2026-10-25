@@ -12,8 +12,9 @@ git switch feature/sharpen-bitflip
 git pull --ff-only origin feature/sharpen-bitflip
 
 python3 scripts/run_sharpen_bitflip_hardware.py \
-  data results/bitflip/sharpen_fixed_hardware_20261025 \
-  --training-report results/bitflip/joint_10_images_20261024
+  data results/bitflip/sharpen_fixed_hardware_fast_stage4_20261025 \
+  --training-report results/bitflip/joint_10_images_20261024 \
+  --screen-workers 4 --test 31:40
 ```
 
 `--training-report` 指向之前锐化十图批量输出根目录，其中应有 `summary_all.csv` 和 `configurations_all.csv`。只读取这些数据，不修改、不重跑已有实验。不能传入Conv/Sobel/DCT混合结果。来源必须包含每张训练图的基准及完整候选配置，不能包含筛选/测试图片、运行失败或孤立配置。
@@ -24,7 +25,7 @@ python3 scripts/run_sharpen_bitflip_hardware.py \
 
 ```bash
 python3 scripts/run_sharpen_bitflip_hardware.py \
-  data results/bitflip/sharpen_fixed_hardware_fresh_20261025
+  data results/bitflip/sharpen_fixed_hardware_fresh_stage4_20261025
 ```
 
 默认分组如下，三个集合必须互不重叠：
@@ -33,11 +34,23 @@ python3 scripts/run_sharpen_bitflip_hardware.py \
 |---|---|---|---|
 | 训练 | 1～10 | 节点、监测信号、翻转位、区间 | 形成完整联合硬件结构候选 |
 | 筛选 | 11～20 | 对每个候选结构仅改变区间 | 比较跨图表现并选定H* |
-| 新图测试 | 21～30 | 保持H*，每图仅改变区间 | 评价固定硬件的逐图区间校准效果 |
+| 新图测试 | 31～40 | 保持H*，每图仅改变区间 | 评价固定硬件的逐图区间校准效果 |
 
 测试时重新搜索区间是协议的一部分，不是重新选硬件。不能根据测试结果反选节点、信号或位，也不能把前一张测试图的新区间加入后一张图的起点库。
 
-可用 `--train 1:10 --screen 11:20 --test 21:30` 显式设置分组；参数是包含两端的范围。较小的互斥范围可用于用户侧试跑，但不能把单张筛选结果当作跨图稳定性证据。
+可用 `--train 1:10 --screen 11:20 --test 31:40` 显式设置分组；参数是包含两端的范围，支持1～40。固定区间入口和自由发现入口均按每10张映射stage目录，因此31～40读取`data/stage4/input/image_31.jpg`至`image_40.jpg`。本轮21～30不参与硬件选择或最终测试。较小的互斥范围可用于用户侧试跑，但不能把单张筛选结果当作跨图稳定性证据。
+
+## 硬件筛选效率
+
+本版仍比较相同候选、相同10张筛选图、相同区间预算及排名规则，不增加粗筛淘汰。默认并行进程数为`min(4, CPU逻辑核数)`；`--screen-workers 1`恢复串行，`--screen-workers 2`或`4`控制并行量。`--jobs`仍仅控制编译。候选×图片是独立任务，各自写独立目录与日志；主线程按原顺序汇总，完成先后不参与排名。某任务失败仍处理其余项，随后阻止硬件冻结。中断时取消排队任务，等待已启动任务退出，保留已汇总结果。
+
+每张图片的一次固定区间搜索只计算一次精确参考与ROI像素数，只统计已固定监控信号；相同完整配置复用最近一次原应用追踪。缓存只保存一份追踪，不随候选数量无限增长。上游配置变化时重新追踪，目标节点翻转前后均按真实下游触发重算，原位宽检查及最终完整应用核验保留。区间枚举、候选保留和选择规则保持一致。该优化面向正确性等价，尚未由编写方运行验证或测量加速比。
+
+`RUN.json`新增`screen_workers`、`screen_task_count`、`screen_wall_seconds`、`screen_task_seconds`、`test_wall_seconds`、`test_task_seconds`。评估硬件确定时间应看`screen_wall_seconds`，不含编译、训练发现和最终测试；并行时`screen_task_seconds`是各任务耗时之和，不代表实际等待时间。
+
+每项`search_stats.csv`新增`reference_seconds`、`initialization_seconds`、`trace_seconds`、`profile_seconds`、`interval_seconds`、`final_replay_seconds`及`trace_builds/trace_cache_hits`。分别对应固定参考准备、基准/起点初始化、原应用追踪、条件响应分组、区间候选评价及最终完整重放。各阶段计时不含全部调度与候选管理开销，因此不能要求它们之和恰好等于`calibration_seconds`。筛选项统计位于`screen/h*/image_*/search_stats.csv`；根目录`search_stats_all.csv`仍只汇总最终测试。
+
+用户如需验证串并行一致性，可将推荐命令复制一份，使用另一新输出目录并改成`--screen-workers 1`，其余参数不变。比较`frozen_hardware.csv`、`frozen_seeds.csv`、`screening_ranking.csv`和逐图指标；比较效率使用各自的`screen_wall_seconds`。与旧版比较时也需使用相同训练来源、筛选图片、预算和计算环境；不能从并行任务累计耗时直接计算加速比。
 
 ## 阶段一：去重并保留完整联合结构
 
@@ -85,7 +98,7 @@ node_id,monitor,bit
 
 未找到数值候选的图片，排名得分为0，仍计入总分母；失败图不会被悄悄过滤。精确零MSE对应无限PSNR，排名计算单独将PSNR封顶100 dB以保持分数有限；原始MSE/PSNR报告不封顶。没有零MSE时，正常范围下该处理不改变PSNR下降值。
 
-数值达标不自动表示视觉成功。自动选择的H*仍标记 `pending_user_review`。若要用视觉效果进一步筛选结构，应只查看11～20筛选图片，不根据21～30图片更换H*；可以用下面单图命令对相应筛选图生成对比图。
+数值达标不自动表示视觉成功。自动选择的H*仍标记 `pending_user_review`。若要用视觉效果进一步筛选结构，应只查看11～20筛选图片，不根据31～40图片更换H*；可以用下面单图命令对相应筛选图生成对比图。
 
 安装节点数仅是结构规模记录，不是实测面积或功耗。`screening_ranking.csv` 同时保留每套结构的成功比例、最弱/平均损伤、样本数和安装节点数。另有`success_mean_roi_drop_score`、`success_min_roi_drop_score`仅描述达标图片，不参与排名，不能替代全部筛选图的统计。
 
@@ -96,7 +109,7 @@ node_id,monitor,bit
 ## 输出位置
 
 ```text
-sharpen_fixed_hardware_20261025/
+sharpen_fixed_hardware_fast_stage4_20261025/
   training_source/             导入时归档的完整来源表及来源元数据
   candidate_pool.csv            全部去重结构与筛选入选标记
   candidate_evidence.csv        训练来源与候选记录
@@ -108,7 +121,7 @@ sharpen_fixed_hardware_20261025/
   frozen_hardware.csv          最终固定结构
   frozen_seeds.csv             冻结的训练起点库
   frozen_protocol.json         测试前冻结的协议与摘要
-  test/h0001/image_21/          新图指标、逐图区间及关键PNG
+  test/h0001/image_31/          新图指标、逐图区间及关键PNG
   best_per_image.csv           最终每张新图一行
   summary_all.csv              最终测试的基准与所选结果
   configurations_all.csv       最终测试的全部安装节点（含零触发）
@@ -135,11 +148,11 @@ ctest --test-dir build-bitflip --output-on-failure
 # 保持冻结结构，给一张图重新搜索区间；使用新的输出目录
 ./build-bitflip/sharpen_bitflip_fixed \
   data results/bitflip/fixed_h_image11_review \
-  --hardware results/bitflip/sharpen_fixed_hardware_20261025/frozen_hardware.csv \
-  --seeds results/bitflip/sharpen_fixed_hardware_20261025/frozen_seeds.csv \
+  --hardware results/bitflip/sharpen_fixed_hardware_fast_stage4_20261025/frozen_hardware.csv \
+  --seeds results/bitflip/sharpen_fixed_hardware_fast_stage4_20261025/frozen_seeds.csv \
   --image 11 --image-mode compact
 ```
 
 默认需要精确参考与ROI、多次仿真，是离线逐图区间校准，不是单次实时处理。软件提供固定硬件所需参数，不等于已完成可综合RTL或实测硬件资源验证。以上新增测试和实验均未由编写方执行。
 
-请返回 `screening_ranking.csv`、`frozen_hardware.csv`、`best_per_image.csv`、`search_stats_all.csv` 及代表性的ROI/背景对比图。出现失败时一并提供 `RUN.json`、`run_status.csv` 和对应日志。
+请返回 `RUN.json`、`run_status.csv`、`screening_ranking.csv`、`frozen_hardware.csv`、`best_per_image.csv`、`search_stats_all.csv` 及代表性的ROI/背景对比图，以同时分析硬件筛选效率与新图效果。出现失败时一并提供对应日志。

@@ -35,6 +35,13 @@ with tempfile.TemporaryDirectory(prefix="joint-coverage-cli-") as temporary:
     notes = (bounded / "RUN.txt").read_text()
     assert "ablations=disabled" in notes and "context_budget=4" in notes and "completed=1" in notes
     assert not any(r["status"] == "numeric_eligible" for r in rows(bounded / "summary.csv"))
+    (data / "stage4/input").mkdir(parents=True)
+    (data / "stage4/input/image_40.jpg").write_bytes((data / "stage1/input/image_01.jpg").read_bytes())
+    stage4=root/"stage4"
+    run(data,stage4,40,1,0,4,1,2,0,"--context-budget",4,"--no-ablations","--image-mode","none")
+    assert (stage4/"summary.csv").read_bytes()==(bounded/"summary.csv").read_bytes()
+    assert "image=40" in (stage4/"RUN.txt").read_text()
+    run(data,root/"bad41",41,ok=False)
     # With identical search settings, disabling ablations changes no source reports.
     default = root / "default"
     disabled = root / "disabled"

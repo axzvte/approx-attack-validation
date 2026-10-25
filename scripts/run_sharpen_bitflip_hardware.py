@@ -8,6 +8,8 @@ import csv
 import hashlib
 import json
 import math
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import shutil
 import subprocess
@@ -29,7 +31,7 @@ def split_range(text):
     values=text.split(":")
     if len(values)!=2:raise ValueError("Split must be an inclusive FIRST:LAST range")
     first,last=map(int,values)
-    if not 1<=first<=last<=30:raise ValueError("Image split must stay in1..30")
+    if not 1<=first<=last<=40:raise ValueError("Image split must stay in1..40")
     return list(range(first,last+1))
 
 def hardware_key(rows):
@@ -184,17 +186,35 @@ def rank_hardware(candidates,results,screen):
     for i,r in enumerate(ranked,1):r["rank"]=i
     return ranked
 
+def ordered_screen_results(jobs,work,workers):
+    """Only workers execute subprocesses; caller owns all shared reports.
+
+    Completion timing cannot change aggregation order or ranking. On interruption
+    queued jobs are cancelled; already active children are allowed to finish.
+    """
+    if workers==1:
+        for index,job in enumerate(jobs):yield index,work(job)
+        return
+    executor=ThreadPoolExecutor(max_workers=workers);futures=[]
+    try:
+        for job in jobs:futures.append(executor.submit(work,job))
+        for index,future in enumerate(futures):yield index,future.result()
+    finally:
+        for future in futures:future.cancel()
+        executor.shutdown(wait=True)
+
 def main(argv=None):
     root=Path(__file__).resolve().parents[1]
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("data",type=Path);p.add_argument("output",type=Path);p.add_argument("--training-report",type=Path)
-    p.add_argument("--train",default="1:10");p.add_argument("--screen",default="11:20");p.add_argument("--test",default="21:30")
+    p.add_argument("--train",default="1:10");p.add_argument("--screen",default="11:20");p.add_argument("--test",default="31:40")
     p.add_argument("--max-hardware",type=int,default=12);p.add_argument("--seed-limit",type=int,default=8)
     p.add_argument("--beam",type=int,default=4);p.add_argument("--refinement",type=int,default=1);p.add_argument("--restarts",type=int,default=2)
     p.add_argument("--boundary-budget",type=int,default=24);p.add_argument("--training-context-budget",type=int,default=256)
     p.add_argument("--context-budget",type=int,default=128);p.add_argument("--training-top",type=int,default=2)
     p.add_argument("--global-psnr",type=float,default=30);p.add_argument("--image-mode",choices=("compact","full","none"),default="compact")
     p.add_argument("--build-dir",type=Path,default=root/"build-bitflip");p.add_argument("--jobs",type=int,default=4)
+    p.add_argument("--screen-workers",type=int,default=min(4,os.cpu_count() or 1),help="Concurrent screening subprocesses; 1 is serial. --jobs controls compilation only.")
     p.add_argument("--skip-build",action="store_true");p.add_argument("--fixed-exe",type=Path);p.add_argument("--discovery-exe",type=Path)
     args=p.parse_args(argv);owned=False;meta=None
     try:
@@ -202,7 +222,7 @@ def main(argv=None):
         if set(train)&set(screen) or set(train)&set(test) or set(screen)&set(test):raise ValueError("Training, screening and test splits must be disjoint")
         if not (0<=args.max_hardware<=10000 and 1<=args.seed_limit<=1000 and 1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
                 (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 4<=args.training_context_budget<=1000000 and
-                1<=args.context_budget<=1000000 and 1<=args.training_top<=10 and 1<=args.jobs<=64 and math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000):raise ValueError("Invalid protocol/search options")
+                1<=args.context_budget<=1000000 and 1<=args.training_top<=10 and 1<=args.jobs<=64 and 1<=args.screen_workers<=64 and math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000):raise ValueError("Invalid protocol/search options")
         if (args.fixed_exe or args.discovery_exe) and not args.skip_build:raise ValueError("External executables require --skip-build")
         data=args.data.resolve();out=args.output.resolve();build=args.build_dir.resolve()
         fixed=args.fixed_exe.resolve() if args.fixed_exe else build/"sharpen_bitflip_fixed"
@@ -221,6 +241,8 @@ def main(argv=None):
                   enable_parameter="absent",ablations="disabled",seed_policy="train-only immutable bank; reset for each screen/test image",
                   ranking="success count, worst then mean nonnegative ROI PSNR drop over all screen images, fewer installed nodes, key",
                   ranking_psnr_cap_db=100,failed_tasks=[],visual_status="pending_user_review",seed_bank_unchanged_after_test=False)
+        meta.update(screen_workers=args.screen_workers,screen_wall_seconds=0,screen_task_seconds=0,screen_task_count=0,
+                    test_wall_seconds=0,test_task_seconds=0,profiling="fixed monitor only; per-image reference and single-trace reuse")
         statuses=[];screen_results=[];test_results=[];tables={name:[] for name in TABLES}
         def flush():
             atomic_json(out/"RUN.json",meta)
@@ -290,24 +312,38 @@ def main(argv=None):
             meta.update(completed=True,all_succeeded=True,selection_status="no_candidate_hardware");flush();print("No training candidate hardware; final test not started");return 0
         def evaluate(phase,h,image,mode,hardware_path,seeds_path):
             relative=f"{phase}/{h['hardware_id']}/image_{image:02d}";report=out/relative;report.parent.mkdir(parents=True,exist_ok=True)
-            log=f"logs/{phase}_{h['hardware_id']}_image_{image:02d}.log";status=dict(phase=phase,hardware_id=h["hardware_id"],image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="");statuses.append(status);begin=time.monotonic()
+            log=f"logs/{phase}_{h['hardware_id']}_image_{image:02d}.log";status=dict(phase=phase,hardware_id=h["hardware_id"],image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="");begin=time.monotonic();staged={}
             try:
                 command=[fixed,data,report,"--hardware",hardware_path,"--seeds",seeds_path,"--image",image,"--beam",args.beam,"--refinement",args.refinement,"--restarts",args.restarts,"--boundary-budget",args.boundary_budget,"--context-budget",args.context_budget,"--global-psnr",args.global_psnr,"--image-mode",mode]
                 code=process(command,out/log,root);status["returncode"]=code
                 if code:raise RuntimeError(f"Interval executable returned {code}")
                 staged,row=fixed_report(report,image,h["key"],mode,relative,args.global_psnr);row.update(phase=phase,hardware_id=h["hardware_id"])
-                if phase=="test":
-                    for name,rs in staged.items():tables[name].extend({**r,"phase":phase,"hardware_id":h["hardware_id"],"image":image} for r in rs)
                 status["status"]="completed";status["search_status"]=row["search_status"]
             except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
-                status.update(status="failed",detail=str(exc));meta["failed_tasks"].append(dict(phase=phase,hardware_id=h["hardware_id"],image=image))
+                status.update(status="failed",detail=str(exc))
                 row=dict(phase=phase,hardware_id=h["hardware_id"],image=image,status="run_failed",visual_status="not_available",roi_drop_score=0)
-                if phase=="test":tables["summary_all.csv"].append(row)
             status["elapsed_seconds"]=time.monotonic()-begin
+            return status,row,staged
+        def collect(result):
+            # Main thread alone owns metadata, merged tables and atomic writers.
+            status,row,staged=result;statuses.append(status)
+            if status["status"]=="failed":
+                meta["failed_tasks"].append({k:status[k] for k in ("phase","hardware_id","image")})
+                if row["phase"]=="test":tables["summary_all.csv"].append(row)
+            elif row["phase"]=="test":
+                for name,rs in staged.items():tables[name].extend({**r,"phase":"test","hardware_id":row["hardware_id"],"image":row["image"]} for r in rs)
             return row
-        for h in candidates:
-            for image in screen:
-                screen_results.append(evaluate("screen",h,image,"none",out/"hardware"/h["hardware_id"]/"hardware.csv",out/"hardware"/h["hardware_id"]/"seeds.csv"));flush()
+        jobs=[(h,image) for h in candidates for image in screen];meta["screen_task_count"]=len(jobs)
+        def screen_one(job):
+            h,image=job;folder=out/"hardware"/h["hardware_id"]
+            return evaluate("screen",h,image,"none",folder/"hardware.csv",folder/"seeds.csv")
+        screen_begin=time.monotonic();flush()
+        try:
+            for _,result in ordered_screen_results(jobs,screen_one,args.screen_workers):
+                screen_results.append(collect(result));meta["screen_task_seconds"]+=result[0]["elapsed_seconds"]
+                meta["screen_wall_seconds"]=time.monotonic()-screen_begin;flush()
+        finally:meta["screen_wall_seconds"]=time.monotonic()-screen_begin
+        flush()
         ranking=rank_hardware(candidates,screen_results,screen);atomic_csv(out/"screening_ranking.csv",ranking,["rank","hardware_id","complete","numeric_successes","screen_images","numeric_success_fraction","worst_roi_drop_score","mean_roi_drop_score","installed_nodes"])
         if meta["failed_tasks"]:raise RuntimeError("Screening program/report failures: preserved all results; hardware freeze and test blocked")
         if any(digest(out/path)!=value for path,value in bank_hashes.items()):raise RuntimeError("Training hardware/seed bank changed during screening")
@@ -320,9 +356,14 @@ def main(argv=None):
         meta.update(selection_status="selected",selected_hardware_id=h["hardware_id"],frozen_hashes=frozen,test_executed=True)
         atomic_json(out/"frozen_protocol.json",dict(hardware_id=h["hardware_id"],hardware_key=h["key"],splits=meta["splits"],options=meta["options"],frozen_hashes=frozen,training_bank_hashes=bank_hashes,ranking=meta["ranking"]))
         flush()  # Freeze before observing any test image.
-        for image in test:
-            if any(digest(out/name)!=value for name,value in frozen.items()):raise RuntimeError("Frozen hardware/seed file changed before test image")
-            test_results.append(evaluate("test",h,image,args.image_mode,out/"frozen_hardware.csv",out/"frozen_seeds.csv"));flush()
+        test_begin=time.monotonic()
+        try:
+            for image in test:
+                if any(digest(out/name)!=value for name,value in frozen.items()):raise RuntimeError("Frozen hardware/seed file changed before test image")
+                result=evaluate("test",h,image,args.image_mode,out/"frozen_hardware.csv",out/"frozen_seeds.csv")
+                test_results.append(collect(result));meta["test_task_seconds"]+=result[0]["elapsed_seconds"]
+                meta["test_wall_seconds"]=time.monotonic()-test_begin;flush()
+        finally:meta["test_wall_seconds"]=time.monotonic()-test_begin
         unchanged=all(digest(out/name)==value for name,value in frozen.items()) and all(digest(out/path)==value for path,value in bank_hashes.items())
         if not unchanged:raise RuntimeError("Frozen or training bank changed during held-out calibration")
         meta.update(completed=True,all_succeeded=not meta["failed_tasks"],seed_bank_unchanged_after_test=True);flush()

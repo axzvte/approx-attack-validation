@@ -2,6 +2,7 @@
 #include "core/output_bitflip.hpp"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <map>
 #include <set>
 #include <sstream>
@@ -14,6 +15,7 @@ using Config=JointBitflipConfiguration;
 using State=JointBitflipState;
 using Bin=JointBitflipBin;
 using Signal=core::MonitorSignal;
+using Clock=std::chrono::steady_clock;
 std::pair<int,int> domain(Signal s) {
     if(s==Signal::Input1 || s==Signal::Input2) return {-2048,2047};
     if(s==Signal::BaselineOutput) return {-4096,4095};
@@ -128,9 +130,10 @@ Bin add(Bin a,const Bin& b,int sign=1) {
     a.roiDelta+=sign*b.roiDelta;a.nonRoiDelta+=sign*b.nonRoiDelta;a.invalidDelta+=sign*b.invalidDelta;
     a.roiHits+=sign*b.roiHits;a.nonRoiHits+=sign*b.nonRoiHits;return a;
 }
-std::vector<State> expand(const applications::SharpenApplication& app,const cv::Mat& image,const cv::Mat& mask,
+std::vector<State> expand(SharpenBitflipProfileWorkspace& workspace,
     const Config& current,const FixedBitflipNode& target,const FixedBitflipOptions& options,FixedBitflipStats& stats) {
-    const auto profile=profileJointBitflip(app,image,mask,current,target.nodeId,target.bitIndex,target.monitorInput);
+    const auto profile=workspace.profile(current,target.nodeId,target.bitIndex,target.monitorInput);
+    const auto intervalBegin=Clock::now();
     ++stats.contextsBuilt;++stats.contextsByNode[target.nodeId];
     std::vector<int> values;std::vector<Bin> prefix(1);std::set<int> seen;
     const auto d=domain(target.monitorInput);
@@ -171,7 +174,9 @@ std::vector<State> expand(const applications::SharpenApplication& app,const cv::
         for(auto lo:ends) for(auto hi:ends) if(hi>=lo) intervals.emplace(lo,hi);
         for(const auto& x:intervals) interval(x.first,x.second);
     }
-    return pool.states();
+    auto states=pool.states();
+    stats.intervalSeconds+=std::chrono::duration<double>(Clock::now()-intervalBegin).count();
+    return states;
 }
 bool better(const State& a,const State& b) {
     if(a.metrics.roiMse!=b.metrics.roiMse) return a.metrics.roiMse>b.metrics.roiMse;
@@ -228,7 +233,9 @@ FixedBitflipResult searchFixedBitflipIntervals(const applications::SharpenApplic
     // Validate every supplied bank member before running any search; malformed
     // rows are errors even when a previous seed would fill the context budget.
     for(const auto& seed:options.seeds) validateSeed(seed,hardware);
-    FixedBitflipResult result;const auto reference=app.runExact(image);
+    FixedBitflipResult result;SharpenBitflipProfileWorkspace workspace(app,image,mask);
+    const auto& reference=workspace.reference();result.stats.referenceSeconds=workspace.stats().referenceSeconds;
+    const auto initializationBegin=Clock::now();
     result.baseline=measureBitflipQuality(reference,app.runApprox(image,{}),mask);
     std::vector<State> seeds;std::set<std::string> seedKeys;
     const auto accept=[&](const Config& seed,bool warm) {
@@ -243,6 +250,7 @@ FixedBitflipResult searchFixedBitflipIntervals(const applications::SharpenApplic
     };
     for(const auto& seed:options.seeds) accept(seed,true);
     if(const auto dormant=dormantFixedBitflipSeed(app,image,mask,hardware)) accept(*dormant,false);
+    result.stats.initializationSeconds=std::chrono::duration<double>(Clock::now()-initializationBegin).count();
     if(seeds.empty()) return result;
     std::map<std::string,std::vector<State>> cache;
     Representatives legalArchive(options.beamWidth,options.globalPsnrThreshold);
@@ -265,7 +273,9 @@ FixedBitflipResult searchFixedBitflipIntervals(const applications::SharpenApplic
         auto found=cache.find(id);
         if(found==cache.end()) {
             if(result.stats.contextsBuilt>=options.maxContexts) {result.stats.contextBudgetExhausted=true;return false;}
-            auto states=expand(app,image,mask,state.configuration,target,options,result.stats);
+            auto states=expand(workspace,state.configuration,target,options,result.stats);
+            const auto& ps=workspace.stats();result.stats.traceBuilds=ps.traceBuilds;result.stats.traceCacheHits=ps.traceCacheHits;
+            result.stats.traceSeconds=ps.traceSeconds;result.stats.profileSeconds=ps.profileSeconds;
             found=cache.emplace(id,std::move(states)).first;
         } else ++result.stats.cacheHits;
         remember(found->second);expanded.insert(expanded.end(),found->second.begin(),found->second.end());
@@ -297,7 +307,7 @@ FixedBitflipResult searchFixedBitflipIntervals(const applications::SharpenApplic
     }
     // Every returned/eligible state is replayed through the original complete
     // circuit. No off-path configuration is ever offered as executable state.
-    std::map<std::string,State> finalists;
+    const auto replayBegin=Clock::now();std::map<std::string,State> finalists;
     for(const auto& state:legalArchive.states()) finalists.emplace(key(state.configuration),state);
     for(const auto& state:numericArchive.states()) finalists.emplace(key(state.configuration),state);
     for(auto& entry:finalists) {
@@ -309,6 +319,7 @@ FixedBitflipResult searchFixedBitflipIntervals(const applications::SharpenApplic
             result.candidates.push_back(state);
     }
     std::stable_sort(result.candidates.begin(),result.candidates.end(),better);
+    result.stats.finalReplaySeconds=std::chrono::duration<double>(Clock::now()-replayBegin).count();
     return result;
 }
 }

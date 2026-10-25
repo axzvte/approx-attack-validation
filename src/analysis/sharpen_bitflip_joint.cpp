@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -74,22 +75,18 @@ bool suffix(const Context& context,const Pixel& p,int value,int& output) {
     }
     output=std::clamp(value,0,255);return true;
 }
-Context contextFor(const applications::SharpenApplication& app,const cv::Mat& image,
-    const cv::Mat& mask,const Config& current,int node) {
+Context contextFromSamples(const applications::SharpenApplication& app,const cv::Mat& image,
+    const cv::Mat& mask,const Config& current,int node,const cv::Mat& reference,
+    const std::vector<core::AddSample>& samples,std::uint64_t nr,std::uint64_t nn) {
     if(node<0 || node>=4 || image.rows<3 || image.cols<3)
         throw std::runtime_error("Joint profiling needs a valid node and image >=3x3.");
     for(const auto& c:current) {
         if(c.payload!=core::AttackPayload::BitFlip) throw std::runtime_error("Joint profiler accepts only bit flips.");
         monitored(c.monitorInput,0,0,0);
     }
-    // This original execution validates configuration, prefix legality and mask.
-    std::vector<core::AddSample> samples;
-    app.collectConfiguredAddSamples(image,mask,current,samples);
-    const auto reference=app.runExact(image);
     Context context;context.node=node;context.others=without(current,node);context.units=app.baselineConfig();
     for(const auto& c:context.others) context.active[c.nodeId]=c;
-    for(int r=0;r<image.rows;++r) for(int c=0;c<image.cols;++c)
-        region_mask::isImportantPixel(mask,r,c)?++context.nr:++context.nn;
+    context.nr=nr;context.nn=nn;
     if(!context.nr || !context.nn) throw std::runtime_error("Both ROI and background pixels are required.");
     const auto count=static_cast<std::size_t>(image.rows-2)*(image.cols-2);
     if(samples.size()!=count*4) throw std::runtime_error("Unexpected Sharpen trace size.");
@@ -107,6 +104,36 @@ Context contextFor(const applications::SharpenApplication& app,const cv::Mat& im
     }
     // Original Sharpen borders copy input in both exact and approximate paths.
     return context;
+}
+Context contextFor(const applications::SharpenApplication& app,const cv::Mat& image,
+    const cv::Mat& mask,const Config& current,int node) {
+    if(node<0 || node>=4 || image.rows<3 || image.cols<3)
+        throw std::runtime_error("Joint profiling needs a valid node and image >=3x3.");
+    for(const auto& c:current) {
+        if(c.payload!=core::AttackPayload::BitFlip) throw std::runtime_error("Joint profiler accepts only bit flips.");
+        monitored(c.monitorInput,0,0,0);
+    }
+    std::vector<core::AddSample> samples;
+    app.collectConfiguredAddSamples(image,mask,current,samples);
+    const auto reference=app.runExact(image);std::uint64_t nr=0,nn=0;
+    for(int r=0;r<image.rows;++r) for(int c=0;c<image.cols;++c)
+        region_mask::isImportantPixel(mask,r,c)?++nr:++nn;
+    return contextFromSamples(app,image,mask,current,node,reference,samples,nr,nn);
+}
+JointBitflipProfile fixedProfileFor(const Context& context,int bit,core::MonitorSignal signal) {
+    core::flipNonSignOutputBit(0,bit);monitored(signal,0,0,0);
+    JointBitflipProfile out;out.others=context.others;out.node=context.node;out.bit=bit;out.monitor=signal;
+    out.roiPixels=context.nr;out.nonRoiPixels=context.nn;
+    out.offRoiSse=context.er;out.offNonRoiSse=context.en;out.offInvalid=context.invalid;
+    for(const auto& p:context.pixels) {
+        int final=0;bool valid=false;
+        if(p.raw>=-4096 && p.raw<=4095) valid=suffix(context,p,core::flipNonSignOutputBit(p.raw,bit),final);
+        const Sum delta=(valid?square(final-p.ref):0)-p.offSse;
+        auto& bin=out.bins[monitored(signal,p.input,p.rhs[context.node],p.raw)];
+        if(p.roi) {bin.roiDelta+=delta;++bin.roiHits;}else {bin.nonRoiDelta+=delta;++bin.nonRoiHits;}
+        bin.invalidDelta+=Sum(!valid)-Sum(!p.offValid);
+    }
+    return out;
 }
 std::array<JointBitflipProfile,3> profilesFor(const Context& context,int bit) {
     core::flipNonSignOutputBit(0,bit);
@@ -237,6 +264,55 @@ std::vector<State> expand(const applications::SharpenApplication& app,const cv::
     }
     return pool.states();
 }
+}
+
+struct SharpenBitflipProfileWorkspace::Impl {
+    using Clock=std::chrono::steady_clock;
+    const applications::SharpenApplication& app;
+    cv::Mat image,mask,exact;
+    std::uint64_t nr=0,nn=0;
+    std::string traceKey;
+    bool hasTrace=false;
+    std::vector<core::AddSample> samples;
+    SharpenProfileStats stats;
+    Impl(const applications::SharpenApplication& a,const cv::Mat& im,const cv::Mat& m):app(a),image(im.clone()),mask(m.clone()) {
+        const auto begin=Clock::now();
+        if(image.rows<3 || image.cols<3 || mask.type()!=CV_8UC1 || mask.size()!=image.size())
+            throw std::runtime_error("Profiler requires image >=3x3 and a matching gray ROI mask.");
+        exact=app.runExact(image);
+        for(int r=0;r<image.rows;++r) for(int c=0;c<image.cols;++c)
+            region_mask::isImportantPixel(mask,r,c)?++nr:++nn;
+        if(!nr || !nn) throw std::runtime_error("Both ROI and background pixels are required.");
+        samples.reserve(static_cast<std::size_t>(image.rows-2)*(image.cols-2)*4);
+        stats.referenceSeconds=std::chrono::duration<double>(Clock::now()-begin).count();
+    }
+};
+SharpenBitflipProfileWorkspace::SharpenBitflipProfileWorkspace(const applications::SharpenApplication& app,const cv::Mat& image,const cv::Mat& mask):impl_(std::make_unique<Impl>(app,image,mask)) {}
+SharpenBitflipProfileWorkspace::~SharpenBitflipProfileWorkspace()=default;
+const cv::Mat& SharpenBitflipProfileWorkspace::reference() const {return impl_->exact;}
+const SharpenProfileStats& SharpenBitflipProfileWorkspace::stats() const {return impl_->stats;}
+JointBitflipProfile SharpenBitflipProfileWorkspace::profile(const Config& current,int node,int bit,core::MonitorSignal signal) {
+    auto& w=*impl_;using Clock=Impl::Clock;
+    if(node<0 || node>=4) throw std::runtime_error("Invalid fixed profiler node.");
+    core::flipNonSignOutputBit(0,bit);monitored(signal,0,0,0);
+    for(const auto& c:current) {
+        if(c.payload!=core::AttackPayload::BitFlip) throw std::runtime_error("Joint profiler accepts only bit flips.");
+        monitored(c.monitorInput,0,0,0);
+    }
+    // Include complete rows and their order: never reuse a trace across an
+    // execution-relevant change or bypass original application validation.
+    std::ostringstream fingerprint;
+    for(const auto& c:current) fingerprint<<c.nodeId<<':'<<int(c.unit)<<':'<<int(c.payload)<<':'<<int(c.monitorInput)<<':'<<c.bitIndex<<':'<<c.lower<<':'<<c.upper<<';';
+    const auto id=fingerprint.str();
+    if(!w.hasTrace || w.traceKey!=id) {
+        const auto begin=Clock::now();w.hasTrace=false;w.samples.clear();
+        w.app.collectConfiguredAddSamples(w.image,w.mask,current,w.samples);
+        w.stats.traceSeconds+=std::chrono::duration<double>(Clock::now()-begin).count();
+        ++w.stats.traceBuilds;w.traceKey=id;w.hasTrace=true;
+    } else ++w.stats.traceCacheHits;
+    const auto begin=Clock::now();
+    auto result=fixedProfileFor(contextFromSamples(w.app,w.image,w.mask,current,node,w.exact,w.samples,w.nr,w.nn),bit,signal);
+    w.stats.profileSeconds+=std::chrono::duration<double>(Clock::now()-begin).count();return result;
 }
 
 JointBitflipProfile profileJointBitflip(const applications::SharpenApplication& app,const cv::Mat& image,
