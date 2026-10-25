@@ -201,7 +201,7 @@ std::vector<State> retain(const std::vector<State>& input,std::size_t width,doub
 }
 std::vector<State> expand(const applications::SharpenApplication& app,const cv::Mat& image,
     const cv::Mat& mask,const Config& current,int node,const JointBitflipOptions& options,JointBitflipStats& stats) {
-    const auto context=contextFor(app,image,mask,current,node);++stats.contextsBuilt;
+    const auto context=contextFor(app,image,mask,current,node);++stats.contextsBuilt;++stats.contextsByNode.at(node);
     Representatives pool(options.representativeCount,options.globalPsnrThreshold);
     if(!context.invalid) {
         BitflipQuality q;q.roiMse=double(context.er)/context.nr;q.nonRoiMse=double(context.en)/context.nn;
@@ -256,7 +256,8 @@ JointIntervalScore scoreJointInterval(const JointBitflipProfile& profile,int low
 JointBitflipResult searchJointBitflips(const applications::SharpenApplication& app,const cv::Mat& image,
     const cv::Mat& mask,const JointBitflipOptions& options,const std::function<void(const JointBitflipProgress&)>& progress) {
     if(!options.beamWidth || !options.representativeCount || !options.candidatesPerCount || !options.restarts ||
-            options.boundaryBudget==1 || options.bits.empty() || !std::isfinite(options.globalPsnrThreshold))
+            options.boundaryBudget==1 || options.bits.empty() || !std::isfinite(options.globalPsnrThreshold) ||
+            (options.maxContexts && options.maxContexts<4))
         throw std::runtime_error("Invalid joint search options.");
     std::set<int> bits;
     for(int bit:options.bits) {
@@ -268,7 +269,62 @@ JointBitflipResult searchJointBitflips(const applications::SharpenApplication& a
     const State initial{{},result.baseline};
     std::map<std::string,std::vector<State>> cache;
     std::vector<State> archive;
-    for(std::size_t restart=0;restart<options.restarts;++restart) {
+    if(options.maxContexts) {
+        // Build each original-baseline context before allowing beam growth. Keep
+        // representatives separately per native node so early ranking cannot
+        // erase the bootstrap diversity before any joint context is evaluated.
+        std::vector<State> bootstrap{initial};
+        for(int node=0;node<4;++node) {
+            const auto identity=std::to_string(node)+"|";
+            auto found=cache.emplace(identity,expand(app,image,mask,initial.configuration,node,options,result.stats)).first;
+            auto seeds=retain(found->second,options.beamWidth,options.globalPsnrThreshold);
+            bootstrap.insert(bootstrap.end(),seeds.begin(),seeds.end());
+            if(progress) progress({0,0,static_cast<std::size_t>(node),1,1,result.stats});
+        }
+        // Alternate attempts and reserve equal new-context shares for restarts.
+        // Cache hits are free, so different cache-hit rates cannot let one
+        // visitation order consume the other order's remaining context share.
+        std::vector<std::vector<State>> beams(options.restarts,bootstrap);
+        const auto remaining=options.maxContexts-result.stats.contextsBuilt;
+        std::vector<std::size_t> shares(options.restarts,remaining/options.restarts),used(options.restarts,0);
+        for(std::size_t restart=0;restart<remaining%options.restarts;++restart) ++shares[restart];
+        for(std::size_t pass=0;pass<=options.refinementRounds;++pass) {
+            for(std::size_t step=0;step<4;++step) {
+                std::vector<std::vector<State>> expanded=beams;
+                std::vector<std::size_t> done(options.restarts,0);
+                bool pending=true;
+                while(pending) {
+                    pending=false;
+                    for(std::size_t restart=0;restart<options.restarts;++restart) {
+                        if(done[restart]>=beams[restart].size()) continue;
+                        pending=true;
+                        const int node=(restart+pass)%2?3-static_cast<int>(step):static_cast<int>(step);
+                        const auto& state=beams[restart][done[restart]];
+                        const auto identity=std::to_string(node)+"|"+key(without(state.configuration,node));
+                        auto found=cache.find(identity);
+                        if(found!=cache.end()) ++result.stats.cacheHits;
+                        else if(used[restart]<shares[restart]) {
+                            found=cache.emplace(identity,expand(app,image,mask,state.configuration,node,options,result.stats)).first;
+                            ++used[restart];
+                        } else result.stats.contextBudgetExhausted=true;
+                        if(found!=cache.end())
+                            expanded[restart].insert(expanded[restart].end(),found->second.begin(),found->second.end());
+                        ++done[restart];
+                        if(progress) progress({restart,pass,static_cast<std::size_t>(node),done[restart],beams[restart].size(),result.stats});
+                    }
+                }
+                for(std::size_t restart=0;restart<options.restarts;++restart) {
+                    beams[restart]=retain(expanded[restart],options.beamWidth,options.globalPsnrThreshold);
+                    for(const auto& state:beams[restart]) {
+                        if(!feasible(state.metrics,options.globalPsnrThreshold)) ++result.stats.retainedQualityFailures;
+                        if(state.configuration.size()>=2 && feasible(state.metrics,options.globalPsnrThreshold) &&
+                                state.metrics.roiMse>result.baseline.roiMse+1e-10) archive.push_back(state);
+                    }
+                }
+                archive=retain(archive,options.candidatesPerCount,options.globalPsnrThreshold);
+            }
+        }
+    } else for(std::size_t restart=0;restart<options.restarts;++restart) {
         std::vector<State> beam{initial};
         for(std::size_t pass=0;pass<=options.refinementRounds;++pass) {
             std::array<int,4> order{0,1,2,3};

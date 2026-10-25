@@ -13,7 +13,7 @@ struct CircuitBitflipOptions {
 };
 struct CircuitBitflipStats : JointBitflipStats {
     std::uint64_t fullEvaluations=0,proposalsRetained=0;
-    bool contextBudgetExhausted=false,fullBudgetExhausted=false;
+    bool fullBudgetExhausted=false; // contextBudgetExhausted is inherited.
 };
 struct CircuitBitflipResult {
     BitflipQuality baseline;

@@ -62,3 +62,5 @@ bash scripts/rerank_force_active_stage3.sh \
 一次运行前10张图片并精简图片输出，见 [十图批量运行说明](docs/SHARPEN_BITFLIP_BATCH.md)。默认每张图只保存一个候选的输出、ROI对比和背景对比，所有候选的数值指标与消融记录仍然保留。
 
 Conv、Sobel、DCT 三个电路的多节点位反转验证见 [跨电路位反转说明](docs/CIRCUIT_BITFLIP.md)。默认各运行前10张图，每项三张关键图片，原基准和ROI保持不变；本轮入口不执行消融。
+
+锐化的“多图筛选硬件、逐图自适应区间”试验见 [固定硬件与区间校准](docs/SHARPEN_BITFLIP_HARDWARE.md)。先用训练图产生节点/信号/位结构，在筛选图上只搜区间选定结构，最后冻结结构与训练起点库，对新图只更新区间。保留零触发安装节点，无额外使能参数，不执行消融。
