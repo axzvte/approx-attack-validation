@@ -14,6 +14,8 @@ import time
 from run_sharpen_bitflip_hardware import (TABLES,SUMMARY_FIELDS,digest,hardware_key,interval_rows,
     fixed_report,resolve_staged_image_path,split_range)
 from run_sharpen_bitflip_batch import atomic_csv,atomic_json,process,read_csv
+from bitflip_calibration import run_interval_task
+from bitflip_workflow import TaskCache,source_fingerprint
 
 def frozen_source(source):
     run=json.loads((source/"RUN.json").read_text(encoding="utf-8-sig"))
@@ -53,6 +55,10 @@ def frozen_source(source):
     if type(options["global_psnr"]) not in (int,float):raise ValueError("Invalid frozen global PSNR floor")
     floor=float(options["global_psnr"])
     if not math.isfinite(floor) or not 0<=floor<=1000:raise ValueError("Invalid frozen global PSNR floor")
+    if options.get("workflow","reference") not in ("reference","balanced") or options.get("adaptive_intervals","auto") not in ("auto","on","off"):
+        raise ValueError("Invalid frozen interval policy")
+    gain=options.get("adaptive_min_gain",.001)
+    if type(gain) not in (int,float) or not math.isfinite(gain) or not 0<=gain<=1:raise ValueError("Invalid frozen adaptive gain")
     for name in ("train","screen"):
         values=protocol["splits"][name]
         if not values or any(type(x) is not int or not 1<=x<=40 for x in values) or len(set(values))!=len(values) or values!=run["splits"][name]:
@@ -98,10 +104,11 @@ def main(argv=None):
                   splits={**protocol["splits"],"test":images},options={**options,"test":args.test,"image_mode":args.image_mode},
                   frozen_hashes=frozen,hardware_fixed_fields=["node_id","monitor","bit"],adaptive_fields=["lower","upper"],
                   seed_bank_unchanged_after_test=False,visual_status="pending_user_review",ablations="disabled",enable_parameter="absent")
-        statuses=[];best=[];tables={name:[] for name in TABLES}
+        statuses=[];best=[];attempts=[];tables={name:[] for name in TABLES}
         def flush():
             atomic_json(out/"RUN.json",meta);atomic_csv(out/"run_status.csv",statuses,["phase","hardware_id","image","status","returncode","elapsed_seconds","log","detail"])
             atomic_csv(out/"best_per_image.csv",best,SUMMARY_FIELDS+["roi_drop_score"])
+            atomic_csv(out/"interval_attempts.csv",attempts,["phase","hardware_id","image","attempt","status","selected"])
             for name,(_,fields) in TABLES.items():atomic_csv(out/name,tables[name],fields)
         flush()
         for name in frozen:shutil.copyfile(source/name,out/name)
@@ -118,27 +125,25 @@ def main(argv=None):
                                          ["cmake","--build",build,"--target","sharpen_bitflip_fixed",f"-j{args.jobs}"])):
                 if process(command,out/"build.log",root,append=bool(i)):raise RuntimeError("Build failed; see build.log")
         if not fixed.is_file():raise ValueError("Missing fixed-interval executable")
+        calibration_args=argparse.Namespace(**{**options,"workflow":options.get("workflow","reference"),
+            "adaptive_intervals":options.get("adaptive_intervals","auto"),"adaptive_min_gain":options.get("adaptive_min_gain",.001)})
+        cache=TaskCache(out);source_hash=source_fingerprint(root);mask_hash=digest(data/"mask/roi_mask.jpg")
+        meta["interval_policy_inherited"]=True
         meta["test_executed"]=True;begin=time.monotonic();flush()
         for image in images:
             if any(digest(out/name)!=value or digest(source/name)!=value for name,value in frozen.items()):raise ValueError("Frozen source or copied bank changed")
-            relative=f"test/{identity}/image_{image:02d}";report=out/relative;report.parent.mkdir(parents=True,exist_ok=True)
-            log=f"logs/test_{identity}_image_{image:02d}.log";start=time.monotonic()
-            status=dict(phase="test",hardware_id=identity,image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="")
-            try:
-                command=[fixed,data,report,"--hardware",out/"frozen_hardware.csv","--seeds",out/"frozen_seeds.csv","--image",image,
-                         "--beam",options["beam"],"--refinement",options["refinement"],"--restarts",options["restarts"],
-                         "--boundary-budget",options["boundary_budget"],"--context-budget",options["context_budget"],"--global-psnr",options["global_psnr"],"--image-mode",args.image_mode]
-                status["returncode"]=process(command,out/log,root)
-                if status["returncode"]:raise RuntimeError(f"Interval executable returned {status['returncode']}")
-                staged,row=fixed_report(report,image,hardware,args.image_mode,relative,float(options["global_psnr"]))
-                row.update(phase="test",hardware_id=identity)
+            status,row,staged,efforts=run_interval_task(root=root,out=out,data=data,fixed=fixed,application="sharpen",
+                h=dict(hardware_id=identity,key=hardware),image=image,mode=args.image_mode,
+                hardware_path=out/"frozen_hardware.csv",seeds_path=out/"frozen_seeds.csv",args=calibration_args,
+                phase="test",cache=cache,source_hash=source_hash,image_path=resolve_staged_image_path(data,image),
+                mask_hash=mask_hash,report_reader=fixed_report)
+            attempts.extend(efforts)
+            if status["status"]=="completed":
                 for name,rs in staged.items():tables[name].extend({**r,"phase":"test","hardware_id":identity,"image":image} for r in rs)
-                status.update(status="completed",search_status=row["search_status"])
-            except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
-                status.update(status="failed",detail=str(exc));meta["failed_tasks"].append(dict(phase="test",hardware_id=identity,image=image))
-                row=dict(phase="test",hardware_id=identity,image=image,status="run_failed",visual_status="not_available",roi_drop_score=0)
+            else:
+                meta["failed_tasks"].append(dict(phase="test",hardware_id=identity,image=image))
                 tables["summary_all.csv"].append(row)
-            status["elapsed_seconds"]=time.monotonic()-start;statuses.append(status);best.append(row)
+            statuses.append(status);best.append(row)
             meta["test_task_seconds"]+=status["elapsed_seconds"];meta["test_wall_seconds"]=time.monotonic()-begin;flush()
         if any(digest(out/name)!=value or digest(source/name)!=value for name,value in frozen.items()):raise ValueError("Frozen bank changed during retest")
         meta.update(completed=True,all_succeeded=not meta["failed_tasks"],seed_bank_unchanged_after_test=True);flush()

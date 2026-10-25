@@ -195,7 +195,7 @@ table("images.csv",["candidate_id","image_kind","path"],images)
 ''',encoding="utf-8");exe.chmod(0o755)
         return data,source,exe
     def args(self,data,source,exe,out):
-        return [str(data),str(out),"--training-report",str(source),"--train","1:2","--screen","3:4","--test","5:6","--skip-build","--fixed-exe",str(exe),"--max-hardware","0"]
+        return [str(data),str(out),"--training-report",str(source),"--train","1:2","--screen","3:4","--test","5:6","--skip-build","--fixed-exe",str(exe),"--max-hardware","0","--workflow","reference"]
     def test_structure_dedup_ranking_and_test_bank_frozen(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);data,source,exe=self.fixture(root);out=root/"run"

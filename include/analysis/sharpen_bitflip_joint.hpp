@@ -69,12 +69,16 @@ struct JointBitflipOptions {
     std::size_t restarts=2; // Alternating forward/reverse search visitation orders.
     double globalPsnrThreshold=30;
     std::size_t maxContexts=0; // 0 preserves legacy unlimited search; otherwise >=4.
+    bool sensitivityOrder=false; // Heuristic node priority; no node pruning.
 };
 struct JointBitflipStats {
     std::uint64_t contextsBuilt=0,cacheHits=0,evaluatedIntervals=0,rangeRejected=0;
     std::uint64_t retainedQualityFailures=0;
     std::array<std::uint64_t,4> contextsByNode{};
     bool contextBudgetExhausted=false;
+    std::vector<int> sensitivityOrder;
+    std::uint64_t sensitivitySamples=0,traceBuilds=0,traceCacheHits=0;
+    double sensitivitySeconds=0;
 };
 struct JointBitflipProgress {
     std::size_t restart=0,pass=0,node=0,completedStates=0,totalStates=0;

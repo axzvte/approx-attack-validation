@@ -164,7 +164,7 @@ struct Verified {
 
 int main(int argc,char** argv) {
     try {
-        std::string imageMode="compact";bool imageModeSeen=false,contextBudgetSeen=false,noAblations=false;
+        std::string imageMode="compact";bool imageModeSeen=false,contextBudgetSeen=false,noAblations=false,sensitivityOrder=false;
         std::size_t contextBudget=0;
         std::vector<char*> positional{argv[0]};
         for(int i=1;i<argc;++i) {
@@ -175,6 +175,9 @@ int main(int argc,char** argv) {
             } else if(arg=="--context-budget") {
                 if(contextBudgetSeen || i+1>=argc) throw std::runtime_error("Supply --context-budget once with 0 or a value >=4.");
                 contextBudget=contextLimit(argv[++i]);contextBudgetSeen=true;
+            } else if(arg=="--sensitivity-order") {
+                if(sensitivityOrder) throw std::runtime_error("Supply --sensitivity-order at most once.");
+                sensitivityOrder=true;
             } else if(arg=="--no-ablations") {
                 if(noAblations) throw std::runtime_error("Supply --no-ablations at most once.");
                 noAblations=true;
@@ -185,7 +188,7 @@ int main(int argc,char** argv) {
         if(imageMode!="compact" && imageMode!="full" && imageMode!="none")
             throw std::runtime_error("Image mode must be compact, full or none.");
         if(argc<3 || argc>10) throw std::runtime_error(
-            "Usage: sharpen_bitflip_joint DATA_DIR NEW_OUTPUT_DIR [image=1] [beam=4] [refinement=1] [boundary_budget=24] [top_per_count=2] [restarts=2] [global_psnr=30] [--image-mode compact|full|none] [--context-budget N] [--no-ablations]");
+            "Usage: sharpen_bitflip_joint DATA_DIR NEW_OUTPUT_DIR [image=1] [beam=4] [refinement=1] [boundary_budget=24] [top_per_count=2] [restarts=2] [global_psnr=30] [--image-mode compact|full|none] [--context-budget N] [--no-ablations] [--sensitivity-order]");
         const fs::path data=argv[1];fs::path output=fs::absolute(argv[2]);
         while(output.has_relative_path() && (output.filename().empty() || output.filename()==".")) output=output.parent_path();
         const int imageIndex=argc>3?integer(argv[3]):1,beam=argc>4?integer(argv[4]):4;
@@ -204,6 +207,8 @@ int main(int argc,char** argv) {
                  <<"\nimage="<<imageIndex<<"\nbeam_per_node_count="<<beam<<"\nrefinement_rounds="<<rounds
                  <<"\nboundary_budget="<<budget<<"\nrestarts="<<restarts<<"\nglobal_psnr_threshold="<<threshold
                  <<"\ncontext_budget="<<contextBudget<<"\nablations="<<(noAblations?"disabled":"enabled")
+                 <<"\nsensitivity_order="<<sensitivityOrder
+                 <<"\nsensitivity_basis=baseline_stratified_signal_separation_and_relative_raw_disturbance_priority_only"
                  <<"\nimage_mode="<<imageMode
                  <<"\nvisual_status=pending_user_review\n"
                  <<"Bits 0..11 of signed 13-bit outputs; original units and ROI preserved.\n"
@@ -234,7 +239,7 @@ int main(int argc,char** argv) {
         analysis::JointBitflipOptions options;options.beamWidth=beam;options.refinementRounds=rounds;
         options.boundaryBudget=budget;options.restarts=restarts;options.candidatesPerCount=std::max(top*4,8);
         options.globalPsnrThreshold=threshold;
-        options.maxContexts=contextBudget;
+        options.maxContexts=contextBudget;options.sensitivityOrder=sensitivityOrder;
         const auto result=analysis::searchJointBitflips(app,input,mask,options,[&](const auto& progress) {
             std::cout<<"Restart "<<progress.restart+1<<" pass "<<progress.pass+1<<" target A"<<progress.node+1
                      <<" state "<<progress.completedStates<<'/'<<progress.totalStates
@@ -320,11 +325,13 @@ int main(int argc,char** argv) {
         }
         summary.close();configs.close();if(ablations) ablations->close();tiles.close();imageFiles.close();
         auto stats=open(output/"search_stats.csv");
-        stats<<"contexts_built,cache_hits,evaluated_intervals,range_rejected_intervals,retained_intermediate_quality_failures,inactive_collapses,context_budget,context_budget_exhausted,contexts_node_0,contexts_node_1,contexts_node_2,contexts_node_3\n"
+        stats<<"contexts_built,cache_hits,evaluated_intervals,range_rejected_intervals,retained_intermediate_quality_failures,inactive_collapses,context_budget,context_budget_exhausted,contexts_node_0,contexts_node_1,contexts_node_2,contexts_node_3,sensitivity_enabled,sensitivity_samples,sensitivity_seconds,sensitivity_node_order,trace_builds,trace_cache_hits\n"
              <<result.stats.contextsBuilt<<','<<result.stats.cacheHits<<','<<result.stats.evaluatedIntervals<<','<<result.stats.rangeRejected<<','
              <<result.stats.retainedQualityFailures<<','<<collapsed<<','<<contextBudget<<','<<result.stats.contextBudgetExhausted;
         for(auto count:result.stats.contextsByNode) stats<<','<<count;
-        stats<<'\n';stats.close();
+        stats<<','<<sensitivityOrder<<','<<result.stats.sensitivitySamples<<','<<result.stats.sensitivitySeconds<<',';
+        for(std::size_t i=0;i<result.stats.sensitivityOrder.size();++i) stats<<(i?";":"")<<result.stats.sensitivityOrder[i];
+        stats<<','<<result.stats.traceBuilds<<','<<result.stats.traceCacheHits<<'\n';stats.close();
         auto notes=open(output/"RUN.txt",std::ios::out|std::ios::app);
         notes<<"best_numeric_candidate="<<(bestCount?"n"+std::to_string(bestCount)+"_rank1":"none")
              <<"\ncontexts_built="<<result.stats.contextsBuilt<<"\ncontext_budget_exhausted="<<result.stats.contextBudgetExhausted;

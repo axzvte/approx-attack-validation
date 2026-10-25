@@ -1,5 +1,6 @@
 #include "analysis/circuit_bitflip_joint.hpp"
 #include "analysis/circuit_bitflip_fixed.hpp"
+#include "analysis/bitflip_sensitivity.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
@@ -245,8 +246,9 @@ core::AttackConfig attack(int node,int bit,core::MonitorSignal signal,int lo,int
     return {node,approximate::ApproxUnitId::Add12se5RP,signal,lo,hi,core::AttackPayload::BitFlip,bit};
 }
 std::vector<State> expandPixels(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
-    const cv::Mat& reference,const Config& current,int node,const CircuitBitflipOptions& options,CircuitBitflipStats& stats) {
-    const auto context=makeContext(app,image,mask,reference,current,node);++stats.contextsBuilt;
+    const cv::Mat& reference,const Config& current,int node,const CircuitBitflipOptions& options,CircuitBitflipStats& stats,
+    const std::vector<core::AddSample>* cachedSamples=nullptr) {
+    const auto context=makeContext(app,image,mask,reference,current,node,cachedSamples);++stats.contextsBuilt;
     Representatives pool(options.representativeCount,options.globalPsnrThreshold);
     if(!context.invalid) {
         const BitflipQuality q{double(context.roiSse+context.nonSse)/(context.roi+context.non),
@@ -361,8 +363,10 @@ std::vector<Proposal> proposeDct(const std::vector<const core::AddSample*>& targ
 struct Budget {std::uint64_t contexts,full;};
 std::vector<State> expandDct(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
     const cv::Mat& reference,const Config& current,int node,const CircuitBitflipOptions& options,
-    CircuitBitflipStats& stats,const Budget& budget) {
-    std::vector<core::AddSample> samples;app.collectConfiguredAddSamples(image,mask,current,samples);++stats.contextsBuilt;
+    CircuitBitflipStats& stats,const Budget& budget,const std::vector<core::AddSample>* cachedSamples=nullptr) {
+    std::vector<core::AddSample> owned;
+    if(!cachedSamples) {app.collectConfiguredAddSamples(image,mask,current,owned);cachedSamples=&owned;}
+    const auto& samples=*cachedSamples;++stats.contextsBuilt;
     const auto nodes=app.addNodes().size();
     const auto expected=std::size_t((image.rows+7)/8)*std::size_t((image.cols+7)/8)*16*nodes;
     if(samples.size()!=expected) throw std::runtime_error("Unexpected DCT repeated-call trace size.");
@@ -420,6 +424,26 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
     const auto binary=binaryMask(image,mask);const auto reference=app.runExact(image);
     CircuitBitflipResult result;
     result.baseline=measureBitflipQuality(reference,app.runApprox(image,{}),binary);result.stats.fullEvaluations=1;
+    std::vector<core::AddSample> cachedSamples;
+    std::string traceKey;bool hasTrace=false;
+    const auto trace=[&](const Config& current)->const std::vector<core::AddSample>& {
+        std::ostringstream fingerprint;
+        for(const auto& c:current) fingerprint<<c.nodeId<<':'<<int(c.unit)<<':'<<int(c.payload)<<':'<<int(c.monitorInput)<<':'<<c.bitIndex<<':'<<c.lower<<':'<<c.upper<<';';
+        const auto id=fingerprint.str();
+        if(!hasTrace || traceKey!=id) {
+            hasTrace=false;cachedSamples.clear();app.collectConfiguredAddSamples(image,binary,current,cachedSamples);
+            traceKey=id;hasTrace=true;++result.stats.traceBuilds;
+        } else ++result.stats.traceCacheHits;
+        return cachedSamples;
+    };
+    std::vector<int> nodeOrder;for(std::size_t n=0;n<nodes;++n) nodeOrder.push_back(int(n));
+    if(options.sensitivityOrder) {
+        const auto begin=std::chrono::steady_clock::now();
+        const auto priority=prioritizeBitflipNodes(trace({}),nodes,options.bits);
+        nodeOrder=priority.order;result.stats.sensitivityOrder=nodeOrder;
+        for(auto count:priority.sampledPerNode) result.stats.sensitivitySamples+=count;
+        result.stats.sensitivitySeconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
+    }
     const State initial{{},result.baseline};std::vector<State> archive;
     std::map<std::string,std::vector<State>> cache;
     for(std::size_t restart=0;restart<options.restarts;++restart) {
@@ -432,7 +456,7 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
         const Budget budget{share(options.maxContexts),1+share(options.maxFullEvaluations-1)};
         std::vector<State> beam{initial};bool exhausted=false;
         for(std::size_t pass=0;pass<=options.refinementRounds && !exhausted;++pass) {
-            std::vector<int> order;for(std::size_t n=0;n<nodes;++n) order.push_back(int(n));
+            auto order=nodeOrder;
             if((restart+pass)%2) std::reverse(order.begin(),order.end());
             for(int node:order) {
                 std::vector<State> expanded=beam;std::size_t done=0;
@@ -446,8 +470,9 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
                     else {
                         if(result.stats.contextsBuilt>=budget.contexts) {result.stats.contextBudgetExhausted=true;exhausted=true;break;}
                         if(kind==Kind::Dct && result.stats.fullEvaluations>=budget.full) {result.stats.fullBudgetExhausted=true;exhausted=true;break;}
-                        auto states=kind==Kind::Dct?expandDct(app,image,binary,reference,state.configuration,node,options,result.stats,budget):
-                            expandPixels(app,image,binary,reference,state.configuration,node,options,result.stats);
+                        const auto& currentSamples=trace(state.configuration);
+                        auto states=kind==Kind::Dct?expandDct(app,image,binary,reference,state.configuration,node,options,result.stats,budget,&currentSamples):
+                            expandPixels(app,image,binary,reference,state.configuration,node,options,result.stats,&currentSamples);
                         // A partial DCT expansion is not reusable as a completed
                         // context under the next restart's larger budget.
                         if(kind!=Kind::Dct || result.stats.fullEvaluations<budget.full) cache.emplace(identity,states);

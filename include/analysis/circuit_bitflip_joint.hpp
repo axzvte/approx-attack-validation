@@ -10,6 +10,7 @@ struct CircuitBitflipOptions {
     double globalPsnrThreshold=30;
     std::size_t maxActiveNodes=0; // Zero permits all native static nodes.
     std::size_t maxContexts=256,maxFullEvaluations=4096,dctFullCandidates=16;
+    bool sensitivityOrder=false; // Same baseline-only heuristic as Sharpen.
 };
 struct CircuitBitflipStats : JointBitflipStats {
     std::uint64_t fullEvaluations=0,proposalsRetained=0;

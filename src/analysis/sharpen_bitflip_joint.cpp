@@ -1,4 +1,5 @@
 #include "analysis/sharpen_bitflip_joint.hpp"
+#include "analysis/bitflip_sensitivity.hpp"
 #include "core/output_bitflip.hpp"
 #include "region/region_mask.hpp"
 #include <algorithm>
@@ -120,6 +121,35 @@ Context contextFor(const applications::SharpenApplication& app,const cv::Mat& im
         region_mask::isImportantPixel(mask,r,c)?++nr:++nn;
     return contextFromSamples(app,image,mask,current,node,reference,samples,nr,nn);
 }
+struct FreeProfileWorkspace {
+    const applications::SharpenApplication& app;
+    const cv::Mat& image;
+    const cv::Mat& mask;
+    cv::Mat reference;
+    std::vector<core::AddSample> samples;
+    std::string traceKey;
+    bool hasTrace=false;
+    std::uint64_t nr=0,nn=0;
+    JointBitflipStats& stats;
+    FreeProfileWorkspace(const applications::SharpenApplication& a,const cv::Mat& im,const cv::Mat& m,JointBitflipStats& s):
+        app(a),image(im),mask(m),reference(a.runExact(im)),stats(s) {
+        for(int r=0;r<image.rows;++r) for(int c=0;c<image.cols;++c)
+            region_mask::isImportantPixel(mask,r,c)?++nr:++nn;
+    }
+    const std::vector<core::AddSample>& trace(const Config& current) {
+        std::ostringstream fingerprint;
+        for(const auto& c:current) fingerprint<<c.nodeId<<':'<<int(c.unit)<<':'<<int(c.payload)<<':'<<int(c.monitorInput)<<':'<<c.bitIndex<<':'<<c.lower<<':'<<c.upper<<';';
+        const auto id=fingerprint.str();
+        if(!hasTrace || traceKey!=id) {
+            hasTrace=false;samples.clear();app.collectConfiguredAddSamples(image,mask,current,samples);
+            traceKey=id;hasTrace=true;++stats.traceBuilds;
+        } else ++stats.traceCacheHits;
+        return samples;
+    }
+    Context context(const Config& current,int node) {
+        return contextFromSamples(app,image,mask,current,node,reference,trace(current),nr,nn);
+    }
+};
 JointBitflipProfile fixedProfileFor(const Context& context,int bit,core::MonitorSignal signal) {
     core::flipNonSignOutputBit(0,bit);monitored(signal,0,0,0);
     JointBitflipProfile out;out.others=context.others;out.node=context.node;out.bit=bit;out.monitor=signal;
@@ -226,9 +256,10 @@ std::vector<State> retain(const std::vector<State>& input,std::size_t width,doub
     }
     return out;
 }
-std::vector<State> expand(const applications::SharpenApplication& app,const cv::Mat& image,
-    const cv::Mat& mask,const Config& current,int node,const JointBitflipOptions& options,JointBitflipStats& stats) {
-    const auto context=contextFor(app,image,mask,current,node);++stats.contextsBuilt;++stats.contextsByNode.at(node);
+std::vector<State> expand(const applications::SharpenApplication& app,
+    const Config& current,int node,const JointBitflipOptions& options,JointBitflipStats& stats,
+    FreeProfileWorkspace& workspace) {
+    const auto context=workspace.context(current,node);++stats.contextsBuilt;++stats.contextsByNode.at(node);
     Representatives pool(options.representativeCount,options.globalPsnrThreshold);
     if(!context.invalid) {
         BitflipQuality q;q.roiMse=double(context.er)/context.nr;q.nonRoiMse=double(context.en)/context.nn;
@@ -341,7 +372,16 @@ JointBitflipResult searchJointBitflips(const applications::SharpenApplication& a
         if(!bits.insert(bit).second) throw std::runtime_error("Duplicate joint candidate bit.");
     }
     JointBitflipResult result;
-    result.baseline=measureBitflipQuality(app.runExact(image),app.runApprox(image,{}),mask);
+    FreeProfileWorkspace workspace(app,image,mask,result.stats);
+    result.baseline=measureBitflipQuality(workspace.reference,app.runApprox(image,{}),mask);
+    std::vector<int> nodeOrder{0,1,2,3};
+    if(options.sensitivityOrder) {
+        const auto begin=std::chrono::steady_clock::now();
+        const auto priority=prioritizeBitflipNodes(workspace.trace({}),4,options.bits);
+        nodeOrder=priority.order;result.stats.sensitivityOrder=nodeOrder;
+        for(auto count:priority.sampledPerNode) result.stats.sensitivitySamples+=count;
+        result.stats.sensitivitySeconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
+    }
     const State initial{{},result.baseline};
     std::map<std::string,std::vector<State>> cache;
     std::vector<State> archive;
@@ -350,9 +390,9 @@ JointBitflipResult searchJointBitflips(const applications::SharpenApplication& a
         // representatives separately per native node so early ranking cannot
         // erase the bootstrap diversity before any joint context is evaluated.
         std::vector<State> bootstrap{initial};
-        for(int node=0;node<4;++node) {
+        for(int node:nodeOrder) {
             const auto identity=std::to_string(node)+"|";
-            auto found=cache.emplace(identity,expand(app,image,mask,initial.configuration,node,options,result.stats)).first;
+            auto found=cache.emplace(identity,expand(app,initial.configuration,node,options,result.stats,workspace)).first;
             auto seeds=retain(found->second,options.beamWidth,options.globalPsnrThreshold);
             bootstrap.insert(bootstrap.end(),seeds.begin(),seeds.end());
             if(progress) progress({0,0,static_cast<std::size_t>(node),1,1,result.stats});
@@ -374,13 +414,13 @@ JointBitflipResult searchJointBitflips(const applications::SharpenApplication& a
                     for(std::size_t restart=0;restart<options.restarts;++restart) {
                         if(done[restart]>=beams[restart].size()) continue;
                         pending=true;
-                        const int node=(restart+pass)%2?3-static_cast<int>(step):static_cast<int>(step);
+                        const int node=nodeOrder[(restart+pass)%2?3-step:step];
                         const auto& state=beams[restart][done[restart]];
                         const auto identity=std::to_string(node)+"|"+key(without(state.configuration,node));
                         auto found=cache.find(identity);
                         if(found!=cache.end()) ++result.stats.cacheHits;
                         else if(used[restart]<shares[restart]) {
-                            found=cache.emplace(identity,expand(app,image,mask,state.configuration,node,options,result.stats)).first;
+                            found=cache.emplace(identity,expand(app,state.configuration,node,options,result.stats,workspace)).first;
                             ++used[restart];
                         } else result.stats.contextBudgetExhausted=true;
                         if(found!=cache.end())
@@ -403,14 +443,14 @@ JointBitflipResult searchJointBitflips(const applications::SharpenApplication& a
     } else for(std::size_t restart=0;restart<options.restarts;++restart) {
         std::vector<State> beam{initial};
         for(std::size_t pass=0;pass<=options.refinementRounds;++pass) {
-            std::array<int,4> order{0,1,2,3};
+            auto order=nodeOrder;
             if((restart+pass)%2) std::reverse(order.begin(),order.end());
             for(int node:order) {
                 std::vector<State> expanded=beam;std::size_t done=0;
                 for(const auto& state:beam) {
                     const auto identity=std::to_string(node)+"|"+key(without(state.configuration,node));
                     auto found=cache.find(identity);
-                    if(found==cache.end()) found=cache.emplace(identity,expand(app,image,mask,state.configuration,node,options,result.stats)).first;
+                    if(found==cache.end()) found=cache.emplace(identity,expand(app,state.configuration,node,options,result.stats,workspace)).first;
                     else ++result.stats.cacheHits;
                     expanded.insert(expanded.end(),found->second.begin(),found->second.end());
                     if(progress) progress({restart,pass,static_cast<std::size_t>(node),++done,beam.size(),result.stats});

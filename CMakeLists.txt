@@ -121,6 +121,9 @@ add_test(NAME circuit_bitflip COMMAND test_circuit_bitflip)
 add_executable(test_circuit_bitflip_joint tests/test_circuit_bitflip_joint.cpp)
 target_link_libraries(test_circuit_bitflip_joint PRIVATE approx_framework)
 add_test(NAME circuit_bitflip_joint COMMAND test_circuit_bitflip_joint)
+add_executable(test_bitflip_sensitivity tests/test_bitflip_sensitivity.cpp)
+target_link_libraries(test_bitflip_sensitivity PRIVATE approx_framework)
+add_test(NAME bitflip_sensitivity COMMAND test_bitflip_sensitivity)
 
 add_executable(sharpen_bitflip_joint app/sharpen_bitflip_joint.cpp)
 target_link_libraries(sharpen_bitflip_joint PRIVATE approx_framework)
@@ -147,6 +150,10 @@ if(UNIX)
             $<TARGET_FILE:sharpen_bitflip_fixed>)
         add_test(NAME sharpen_bitflip_hardware_pipeline
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_hardware_pipeline.py)
+        add_test(NAME bitflip_workflow
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_workflow.py)
+        add_test(NAME bitflip_workflow_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_workflow_pipeline.py)
         add_test(NAME sharpen_bitflip_coverage_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_coverage_cli.py
             $<TARGET_FILE:sharpen_bitflip_joint>)
