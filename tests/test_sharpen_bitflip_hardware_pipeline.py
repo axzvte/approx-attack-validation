@@ -14,6 +14,8 @@ script=Path(__file__).resolve().parents[1]/"scripts/run_sharpen_bitflip_hardware
 sys.path.insert(0,str(script.parent))
 spec=importlib.util.spec_from_file_location("hardware_pipeline",script)
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+retest_spec=importlib.util.spec_from_file_location("hardware_retest",script.with_name("retest_sharpen_bitflip_hardware.py"))
+retest=importlib.util.module_from_spec(retest_spec);retest_spec.loader.exec_module(retest)
 
 def table(path,fields,rows):
     with path.open("w",newline="") as f:
@@ -22,6 +24,75 @@ def read(path):
     with path.open(newline="") as f:return list(csv.DictReader(f))
 
 class PipelineTests(unittest.TestCase):
+    def test_flat_inputs_and_missing_test_preflight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root)
+            self.assertEqual(module.resolve_staged_image_path(data,31),data/"stage4/image_31.jpg")
+            nested=data/"stage4/input/image_31.jpg";nested.parent.mkdir();nested.write_bytes(b"fixture")
+            self.assertEqual(module.resolve_staged_image_path(data,31),nested)
+            (data/"stage1/input/image_06.jpg").unlink()
+            out=root/"missing"
+            self.assertEqual(module.main(self.args(data,source,exe,out)),1)
+            self.assertFalse(out.exists(),"Missing test path must be caught before expensive screening")
+    def test_retest_uses_frozen_hardware_without_rerunning_screening(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root);first=root/"first"
+            self.assertEqual(module.main(self.args(data,source,exe,first)+["--beam","2","--restarts","1","--boundary-budget","4","--context-budget","5"]),0)
+            origin=json.loads((first/"RUN.json").read_text());origin["all_succeeded"]=False
+            (first/"RUN.json").write_text(json.dumps(origin))  # Prior tests may fail after a valid freeze.
+            (root/"fail_screen").write_text("Any repeated screening would fail")
+            exe.write_text(exe.read_text()+'\nif image>=31:\n assert opts["--beam"]=="2" and opts["--restarts"]=="1" and opts["--refinement"]=="1"\n assert opts["--boundary-budget"]=="4" and opts["--context-budget"]=="5" and float(opts["--global-psnr"])==30\n')
+            out=root/"retest"
+            argv=[str(data),str(first),str(out),"--skip-build","--fixed-exe",str(exe)]
+            self.assertEqual(retest.main(argv),0)
+            run=json.loads((out/"RUN.json").read_text());self.assertTrue(run["all_succeeded"])
+            self.assertTrue(run["screening_reused"]);self.assertEqual(run["screen_task_count"],0)
+            self.assertEqual(run["options"]["beam"],2);self.assertEqual(run["options"]["context_budget"],5)
+            self.assertEqual([int(r["image"]) for r in read(out/"best_per_image.csv")],list(range(31,41)))
+            self.assertEqual(len(read(out/"images_all.csv")),30)
+            for name in ("frozen_hardware.csv","frozen_seeds.csv"):
+                self.assertEqual((out/name).read_bytes(),(first/name).read_bytes())
+            self.assertTrue(all(r["phase"]=="test" for r in read(out/"run_status.csv")))
+            self.assertEqual(retest.main(argv),1)
+            overlap=[str(data),str(first),str(root/"overlap"),"--test","3:4","--skip-build","--fixed-exe",str(exe)]
+            self.assertEqual(retest.main(overlap),1);self.assertFalse((root/"overlap").exists())
+            (first/"frozen_seeds.csv").write_text("tampered")
+            argv[2]=str(root/"tampered")
+            self.assertEqual(retest.main(argv),1);self.assertFalse((root/"tampered").exists())
+    def test_retest_copied_bank_change_stops_next_image_without_changing_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root);first=root/"first"
+            self.assertEqual(module.main(self.args(data,source,exe,first)),0)
+            original=(first/"frozen_seeds.csv").read_bytes()
+            exe.write_text(exe.read_text()+'\nif image==31:Path(opts["--seeds"]).write_text("tampered copied bank")\n')
+            out=root/"copied_bank_mutation"
+            self.assertEqual(retest.main([str(data),str(first),str(out),"--skip-build","--fixed-exe",str(exe)]),1)
+            self.assertEqual([int(r["image"]) for r in read(out/"best_per_image.csv")],[31])
+            self.assertEqual((first/"frozen_seeds.csv").read_bytes(),original)
+            run=json.loads((out/"RUN.json").read_text());self.assertFalse(run["completed"])
+            self.assertFalse((out/f"logs/test_{run['selected_hardware_id']}_image_32.log").exists())
+    def test_retest_rejects_builds_in_references_and_non_training_seed_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,source,exe=self.fixture(root);first=root/"first"
+            self.assertEqual(module.main(self.args(data,source,exe,first)),0)
+            original=(first/"frozen_seeds.csv").read_bytes()
+            for index,build in enumerate((first,first/"build",data/"build")):
+                out=root/f"bad_build_{index}"
+                with patch.object(retest,"process") as process_call:
+                    self.assertEqual(retest.main([str(data),str(first),str(out),"--build-dir",str(build)]),1)
+                    process_call.assert_not_called()
+                self.assertFalse(out.exists());self.assertEqual((first/"frozen_seeds.csv").read_bytes(),original)
+            seeds=read(first/"frozen_seeds.csv")
+            for row in seeds:row["seed_id"]=row["seed_id"].replace("train_01_","train_03_")
+            table(first/"frozen_seeds.csv",list(seeds[0]),seeds)
+            origin=json.loads((first/"RUN.json").read_text());protocol=json.loads((first/"frozen_protocol.json").read_text())
+            changed=module.digest(first/"frozen_seeds.csv")
+            origin["frozen_hashes"]["frozen_seeds.csv"]=changed;protocol["frozen_hashes"]["frozen_seeds.csv"]=changed
+            protocol["training_bank_hashes"][f"hardware/{origin['selected_hardware_id']}/seeds.csv"]=changed
+            (first/"RUN.json").write_text(json.dumps(origin));(first/"frozen_protocol.json").write_text(json.dumps(protocol))
+            out=root/"non_training_seed"
+            self.assertEqual(retest.main([str(data),str(first),str(out),"--skip-build","--fixed-exe",str(exe)]),1)
+            self.assertFalse(out.exists(),"Hash-consistent seeds from screening images must still be rejected")
     def test_closing_scheduler_cancels_queue_and_waits_for_active_tasks(self):
         active=threading.Event();release=threading.Event();cancelled=threading.Event();closed=threading.Event()
         started=[];errors=[]
@@ -78,6 +149,9 @@ class PipelineTests(unittest.TestCase):
                     self.assertEqual((outputs[0]/f"test/h0001/image_{image:02d}"/name).read_bytes(),(outputs[1]/f"test/h0001/image_{image:02d}"/name).read_bytes())
     def fixture(self,root):
         data=root/"data";(data/"mask").mkdir(parents=True);(data/"mask/roi_mask.jpg").write_bytes(b"fixture")
+        for image in range(1,41):
+            folder=data/(f"stage{(image-1)//10+1}" if image>=31 else f"stage{(image-1)//10+1}/input")
+            folder.mkdir(parents=True,exist_ok=True);(folder/f"image_{image:02d}.jpg").write_bytes(b"fixture")
         source=root/"training";source.mkdir()
         summaries=[];configs=[]
         for image in (1,2):
@@ -252,4 +326,3 @@ table("images.csv",["candidate_id","image_kind","path"],images)
             self.assertFalse(run["completed"])
             self.assertFalse((out/f"logs/test_{run['selected_hardware_id']}_image_06.log").exists())
 if __name__=="__main__":unittest.main()
-

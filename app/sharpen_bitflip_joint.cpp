@@ -219,8 +219,7 @@ int main(int argc,char** argv) {
                  <<"Per-image exploratory heuristic search; no optimality, unseen-data or synthesis claim.\n";
             notes.close();
         }
-        std::ostringstream index;index<<std::setw(2)<<std::setfill('0')<<imageIndex;
-        const auto input=image_io::loadGrayImage((data/("stage"+std::to_string((imageIndex-1)/10+1))/"input"/("image_"+index.str()+".jpg")).string());
+        const auto input=image_io::loadGrayImage(image_io::resolveStagedImagePath(data.string(),imageIndex));
         const auto mask=region_mask::resizeMaskToImage(image_io::loadGrayImage((data/"mask/roi_mask.jpg").string()),input);
         const applications::SharpenApplication app;
         const auto exact=app.runExact(input),baseline=app.runApprox(input,{});

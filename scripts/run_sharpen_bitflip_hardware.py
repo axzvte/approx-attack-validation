@@ -27,6 +27,14 @@ TABLES={"summary_all.csv":("summary.csv",SUMMARY_FIELDS),
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
+def resolve_staged_image_path(data,image):
+    if not 1<=image<=40:raise ValueError("Image index must stay in1..40")
+    stage=data/f"stage{(image-1)//10+1}";name=f"image_{image:02d}.jpg"
+    nested,flat=stage/"input"/name,stage/name
+    if nested.is_file():return nested
+    if flat.is_file():return flat
+    raise ValueError(f"Missing input image; checked: {nested} and {flat}")
+
 def split_range(text):
     values=text.split(":")
     if len(values)!=2:raise ValueError("Split must be an inclusive FIRST:LAST range")
@@ -228,6 +236,9 @@ def main(argv=None):
         fixed=args.fixed_exe.resolve() if args.fixed_exe else build/"sharpen_bitflip_fixed"
         discovery=args.discovery_exe.resolve() if args.discovery_exe else build/"sharpen_bitflip_joint"
         if not (data/"mask/roi_mask.jpg").is_file():raise ValueError("Missing original ROI mask")
+        # Check names/existence only, before expensive screening; do not inspect
+        # held-out pixels or use them in hardware selection.
+        for image in screen+test+([] if args.training_report else train):resolve_staged_image_path(data,image)
         source=args.training_report.resolve() if args.training_report else out/"training"
         if args.training_report:
             pool,order=training_pool(source,train,args.global_psnr)  # Validate source leakage before owning output.

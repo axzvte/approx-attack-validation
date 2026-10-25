@@ -4,6 +4,27 @@
 
 编写方只完成代码、测试编写和静态审查；没有编译、执行测试或运行实验。下面命令由用户在Linux/WSL仓库根目录执行。
 
+## 已选出硬件但stage4读图失败：只补跑测试
+
+若之前的`RUN.json`已选定H*，但31～40因目录布局读图失败，不用重新训练或筛选。更新代码后运行：
+
+```bash
+git fetch origin
+git switch feature/sharpen-bitflip
+git pull --ff-only origin feature/sharpen-bitflip
+
+python3 scripts/retest_sharpen_bitflip_hardware.py \
+  data \
+  results/bitflip/sharpen_fixed_hardware_fast_stage4_20261025 \
+  results/bitflip/sharpen_fixed_hardware_stage4_retest_20261025
+```
+
+补跑入口只构建固定区间目标、校验来源协议及冻结文件哈希，继承原区间搜索参数、节点/信号/位和训练起点库，测试默认31～40；不会重新选择硬件。来源`all_succeeded=false`可以是此前测试失败，但必须已完成协议并选定硬件，冻结文件须与原`frozen_protocol.json`一致。测试图片不得与原训练/筛选图重叠。每张图开始前及全部结束后核对来源和复制后的冻结文件。来源目录只读，输出必须是独立新目录。
+
+图片清单在新目录`images_all.csv`，实际PNG位于`test/h0023/image_31/`等逐图目录，硬件编号以来源为准。默认compact仅对数值达标状态导出结果、ROI对比和背景对比；`--image-mode full`也能导出未达标合法状态的诊断图。读图/执行失败不会伪造图片或指标。
+
+新`RUN.json`标记`screening_reused=true`、`screen_task_count=0`，原筛选耗时保留为`source_screen_wall_seconds`；本次`screen_wall_seconds=0`仅表示没有重新筛选，不能当作新的加速成绩。原筛选排名复制用于溯源，测试结果与状态表全部重新生成。
+
 ## 推荐：复用已有十图训练结果
 
 ```bash
@@ -38,7 +59,7 @@ python3 scripts/run_sharpen_bitflip_hardware.py \
 
 测试时重新搜索区间是协议的一部分，不是重新选硬件。不能根据测试结果反选节点、信号或位，也不能把前一张测试图的新区间加入后一张图的起点库。
 
-可用 `--train 1:10 --screen 11:20 --test 31:40` 显式设置分组；参数是包含两端的范围，支持1～40。固定区间入口和自由发现入口均按每10张映射stage目录，因此31～40读取`data/stage4/input/image_31.jpg`至`image_40.jpg`。本轮21～30不参与硬件选择或最终测试。较小的互斥范围可用于用户侧试跑，但不能把单张筛选结果当作跨图稳定性证据。
+可用 `--train 1:10 --screen 11:20 --test 31:40` 显式设置分组；参数是包含两端的范围，支持1～40。固定区间入口和自由发现入口均按每10张映射stage目录：优先查找`data/stageN/input/image_NN.jpg`，不存在时查找`data/stageN/image_NN.jpg`。因此截图中的`data/stage4/image_31.jpg`至`image_40.jpg`可以直接使用，不需要移动图片；两处都存在时优先input目录。批量入口在创建输出或构建/筛选前只检查所需路径存在，不读取测试像素。本轮21～30不参与硬件选择或最终测试。较小的互斥范围可用于用户侧试跑，但不能把单张筛选结果当作跨图稳定性证据。
 
 ## 硬件筛选效率
 

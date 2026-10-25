@@ -47,6 +47,13 @@ with tempfile.TemporaryDirectory() as tmp:
         (data/f"stage4/input/image_{image:02d}.jpg").write_bytes((data/"stage1/input/image_01.jpg").read_bytes())
         stage4=root/f"stage4_{image}";run(data,stage4,hardware,*common,"--image",image,"--image-mode","none")
         assert metrics(stage4)==metrics(out),"Stage4 must load its own numbered image"
+        (data/f"stage4/image_{image:02d}.jpg").write_bytes(b"invalid alternate image: nested path must win")
+        both=root/f"both_stage4_{image}";run(data,both,hardware,*common,"--image",image,"--image-mode","none")
+        assert metrics(both)==metrics(out),"When both files exist, nested input must have priority"
+        (data/f"stage4/input/image_{image:02d}.jpg").unlink()
+        (data/f"stage4/image_{image:02d}.jpg").write_bytes((data/"stage1/input/image_01.jpg").read_bytes())
+        flat=root/f"flat_stage4_{image}";run(data,flat,hardware,*common,"--image",image,"--image-mode","none")
+        assert metrics(flat)==metrics(out),"Flat stage4 must be supported without moving user files"
     run(data,root/"bad_image",hardware,*common,"--image",41,ok=False)
     original=(out/"summary.csv").read_bytes();run(data,out,hardware,*common,ok=False)
     assert original==(out/"summary.csv").read_bytes()

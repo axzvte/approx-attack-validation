@@ -41,6 +41,11 @@ with tempfile.TemporaryDirectory(prefix="joint-coverage-cli-") as temporary:
     run(data,stage4,40,1,0,4,1,2,0,"--context-budget",4,"--no-ablations","--image-mode","none")
     assert (stage4/"summary.csv").read_bytes()==(bounded/"summary.csv").read_bytes()
     assert "image=40" in (stage4/"RUN.txt").read_text()
+    (data/"stage4/input/image_40.jpg").unlink()
+    (data/"stage4/image_40.jpg").write_bytes((data/"stage1/input/image_01.jpg").read_bytes())
+    flat=root/"flat_stage4"
+    run(data,flat,40,1,0,4,1,2,0,"--context-budget",4,"--no-ablations","--image-mode","none")
+    assert (flat/"summary.csv").read_bytes()==(bounded/"summary.csv").read_bytes()
     run(data,root/"bad41",41,ok=False)
     # With identical search settings, disabling ablations changes no source reports.
     default = root / "default"
