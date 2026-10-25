@@ -74,7 +74,7 @@ int main(int argc,char** argv){try{
     for(int i=4;i<argc;i+=2){const std::string flag=argv[i];if(!allowed.count(flag)||i+1>=argc||!flags.emplace(flag,argv[i+1]).second)throw std::runtime_error("Unknown, duplicate or incomplete option: "+flag);}
     auto value=[&](const std::string& key,int fallback,int lo,int hi){const int n=flags.count(key)?integer(flags.at(key)):fallback;if(n<lo||n>hi)throw std::runtime_error("Invalid "+key);return n;};
     analysis::CircuitBitflipOptions options;
-    const int image=value("--image",1,1,30),top=value("--top-per-count",2,1,10),nodes=static_cast<int>(app->addNodes().size());
+    const int image=value("--image",1,1,40),top=value("--top-per-count",2,1,10),nodes=static_cast<int>(app->addNodes().size());
     options.beamWidth=value("--beam",4,1,64);options.refinementRounds=value("--refinement",1,0,10);options.boundaryBudget=value("--boundary-budget",24,0,8192);
     if(options.boundaryBudget==1)throw std::runtime_error("Boundary budget must be0 or>=2.");
     options.restarts=value("--restarts",2,1,8);options.maxActiveNodes=value("--max-active",0,0,nodes);if(options.maxActiveNodes==1)throw std::runtime_error("Multi-node search needs max-active0 or>=2.");
@@ -86,8 +86,7 @@ int main(int argc,char** argv){try{
     const fs::path data=fs::absolute(argv[2]);fs::path output=fs::absolute(argv[3]);while(output.has_relative_path()&&(output.filename().empty()||output.filename()=="."))output=output.parent_path();fs::create_directories(output.parent_path());if(!fs::create_directory(output))throw std::runtime_error("Output already exists; use a new directory.");
     {auto run=open(output/"RUN.txt");run<<"completed=0\napplication="<<application<<"\nimage="<<image<<"\nimage_mode="<<imageMode<<"\nbaseline=original_application_default\nmask_threshold=128\noutput_bits=signed13_non_sign_0..11\nreference=application_exact_output\nablations=disabled\n"
         <<"beam="<<options.beamWidth<<"\nrefinement="<<options.refinementRounds<<"\nboundary_budget="<<options.boundaryBudget<<"\nrestarts="<<options.restarts<<"\ntop_per_count="<<top<<"\nmax_active="<<options.maxActiveNodes<<"\nmax_contexts="<<options.maxContexts<<"\nmax_full_evaluations="<<options.maxFullEvaluations<<"\ndct_full_candidates="<<options.dctFullCandidates<<"\nglobal_psnr_threshold="<<number(options.globalPsnrThreshold)<<"\nbits=";for(std::size_t i=0;i<options.bits.size();++i)run<<(i?",":"")<<options.bits[i];run<<"\nroi="<<(data/"mask/roi_mask.jpg").string()<<"\nvisual_status=pending_user_review\nPer-image exploratory joint search; no frozen-hardware/generalization/optimality claim.\nComparisons: exact / baseline / joint. DCT uses complete reconstructed-image metrics.\n";run.close();}
-    std::ostringstream index;index<<std::setw(2)<<std::setfill('0')<<image;
-    const auto input=image_io::loadGrayImage((data/("stage"+std::to_string((image-1)/10+1))/"input"/("image_"+index.str()+".jpg")).string());
+    const auto input=image_io::loadGrayImage(image_io::resolveStagedImagePath(data.string(),image));
     const auto mask=region_mask::resizeMaskToImage(image_io::loadGrayImage((data/"mask/roi_mask.jpg").string()),input);
     const auto exact=app->runExact(input),baseline=app->runApprox(input,{});const auto baselineQuality=analysis::measureBitflipQuality(exact,baseline,mask);
     std::set<std::size_t> contextNodes;std::uint64_t lastContexts=0;

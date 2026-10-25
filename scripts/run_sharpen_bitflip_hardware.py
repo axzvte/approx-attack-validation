@@ -19,6 +19,7 @@ import time
 from run_sharpen_bitflip_batch import atomic_csv, atomic_json, process, read_csv
 
 MONITORS={"input1","input2","baseline_output"}
+APPLICATION_NODES={"sharpen":4,"conv":8,"sobel":11,"dct":32}
 SUMMARY_FIELDS=["phase","hardware_id","image","candidate_id","status","installed_nodes","triggered_nodes","visual_status","search_status"]
 TABLES={"summary_all.csv":("summary.csv",SUMMARY_FIELDS),
         "configurations_all.csv":("configurations.csv",["hardware_id","image","candidate_id","node_id","monitor","bit"]),
@@ -42,18 +43,18 @@ def split_range(text):
     if not 1<=first<=last<=40:raise ValueError("Image split must stay in1..40")
     return list(range(first,last+1))
 
-def hardware_key(rows):
+def hardware_key(rows,native_nodes=4):
     result=[];seen=set()
     for row in rows:
         node=int(row["node_id"]);bit=int(row["bit"]);monitor=row["monitor"]
-        if node not in range(4) or bit not in range(12) or monitor not in MONITORS or node in seen:
+        if node not in range(native_nodes) or bit not in range(12) or monitor not in MONITORS or node in seen:
             raise ValueError("Invalid/duplicate hardware node, monitor or bit")
         seen.add(node);result.append((node,monitor,bit))
-    if not 2<=len(result)<=4:raise ValueError("A structure needs2..4 installed nodes")
+    if not 2<=len(result)<=native_nodes:raise ValueError(f"A structure needs2..{native_nodes} installed nodes")
     return tuple(sorted(result))
 
-def interval_rows(rows):
-    key=hardware_key(rows);out=[]
+def interval_rows(rows,native_nodes=4):
+    key=hardware_key(rows,native_nodes);out=[]
     for r in rows:
         lo,hi=int(r["lower"]),int(r["upper"])
         mn,mx=(-4096,4095) if r["monitor"]=="baseline_output" else (-2048,2047)
@@ -71,7 +72,7 @@ def drop_score(baseline_mse,selected_mse):
     def psnr(mse):return min(100.0,10*math.log10(65025/mse)) if mse else 100.0
     return max(0.0,psnr(baseline_mse)-psnr(selected_mse))
 
-def training_pool(report,indices,floor):
+def training_pool(report,indices,floor,application="sharpen",native_nodes=4):
     if (report/"RUN.json").is_file():
         source_run=json.loads((report/"RUN.json").read_text(encoding="utf-8-sig"))
         if source_run.get("completed") is not True or source_run.get("all_succeeded") is not True:
@@ -81,8 +82,14 @@ def training_pool(report,indices,floor):
     allowed=set(indices);baselines={};groups={};source_ids=set();source_status={}
     for row in summaries+configs:
         if int(row["image"]) not in allowed:raise ValueError("Training report contains screening/test/out-of-split images")
-        if "application" in row and row["application"].lower() not in ("sharpen","sharpening"):
-            raise ValueError("Training report must belong to Sharpening")
+        app=row.get("application","sharpen").lower()
+        if app=="sharpening":app="sharpen"
+        if app not in APPLICATION_NODES or (application=="sharpen" and app!="sharpen"):
+            raise ValueError("Training report has an unsupported application")
+        if application!="sharpen" and "application" not in row:raise ValueError("Circuit training sources must identify the application")
+    if application!="sharpen":
+        summaries=[r for r in summaries if r["application"].lower()==application]
+        configs=[r for r in configs if r["application"].lower()==application]
     for row in summaries:
         image=int(row["image"]);identity=(image,row["candidate_id"])
         if identity in source_ids:raise ValueError("Duplicate training summary candidate")
@@ -95,7 +102,7 @@ def training_pool(report,indices,floor):
             baselines[image]=finite_nonnegative(row,"roi_mse")
     if set(baselines)!=allowed:raise ValueError("Every training image requires a completed baseline report")
     for r in configs:
-        if "node_name" in r and r["node_name"]!=f"A{int(r['node_id'])+1}":raise ValueError("Non-Sharpening training node name")
+        if application=="sharpen" and "node_name" in r and r["node_name"]!=f"A{int(r['node_id'])+1}":raise ValueError("Non-Sharpening training node name")
         identity=(int(r["image"]),r["candidate_id"])
         if identity not in source_ids or source_status[identity]!="numeric_eligible":
             raise ValueError("Training configuration is not attached to a numeric candidate")
@@ -105,7 +112,7 @@ def training_pool(report,indices,floor):
         if row["status"]!="numeric_eligible":continue
         image=int(row["image"]);g=finite_nonnegative(row,"global_mse");roi=finite_nonnegative(row,"roi_mse")
         if g>65025*10**(-floor/10)*(1+1e-10) or roi<=baselines[image]+1e-10:continue
-        key,intervals=interval_rows(groups.get((image,row["candidate_id"]),[]))
+        key,intervals=interval_rows(groups.get((image,row["candidate_id"]),[]),native_nodes)
         item=pool.setdefault(key,dict(key=key,sources=[]))
         source=dict(image=image,candidate_id=row["candidate_id"],roi_drop_score=drop_score(baselines[image],roi),global_mse=g,intervals=intervals)
         item["sources"].append(source);image_queues[image].append((source["roi_drop_score"],-g,key))
@@ -128,10 +135,16 @@ def flags_file(path):
             k,v=line.split("=",1);flags[k]=v
     return flags
 
-def fixed_report(report,image,hardware,mode,prefix,floor):
+def fixed_report(report,image,hardware,mode,prefix,floor,native_nodes=4,application=None):
     flags=flags_file(report/"RUN.txt")
     if flags.get("completed")!="1" or flags.get("image")!=str(image):raise ValueError("Incomplete or mismatched fixed report")
+    if application is not None and flags.get("application")!=application:raise ValueError("Fixed report belongs to a different application")
     staged={name:read_csv(report/source,[f for f in fields if f not in ("phase","hardware_id","image")]) for name,(source,fields) in TABLES.items()}
+    if application is not None:
+        for rows in staged.values():
+            for row in rows:
+                if ("application" in row and row["application"]!=application) or ("image" in row and int(row["image"])!=image):
+                    raise ValueError("CSV application/image does not match fixed report")
     summaries=staged["summary_all.csv"];base=[r for r in summaries if r["status"]=="reference"]
     selected=[r for r in summaries if r["candidate_id"]!="baseline"]
     if len(base)!=1 or len(selected)!=1:raise ValueError("Fixed report needs exactly one baseline and selected row")
@@ -145,7 +158,7 @@ def fixed_report(report,image,hardware,mode,prefix,floor):
         if configs:raise ValueError("No-state report unexpectedly contains an executed configuration")
         score=0.0
     else:
-        got,_=interval_rows(configs)
+        got,_=interval_rows(configs,native_nodes)
         if got!=hardware:raise ValueError("Fixed node, monitor or bit changed in report")
         if any(r["candidate_id"]!=row["candidate_id"] for r in configs):raise ValueError("Wrong selected configuration identity")
         triggered=sum(int(r["dynamic_triggers"])>0 for r in configs)
@@ -211,8 +224,7 @@ def ordered_screen_results(jobs,work,workers):
         for future in futures:future.cancel()
         executor.shutdown(wait=True)
 
-def main(argv=None):
-    root=Path(__file__).resolve().parents[1]
+def protocol_parser(root,application="sharpen"):
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("data",type=Path);p.add_argument("output",type=Path);p.add_argument("--training-report",type=Path)
     p.add_argument("--train",default="1:10");p.add_argument("--screen",default="11:20");p.add_argument("--test",default="31:40")
@@ -224,27 +236,44 @@ def main(argv=None):
     p.add_argument("--build-dir",type=Path,default=root/"build-bitflip");p.add_argument("--jobs",type=int,default=4)
     p.add_argument("--screen-workers",type=int,default=min(4,os.cpu_count() or 1),help="Concurrent screening subprocesses; 1 is serial. --jobs controls compilation only.")
     p.add_argument("--skip-build",action="store_true");p.add_argument("--fixed-exe",type=Path);p.add_argument("--discovery-exe",type=Path)
-    args=p.parse_args(argv);owned=False;meta=None
+    if application!="sharpen":
+        p.add_argument("--max-full-evals",type=int,default=256);p.add_argument("--full-candidates",type=int,default=8)
+        p.add_argument("--training-max-full-evals",type=int,default=4096);p.add_argument("--training-full-candidates",type=int,default=16)
+    return p
+
+def protocol_splits(args):
+    train,screen,test=split_range(args.train),split_range(args.screen),split_range(args.test)
+    if set(train)&set(screen) or set(train)&set(test) or set(screen)&set(test):raise ValueError("Training, screening and test splits must be disjoint")
+    if not (0<=args.max_hardware<=10000 and 1<=args.seed_limit<=1000 and 1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
+            (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 4<=args.training_context_budget<=1000000 and
+            1<=args.context_budget<=1000000 and 1<=args.training_top<=10 and 1<=args.jobs<=64 and 1<=args.screen_workers<=64 and
+            math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000):raise ValueError("Invalid protocol/search options")
+    if hasattr(args,"max_full_evals") and not (1<=args.max_full_evals<=10000000 and 1<=args.full_candidates<=1024 and
+            1<=args.training_max_full_evals<=10000000 and 1<=args.training_full_candidates<=1024):
+        raise ValueError("Invalid full-evaluation budgets")
+    if (args.fixed_exe or args.discovery_exe) and not args.skip_build:raise ValueError("External executables require --skip-build")
+    return train,screen,test
+
+def main(argv=None,application="sharpen"):
+    root=Path(__file__).resolve().parents[1];native_nodes=APPLICATION_NODES[application]
+    args=protocol_parser(root,application).parse_args(argv);owned=False;meta=None
     try:
-        train,screen,test=split_range(args.train),split_range(args.screen),split_range(args.test)
-        if set(train)&set(screen) or set(train)&set(test) or set(screen)&set(test):raise ValueError("Training, screening and test splits must be disjoint")
-        if not (0<=args.max_hardware<=10000 and 1<=args.seed_limit<=1000 and 1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
-                (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 4<=args.training_context_budget<=1000000 and
-                1<=args.context_budget<=1000000 and 1<=args.training_top<=10 and 1<=args.jobs<=64 and 1<=args.screen_workers<=64 and math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000):raise ValueError("Invalid protocol/search options")
-        if (args.fixed_exe or args.discovery_exe) and not args.skip_build:raise ValueError("External executables require --skip-build")
+        train,screen,test=protocol_splits(args)
         data=args.data.resolve();out=args.output.resolve();build=args.build_dir.resolve()
-        fixed=args.fixed_exe.resolve() if args.fixed_exe else build/"sharpen_bitflip_fixed"
-        discovery=args.discovery_exe.resolve() if args.discovery_exe else build/"sharpen_bitflip_joint"
+        fixed_target="sharpen_bitflip_fixed" if application=="sharpen" else "circuit_bitflip_fixed"
+        discovery_target="sharpen_bitflip_joint" if application=="sharpen" else "circuit_bitflip_joint"
+        fixed=args.fixed_exe.resolve() if args.fixed_exe else build/fixed_target
+        discovery=args.discovery_exe.resolve() if args.discovery_exe else build/discovery_target
         if not (data/"mask/roi_mask.jpg").is_file():raise ValueError("Missing original ROI mask")
         # Check names/existence only, before expensive screening; do not inspect
         # held-out pixels or use them in hardware selection.
         for image in screen+test+([] if args.training_report else train):resolve_staged_image_path(data,image)
         source=args.training_report.resolve() if args.training_report else out/"training"
         if args.training_report:
-            pool,order=training_pool(source,train,args.global_psnr)  # Validate source leakage before owning output.
+            pool,order=training_pool(source,train,args.global_psnr,application,native_nodes)  # Validate source leakage before owning output.
         out.mkdir(parents=True,exist_ok=False);owned=True
         for folder in ("logs","hardware","screen","test"):(out/folder).mkdir()
-        meta=dict(completed=False,all_succeeded=False,selection_status="not_selected",test_executed=False,
+        meta=dict(application=application,native_node_count=native_nodes,completed=False,all_succeeded=False,selection_status="not_selected",test_executed=False,
                   splits=dict(train=train,screen=screen,test=test),source_training_report=str(source),
                   data=str(data),fixed_executable=str(fixed),discovery_executable=str(discovery),
                   options={k:v for k,v in vars(args).items() if isinstance(v,(int,float,str,bool))},
@@ -253,7 +282,7 @@ def main(argv=None):
                   ranking="success count, worst then mean nonnegative ROI PSNR drop over all screen images, fewer installed nodes, key",
                   ranking_psnr_cap_db=100,failed_tasks=[],visual_status="pending_user_review",seed_bank_unchanged_after_test=False)
         meta.update(screen_workers=args.screen_workers,screen_wall_seconds=0,screen_task_seconds=0,screen_task_count=0,
-                    test_wall_seconds=0,test_task_seconds=0,profiling="fixed monitor only; per-image reference and single-trace reuse")
+                    test_wall_seconds=0,test_task_seconds=0,profiling="fixed monitor only; per-image reference and single-trace reuse" if application=="sharpen" else "native exact conditional pixel scores or full reconstructed-image scores; fixed monitor and bit")
         statuses=[];screen_results=[];test_results=[];tables={name:[] for name in TABLES}
         def flush():
             atomic_json(out/"RUN.json",meta)
@@ -267,7 +296,7 @@ def main(argv=None):
         except OSError:meta["code_revision"]="unavailable"
         if not args.skip_build:
             for i,command in enumerate((["cmake","-S",root,"-B",build,"-DCMAKE_BUILD_TYPE=Release"],
-                                         ["cmake","--build",build,"--target","sharpen_bitflip_fixed","sharpen_bitflip_joint",f"-j{args.jobs}"])):
+                                         ["cmake","--build",build,"--target",fixed_target,discovery_target,f"-j{args.jobs}"])):
                 if process(command,out/"build.log",root,append=bool(i)):raise RuntimeError("Build failed; see build.log")
         if not fixed.is_file():raise ValueError(f"Missing fixed-interval executable: {fixed}")
         if args.training_report:
@@ -275,7 +304,7 @@ def main(argv=None):
             for filename in ("summary_all.csv","configurations_all.csv","RUN.json"):
                 if (source/filename).is_file():shutil.copyfile(source/filename,archive/filename)
             source=archive
-            pool,order=training_pool(source,train,args.global_psnr)
+            pool,order=training_pool(source,train,args.global_psnr,application,native_nodes)
             meta["training_source_archive"]="training_source"
         if not args.training_report:
             if not discovery.is_file():raise ValueError("Missing discovery executable")
@@ -285,10 +314,23 @@ def main(argv=None):
                 status=dict(phase="train",hardware_id="",image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="");statuses.append(status);begin=time.monotonic()
                 try:
                     command=[discovery,data,report,image,args.beam,args.refinement,args.boundary_budget,args.training_top,args.restarts,args.global_psnr,"--context-budget",args.training_context_budget,"--no-ablations","--image-mode","none"]
+                    if application!="sharpen":
+                        command=[discovery,application,data,report,"--image",image,"--beam",args.beam,"--refinement",args.refinement,
+                                 "--boundary-budget",args.boundary_budget,"--top-per-count",args.training_top,"--restarts",args.restarts,
+                                 "--global-psnr",args.global_psnr,"--max-contexts",args.training_context_budget,
+                                 "--max-full-evals",args.training_max_full_evals,"--dct-full-candidates",args.training_full_candidates,"--image-mode","none"]
                     code=process(command,out/log,root);status["returncode"]=code
-                    if code or flags_file(report/"RUN.txt").get("completed")!="1":raise RuntimeError("Training discovery failed or report incomplete")
-                    ss.extend({**r,"image":image} for r in read_csv(report/"summary.csv",["candidate_id","status","global_mse","roi_mse"]))
-                    cs.extend({**r,"image":image} for r in read_csv(report/"configurations.csv",["candidate_id","node_id","monitor","bit","lower","upper"]))
+                    if code:raise RuntimeError("Training discovery failed")
+                    notes=flags_file(report/"RUN.txt")
+                    if notes.get("completed")!="1" or notes.get("image")!=str(image):raise RuntimeError("Training discovery report incomplete or image mismatched")
+                    if application!="sharpen" and notes.get("application")!=application:raise ValueError("Discovery application mismatch")
+                    summaries=read_csv(report/"summary.csv",["candidate_id","status","global_mse","roi_mse"])
+                    configs=read_csv(report/"configurations.csv",["candidate_id","node_id","monitor","bit","lower","upper"])
+                    for row in summaries+configs:
+                        if ("application" in row and row["application"].lower() not in (("sharpen","sharpening") if application=="sharpen" else (application,))) or ("image" in row and int(row["image"])!=image):
+                            raise ValueError("Discovery CSV application/image mismatch")
+                    ss.extend({**r,"image":image,"application":application} for r in summaries)
+                    cs.extend({**r,"image":image,"application":application} for r in configs)
                     status["status"]="completed"
                 except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
                     status.update(status="failed",detail=str(exc));meta["failed_tasks"].append(dict(phase="train",image=image))
@@ -296,7 +338,7 @@ def main(argv=None):
             atomic_csv(source/"summary_all.csv",ss,["image","candidate_id","status","global_mse","roi_mse"])
             atomic_csv(source/"configurations_all.csv",cs,["image","candidate_id","node_id","monitor","bit","lower","upper"])
             if meta["failed_tasks"]:raise RuntimeError("Training failures recorded; screening not started")
-            pool,order=training_pool(source,train,args.global_psnr)
+            pool,order=training_pool(source,train,args.global_psnr,application,native_nodes)
         meta["training_source_hashes"]={name:digest(source/name) for name in ("summary_all.csv","configurations_all.csv")}
         chosen_keys=order[:args.max_hardware] if args.max_hardware else order
         candidates=[h for h in pool if h["key"] in set(chosen_keys)]
@@ -325,10 +367,11 @@ def main(argv=None):
             relative=f"{phase}/{h['hardware_id']}/image_{image:02d}";report=out/relative;report.parent.mkdir(parents=True,exist_ok=True)
             log=f"logs/{phase}_{h['hardware_id']}_image_{image:02d}.log";status=dict(phase=phase,hardware_id=h["hardware_id"],image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="");begin=time.monotonic();staged={}
             try:
-                command=[fixed,data,report,"--hardware",hardware_path,"--seeds",seeds_path,"--image",image,"--beam",args.beam,"--refinement",args.refinement,"--restarts",args.restarts,"--boundary-budget",args.boundary_budget,"--context-budget",args.context_budget,"--global-psnr",args.global_psnr,"--image-mode",mode]
+                command=[fixed,*([application] if application!="sharpen" else []),data,report,"--hardware",hardware_path,"--seeds",seeds_path,"--image",image,"--beam",args.beam,"--refinement",args.refinement,"--restarts",args.restarts,"--boundary-budget",args.boundary_budget,"--context-budget",args.context_budget,"--global-psnr",args.global_psnr,"--image-mode",mode]
+                if application!="sharpen":command.extend(["--max-full-evals",args.max_full_evals,"--full-candidates",args.full_candidates])
                 code=process(command,out/log,root);status["returncode"]=code
                 if code:raise RuntimeError(f"Interval executable returned {code}")
-                staged,row=fixed_report(report,image,h["key"],mode,relative,args.global_psnr);row.update(phase=phase,hardware_id=h["hardware_id"])
+                staged,row=fixed_report(report,image,h["key"],mode,relative,args.global_psnr,native_nodes,application if application!="sharpen" else None);row.update(phase=phase,hardware_id=h["hardware_id"])
                 status["status"]="completed";status["search_status"]=row["search_status"]
             except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
                 status.update(status="failed",detail=str(exc))
@@ -365,7 +408,7 @@ def main(argv=None):
         shutil.copyfile(out/"hardware"/h["hardware_id"]/"seeds.csv",out/"frozen_seeds.csv")
         frozen={name:digest(out/name) for name in ("frozen_hardware.csv","frozen_seeds.csv")}
         meta.update(selection_status="selected",selected_hardware_id=h["hardware_id"],frozen_hashes=frozen,test_executed=True)
-        atomic_json(out/"frozen_protocol.json",dict(hardware_id=h["hardware_id"],hardware_key=h["key"],splits=meta["splits"],options=meta["options"],frozen_hashes=frozen,training_bank_hashes=bank_hashes,ranking=meta["ranking"]))
+        atomic_json(out/"frozen_protocol.json",dict(application=application,native_node_count=native_nodes,hardware_id=h["hardware_id"],hardware_key=h["key"],splits=meta["splits"],options=meta["options"],frozen_hashes=frozen,training_bank_hashes=bank_hashes,ranking=meta["ranking"]))
         flush()  # Freeze before observing any test image.
         test_begin=time.monotonic()
         try:

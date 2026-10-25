@@ -19,6 +19,8 @@ def frozen_source(source):
     run=json.loads((source/"RUN.json").read_text(encoding="utf-8-sig"))
     protocol=json.loads((source/"frozen_protocol.json").read_text(encoding="utf-8-sig"))
     if not isinstance(run,dict) or not isinstance(protocol,dict):raise ValueError("Source metadata must be JSON objects")
+    if run.get("application","sharpen").lower() not in ("sharpen","sharpening") or protocol.get("application","sharpen").lower() not in ("sharpen","sharpening"):
+        raise ValueError("This retest entry accepts Sharpening hardware only")
     if run.get("completed") is not True or run.get("selection_status")!="selected":
         raise ValueError("Source must have a completed hardware-selection protocol")
     identity=run["selected_hardware_id"]

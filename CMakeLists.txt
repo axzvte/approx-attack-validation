@@ -110,6 +110,11 @@ add_test(NAME sharpen_bitflip_coverage COMMAND test_sharpen_bitflip_coverage)
 
 add_executable(circuit_bitflip_joint app/circuit_bitflip_joint.cpp)
 target_link_libraries(circuit_bitflip_joint PRIVATE approx_framework)
+add_executable(circuit_bitflip_fixed app/circuit_bitflip_fixed.cpp)
+target_link_libraries(circuit_bitflip_fixed PRIVATE approx_framework)
+add_executable(test_circuit_bitflip_fixed tests/test_circuit_bitflip_fixed.cpp)
+target_link_libraries(test_circuit_bitflip_fixed PRIVATE approx_framework)
+add_test(NAME circuit_bitflip_fixed COMMAND test_circuit_bitflip_fixed)
 add_executable(test_circuit_bitflip tests/test_circuit_bitflip.cpp)
 target_link_libraries(test_circuit_bitflip PRIVATE approx_framework)
 add_test(NAME circuit_bitflip COMMAND test_circuit_bitflip)
@@ -132,6 +137,11 @@ target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME circuit_bitflip_fixed_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_fixed_cli.py
+            $<TARGET_FILE:circuit_bitflip_fixed>)
+        add_test(NAME circuit_bitflip_hardware_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_hardware_pipeline.py)
         add_test(NAME sharpen_bitflip_hardware_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_hardware_cli.py
             $<TARGET_FILE:sharpen_bitflip_fixed>)

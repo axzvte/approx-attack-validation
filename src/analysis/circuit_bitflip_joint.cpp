@@ -1,4 +1,5 @@
 #include "analysis/circuit_bitflip_joint.hpp"
+#include "analysis/circuit_bitflip_fixed.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
@@ -6,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <map>
 #include <optional>
 #include <set>
@@ -122,7 +124,8 @@ bool replay(const Context& c,const Pixel& p,int bit,bool targetOn,int& output) {
     output=std::clamp(c.kind==Kind::Conv?std::abs(value):value,0,255);return true;
 }
 Context makeContext(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
-    const cv::Mat& reference,const Config& current,int node) {
+    const cv::Mat& reference,const Config& current,int node,
+    const std::vector<core::AddSample>* cachedSamples=nullptr) {
     Context c;c.kind=kindOf(app);c.target=node;c.others=without(current,node);
     if(c.kind==Kind::Dct) throw std::invalid_argument("DCT does not support additive conditional image profiles.");
     if(image.rows<3 || image.cols<3 || node<0 || std::size_t(node)>=app.addNodes().size())
@@ -131,7 +134,9 @@ Context makeContext(const core::Application& app,const cv::Mat& image,const cv::
     if(c.kind==Kind::Conv) c.units=unitsFor(dynamic_cast<const applications::ConvApplication&>(app).baselineConfig());
     else c.units=unitsFor(dynamic_cast<const applications::SobelApplication&>(app).baselineConfig());
     c.active.resize(c.units.size());for(const auto& attack:c.others) c.active[attack.nodeId]=attack;
-    std::vector<core::AddSample> samples;app.collectConfiguredAddSamples(image,mask,current,samples);
+    std::vector<core::AddSample> collected;
+    if(!cachedSamples) app.collectConfiguredAddSamples(image,mask,current,collected);
+    const auto& samples=cachedSamples?*cachedSamples:collected;
     const auto expected=std::size_t(image.rows-2)*(image.cols-2)*c.units.size();
     if(samples.size()!=expected) throw std::runtime_error("Unexpected circuit pixel trace size.");
     c.roi=cv::countNonZero(mask);c.non=mask.total()-c.roi;
@@ -467,6 +472,369 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
         if(a.metrics.roiMse!=b.metrics.roiMse) return a.metrics.roiMse>b.metrics.roiMse;
         return a.metrics.globalMse<b.metrics.globalMse;
     });
+    return result;
+}
+}
+
+namespace analysis {
+namespace fixed_circuit {
+using Clock=std::chrono::steady_clock;
+using Signal=core::MonitorSignal;
+double seconds(Clock::time_point start) {return std::chrono::duration<double>(Clock::now()-start).count();}
+std::pair<int,int> domain(Signal s) {
+    if(s==Signal::Input1 || s==Signal::Input2) return {-2048,2047};
+    if(s==Signal::BaselineOutput) return {-4096,4095};
+    throw std::invalid_argument("Unknown fixed circuit monitor signal.");
+}
+bool validHardware(const FixedBitflipHardware& h,std::size_t nodes) {
+    if(h.size()<2 || h.size()>nodes) return false;
+    std::set<int> seen;
+    for(const auto& n:h) {
+        if(n.nodeId<0 || std::size_t(n.nodeId)>=nodes || !seen.insert(n.nodeId).second ||
+                n.bitIndex<0 || n.bitIndex>=12) return false;
+        if(n.monitorInput!=Signal::Input1 && n.monitorInput!=Signal::Input2 && n.monitorInput!=Signal::BaselineOutput) return false;
+    }
+    return true;
+}
+void validateHardware(const FixedBitflipHardware& h,std::size_t nodes) {
+    if(!validHardware(h,nodes)) throw std::invalid_argument("Fixed circuit hardware requires 2..native unique nodes, valid monitors and bits 0..11.");
+}
+void validateSeed(const Config& c,const FixedBitflipHardware& h,std::size_t nodes) {
+    if(!matchesCircuitFixedBitflipHardware(c,h,nodes)) throw std::invalid_argument("Warm seed does not match fixed circuit hardware.");
+    for(const auto& n:c) {
+        const auto d=domain(n.monitorInput);
+        if(n.lower>n.upper || n.lower<d.first || n.upper>d.second)
+            throw std::invalid_argument("Fixed circuit interval exceeds its signed monitor domain.");
+    }
+}
+std::optional<int> unobserved(const std::set<int>& seen,Signal signal) {
+    const auto d=domain(signal);int value=d.first;
+    for(int x:seen) {
+        if(x<value) continue;
+        if(x>value) break;
+        if(value==d.second) return std::nullopt;
+        ++value;
+    }
+    return value;
+}
+int value(const core::AddSample& s,Signal m) {return monitored(m,s.input1,s.input2,s.baselineOutput);}
+Config replaced(Config c,int node,int lo,int hi) {
+    const auto it=std::find_if(c.begin(),c.end(),[&](const auto& x){return x.nodeId==node;});
+    if(it==c.end()) throw std::runtime_error("Installed fixed circuit target disappeared.");
+    it->lower=lo;it->upper=hi;return c;
+}
+approximate::ApproxUnitId baselineUnit(const core::Application& app,int node) {
+    switch(kindOf(app)) {
+        case Kind::Conv:return dynamic_cast<const applications::ConvApplication&>(app).baselineConfig()[node].unit;
+        case Kind::Sobel:return dynamic_cast<const applications::SobelApplication&>(app).baselineConfig()[node].unit;
+        case Kind::Dct:return dynamic_cast<const applications::DctApplication&>(app).baselineConfig()[node].unit;
+    }
+    throw std::runtime_error("Unknown fixed circuit application.");
+}
+std::optional<Config> dormant(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
+    const FixedBitflipHardware& h,const cv::Mat& baseline,const std::vector<core::AddSample>& trace) {
+    Config c;
+    for(const auto& n:h) {
+        std::set<int> seen;for(const auto& s:trace) if(s.nodeId==n.nodeId) seen.insert(value(s,n.monitorInput));
+        const auto idle=unobserved(seen,n.monitorInput);if(!idle) return std::nullopt;
+        c.push_back({n.nodeId,baselineUnit(app,n.nodeId),n.monitorInput,*idle,*idle,core::AttackPayload::BitFlip,n.bitIndex});
+    }
+    // No-hit is defined over the real configured trace, including every DCT
+    // row/column invocation. This also guards against accidental graph changes.
+    std::vector<core::AddSample> actual;app.collectConfiguredAddSamples(image,mask,c,actual);
+    for(const auto& n:c) for(const auto& s:actual) if(s.nodeId==n.nodeId) {
+        const int v=value(s,n.monitorInput);
+        if(v>=n.lower && v<=n.upper) throw std::runtime_error("Dormant fixed circuit hardware unexpectedly triggers.");
+    }
+    if(measureBitflipQuality(baseline,app.runApprox(image,c),mask).globalMse!=0)
+        throw std::runtime_error("Dormant fixed circuit hardware changed baseline output.");
+    return c;
+}
+// Only H's selected monitor is profiled. The other fixed nodes still execute
+// with refreshed downstream operands, signs and absolute-value edges.
+JointBitflipProfile profile(const Context& c,const FixedBitflipNode& target) {
+    JointBitflipProfile p;p.others=c.others;p.node=target.nodeId;p.bit=target.bitIndex;p.monitor=target.monitorInput;
+    p.roiPixels=c.roi;p.nonRoiPixels=c.non;p.offRoiSse=c.roiSse;p.offNonRoiSse=c.nonSse;p.offInvalid=c.invalid;
+    for(const auto& pixel:c.pixels) {
+        int final=0;const bool valid=replay(c,pixel,target.bitIndex,true,final);
+        auto& bin=p.bins[value(pixel.trace[target.nodeId],target.monitorInput)];
+        const Sum delta=(valid?square(final-pixel.reference):0)-pixel.offSse;
+        if(pixel.roi) {bin.roiDelta+=delta;++bin.roiHits;} else {bin.nonRoiDelta+=delta;++bin.nonRoiHits;}
+        bin.invalidDelta+=Sum(!valid)-Sum(!pixel.offValid);
+    }
+    return p;
+}
+Bin sumBin(Bin a,const Bin& b,int sign=1) {
+    a.roiDelta+=sign*b.roiDelta;a.nonRoiDelta+=sign*b.nonRoiDelta;a.invalidDelta+=sign*b.invalidDelta;
+    a.roiHits+=sign*b.roiHits;a.nonRoiHits+=sign*b.nonRoiHits;
+    return a;
+}
+std::vector<State> expandPixel(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
+    const cv::Mat& reference,const Config& current,const FixedBitflipNode& target,
+    const std::vector<core::AddSample>& samples,const CircuitFixedBitflipOptions& o,CircuitFixedBitflipStats& stats) {
+    const auto begin=Clock::now();
+    const auto p=profile(makeContext(app,image,mask,reference,current,target.nodeId,&samples),target);
+    stats.profileSeconds+=seconds(begin);const auto intervalBegin=Clock::now();
+    std::vector<int> values;std::vector<Bin> prefix(1);std::set<int> seen;
+    const auto d=domain(target.monitorInput);
+    for(const auto& x:p.bins) {
+        seen.insert(x.first);
+        if(x.first<d.first || x.first>d.second) continue;
+        values.push_back(x.first);prefix.push_back(sumBin(prefix.back(),x.second));
+    }
+    auto summary=p;summary.bins.clear();summary.bins.emplace(0,Bin{});
+    Representatives pool(o.representativeCount,o.globalPsnrThreshold);
+    const auto evaluate=[&](int lo,int hi,const Bin& bin) {
+        ++stats.evaluatedIntervals;summary.bins.begin()->second=bin;
+        const auto score=scoreJointInterval(summary,0,0);
+        if(!score.valid) {++stats.rangeRejected;return;}
+        // Never remove the target, even when the chosen interval has no hits.
+        pool.offer(score.metrics,[&]{return replaced(current,target.nodeId,lo,hi);});
+    };
+    if(const auto idle=unobserved(seen,target.monitorInput)) evaluate(*idle,*idle,Bin{});
+    intervals(values.size(),o.boundaryBudget,[&](std::size_t lo,std::size_t hi) {
+        evaluate(values[lo],values[hi],sumBin(prefix[hi+1],prefix[lo],-1));
+    });
+    stats.intervalSeconds+=seconds(intervalBegin);return pool.states();
+}
+std::vector<Proposal> proposals(const std::vector<core::AddSample>& trace,const FixedBitflipNode& target,
+    const CircuitFixedBitflipOptions& o,CircuitFixedBitflipStats& stats) {
+    const auto begin=Clock::now();std::map<int,Local> bins;std::set<int> seen;
+    const auto d=domain(target.monitorInput);
+    for(const auto& sample:trace) if(sample.nodeId==target.nodeId) {
+        const int v=value(sample,target.monitorInput);seen.insert(v);
+        if(v<d.first || v>d.second) continue;
+        // This proxy orders proposals only. Every retained state is scored by
+        // the full configured DCT and IDCT image reconstruction below.
+        if(sample.baselineOutput < -4096 || sample.baselineOutput>4095) continue;
+        const int flipped=core::flipNonSignOutputBit(sample.baselineOutput,target.bitIndex);
+        const double oldError=double(sample.output)-sample.input1-sample.input2;
+        const double newError=double(flipped)-sample.input1-sample.input2;
+        const double delta=newError*newError-oldError*oldError;
+        const double shift=double(flipped)-sample.output,w=sample.roiWeight;
+        bins[v]+={delta*w,delta*(1-w),shift*w,shift*(1-w),w,1};
+    }
+    std::vector<int> values;std::vector<Local> prefix(1);
+    for(const auto& b:bins) {values.push_back(b.first);auto x=prefix.back();x+=b.second;prefix.push_back(x);}
+    std::array<std::vector<Proposal>,6> lists;
+    intervals(values.size(),o.boundaryBudget,[&](std::size_t lo,std::size_t hi) {
+        ++stats.evaluatedIntervals;
+        Proposal p{attack(target.nodeId,target.bitIndex,target.monitorInput,values[lo],values[hi]),subtract(prefix[hi+1],prefix[lo])};
+        for(int role=0;role<6;++role) {
+            auto& list=lists[role];
+            list.push_back(p);std::stable_sort(list.begin(),list.end(),[&](const auto& a,const auto& b){return proposalRank(a,role)>proposalRank(b,role);});
+            if(list.size()>o.fullCandidatesPerContext) list.resize(o.fullCandidatesPerContext);
+        }
+    });
+    std::vector<Proposal> out;
+    const auto offer=[&](const Proposal& p) {
+        if(std::none_of(out.begin(),out.end(),[&](const auto& old){return sameProposal(old,p);})) out.push_back(p);
+    };
+    // A no-hit interval is an ordinary full-H candidate, including for a
+    // currently active target. A cached dormant state consumes no new score.
+    if(const auto idle=unobserved(seen,target.monitorInput)) offer({attack(target.nodeId,target.bitIndex,target.monitorInput,*idle,*idle),{}});
+    for(std::size_t depth=0;depth<o.fullCandidatesPerContext;++depth) for(int role=0;role<6;++role)
+        if(depth<lists[role].size()) offer(lists[role][depth]);
+    stats.intervalSeconds+=seconds(begin);return out;
+}
+bool better(const State& a,const State& b) {
+    if(a.metrics.roiMse!=b.metrics.roiMse) return a.metrics.roiMse>b.metrics.roiMse;
+    if(a.metrics.globalMse!=b.metrics.globalMse) return a.metrics.globalMse<b.metrics.globalMse;
+    return key(a.configuration)<key(b.configuration);
+}
+void verify(const BitflipQuality& score,const BitflipQuality& oracle) {
+    for(auto p:{std::pair<double,double>{score.globalMse,oracle.globalMse},{score.roiMse,oracle.roiMse},{score.nonRoiMse,oracle.nonRoiMse}})
+        if(std::abs(p.first-p.second)>1e-8*std::max(1.0,std::abs(p.second)))
+            throw std::runtime_error("Fixed circuit interval score disagrees with original full application.");
+}
+}
+
+bool matchesCircuitFixedBitflipHardware(const JointBitflipConfiguration& c,const FixedBitflipHardware& h,std::size_t nodes) {
+    if(!fixed_circuit::validHardware(h,nodes) || c.size()!=h.size()) return false;
+    std::set<int> seen;
+    for(const auto& x:c) {
+        if(x.payload!=core::AttackPayload::BitFlip || !seen.insert(x.nodeId).second) return false;
+        const auto it=std::find_if(h.begin(),h.end(),[&](const auto& n){return n.nodeId==x.nodeId;});
+        if(it==h.end() || x.monitorInput!=it->monitorInput || x.bitIndex!=it->bitIndex) return false;
+    }
+    return true;
+}
+
+std::optional<JointBitflipConfiguration> dormantCircuitFixedBitflipSeed(const core::Application& app,
+    const cv::Mat& image,const cv::Mat& mask,const FixedBitflipHardware& hardware) {
+    kindOf(app);fixed_circuit::validateHardware(hardware,app.addNodes().size());
+    const auto binary=binaryMask(image,mask);const auto baseline=app.runApprox(image,{});
+    std::vector<core::AddSample> trace;app.collectBaselineAddSamples(image,binary,trace);
+    return fixed_circuit::dormant(app,image,binary,hardware,baseline,trace);
+}
+
+CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Application& app,
+    const cv::Mat& image,const cv::Mat& mask,const FixedBitflipHardware& hardware,
+    const CircuitFixedBitflipOptions& options,const std::function<void(const CircuitFixedBitflipProgress&)>& progress) {
+    using namespace fixed_circuit;
+    const auto kind=kindOf(app);const auto nodes=app.addNodes().size();validateHardware(hardware,nodes);
+    if(!options.beamWidth || !options.representativeCount || !options.restarts || !options.maxContexts ||
+            !options.maxFullEvaluations || !options.fullCandidatesPerContext || !std::isfinite(options.globalPsnrThreshold))
+        throw std::invalid_argument("Invalid fixed circuit interval search options.");
+    for(const auto& c:options.seeds) validateSeed(c,hardware,nodes);
+    const auto binary=binaryMask(image,mask);
+    if(kind!=Kind::Dct && (image.rows<3 || image.cols<3))
+        throw std::invalid_argument("Fixed pixel circuit search requires an interior pixel.");
+    CircuitFixedBitflipResult result;
+    result.stats.contextsByNode.resize(nodes);auto& stats=result.stats;
+    const auto referenceBegin=Clock::now();const auto reference=app.runExact(image);stats.referenceSeconds=seconds(referenceBegin);
+    const auto initBegin=Clock::now();const auto baseline=app.runApprox(image,{});
+    result.baseline=measureBitflipQuality(reference,baseline,binary);
+    std::vector<State> seeds;std::set<std::string> seedKeys;
+    std::map<std::string,std::optional<State>> fullCache;
+    const auto accept=[&](const Config& config,bool warm) {
+        if(seedKeys.count(key(config))) return;
+        cv::Mat output;
+        try {output=app.runApprox(image,config);} catch(const std::runtime_error& e) {
+            if(!warm || !rangeError(e)) throw;
+            ++stats.rejectedSeeds;++stats.rangeRejected;return;
+        }
+        State s{config,measureBitflipQuality(reference,output,binary)};
+        seedKeys.insert(key(config));seeds.push_back(s);fullCache.emplace(key(config),s);++stats.acceptedSeeds;
+    };
+    for(const auto& config:options.seeds) accept(config,true);
+    {
+        std::vector<core::AddSample> baselineTrace;app.collectBaselineAddSamples(image,binary,baselineTrace);
+        if(const auto idle=dormant(app,image,binary,hardware,baseline,baselineTrace)) accept(*idle,false);
+    }
+    stats.initializationSeconds=seconds(initBegin);
+    if(seeds.empty()) return result;
+    // One full trace at a time: a 512px DCT trace is large. Immutable seed-first
+    // traversal reuses this trace across all installed targets; compact scored
+    // contexts remain cached across later seed/restart visits.
+    std::optional<std::string> traceKey;std::vector<core::AddSample> cachedTrace;
+    const auto traceFor=[&](const Config& config)->const std::vector<core::AddSample>& {
+        const auto id=key(config);
+        if(traceKey && *traceKey==id) {++stats.traceCacheHits;return cachedTrace;}
+        const auto begin=Clock::now();traceKey.reset();cachedTrace.clear();
+        app.collectConfiguredAddSamples(image,binary,config,cachedTrace);
+        const auto expected=kind==Kind::Dct?
+            std::size_t((image.rows+7)/8)*std::size_t((image.cols+7)/8)*16*nodes:
+            std::size_t(image.rows-2)*std::size_t(image.cols-2)*nodes;
+        if(cachedTrace.size()!=expected) throw std::runtime_error("Unexpected fixed circuit configured trace size.");
+        for(std::size_t i=0;i<cachedTrace.size();++i)
+            if(cachedTrace[i].nodeId!=int(i%nodes) || !std::isfinite(cachedTrace[i].roiWeight) || cachedTrace[i].roiWeight<0 || cachedTrace[i].roiWeight>1)
+                throw std::runtime_error("Unexpected fixed circuit configured trace order or ROI weight.");
+        stats.traceSeconds+=seconds(begin);++stats.traceBuilds;
+        traceKey=id;return cachedTrace;
+    };
+    Representatives legal(options.beamWidth,options.globalPsnrThreshold),numeric(options.representativeCount,options.globalPsnrThreshold);
+    const auto remember=[&](const std::vector<State>& states) {
+        for(const auto& s:states) {
+            validateSeed(s.configuration,hardware,nodes);legal.offer(s.metrics,[&]{return s.configuration;});
+            if(feasible(s.metrics,options.globalPsnrThreshold) && s.metrics.roiMse>result.baseline.roiMse+1e-10)
+                numeric.offer(s.metrics,[&]{return s.configuration;});
+            if(!feasible(s.metrics,options.globalPsnrThreshold)) ++stats.retainedQualityFailures;
+        }
+    };
+    remember(seeds);auto beam=retain(seeds,options.beamWidth,options.globalPsnrThreshold,hardware.size());
+    auto order=hardware;std::sort(order.begin(),order.end(),[](const auto& a,const auto& b){return a.nodeId<b.nodeId;});
+    const auto coverageShare=[&](std::size_t total) {return std::min(total,std::max(hardware.size(),total/2));};
+    const auto coverageContexts=coverageShare(options.maxContexts),coverageFull=coverageShare(options.maxFullEvaluations);
+    std::size_t contextCeiling=coverageContexts,fullCeiling=coverageFull;
+    std::map<std::string,std::vector<State>> contextCache;
+    const auto visit=[&](const State& state,const FixedBitflipNode& target,std::size_t restart,std::size_t pass,
+            std::size_t done,std::size_t total,std::vector<State>& expanded) {
+        std::size_t quota=options.fullCandidatesPerContext;
+        if(kind==Kind::Dct) {
+            std::size_t uncovered=0;for(const auto& n:hardware) uncovered+=stats.contextsByNode[n.nodeId]==0;
+            const auto remaining=fullCeiling-stats.fullEvaluations;
+            // Reserve at least one complete image score for each untouched H
+            // target before spending additional evaluations on another beam.
+            if(uncovered) quota=std::min(quota,std::max<std::size_t>(1,remaining/uncovered));
+            // A phase-limited expansion must have a different cache identity
+            // when a later restart can afford a larger complete shortlist.
+            quota=std::min<std::size_t>(quota,remaining);
+        }
+        const auto id=std::to_string(target.nodeId)+"|"+
+            key(kind==Kind::Dct?state.configuration:without(state.configuration,target.nodeId))+"|"+std::to_string(quota);
+        auto found=contextCache.find(id);
+        if(found==contextCache.end()) {
+            if(stats.contextsBuilt>=contextCeiling) {
+                if(stats.contextsBuilt>=options.maxContexts) stats.contextBudgetExhausted=true;
+                return false;
+            }
+            if(kind==Kind::Dct && stats.fullEvaluations>=fullCeiling) {
+                if(stats.fullEvaluations>=options.maxFullEvaluations) stats.fullBudgetExhausted=true;
+                return false;
+            }
+            ++stats.contextsBuilt;++stats.contextsByNode[target.nodeId];
+            const auto& trace=traceFor(state.configuration);std::vector<State> states;
+            if(kind!=Kind::Dct) states=expandPixel(app,image,binary,reference,state.configuration,target,trace,options,stats);
+            else {
+                Representatives pool(options.representativeCount,options.globalPsnrThreshold);
+                const auto proposed=proposals(trace,target,options,stats);const auto before=stats.fullEvaluations;
+                for(const auto& p:proposed) {
+                    auto config=replaced(state.configuration,target.nodeId,p.config.lower,p.config.upper);
+                    auto scored=fullCache.find(key(config));
+                    if(scored==fullCache.end()) {
+                        if(stats.fullEvaluations-before>=quota) break;
+                        if(stats.fullEvaluations>=fullCeiling) {
+                            if(stats.fullEvaluations>=options.maxFullEvaluations) stats.fullBudgetExhausted=true;
+                            break;
+                        }
+                        const auto begin=Clock::now();++stats.fullEvaluations;std::optional<State> s;
+                        try {s=State{config,measureBitflipQuality(reference,app.runApprox(image,config),binary)};}
+                        catch(const std::runtime_error& e) {if(!rangeError(e)) throw;++stats.rangeRejected;}
+                        stats.fullEvaluationSeconds+=seconds(begin);scored=fullCache.emplace(key(config),std::move(s)).first;
+                    }
+                    if(scored->second) pool.offer(scored->second->metrics,[&]{return config;});
+                }
+                states=pool.states();
+            }
+            found=contextCache.emplace(id,std::move(states)).first;
+        } else ++stats.cacheHits;
+        remember(found->second);expanded.insert(expanded.end(),found->second.begin(),found->second.end());
+        if(progress) progress({restart,pass,std::size_t(target.nodeId),done,total,stats});
+        return true;
+    };
+    // Immutable seed round robin gives every installed target first coverage.
+    // Retained multi-beam refinement and alternate orders follow this pass.
+    // The first phase gets half the common budgets, or enough for one visit
+    // per H target when possible. Unused shares carry forward. A phase ceiling
+    // is scheduling, while exhaustion flags describe the actual user limits.
+    bool phaseLimited=false;
+    for(std::size_t i=0;i<seeds.size() && !phaseLimited;++i) {
+        auto traversal=order;if(i%2) std::reverse(traversal.begin(),traversal.end());
+        for(const auto& target:traversal) {
+            auto expanded=beam;
+            if(!visit(seeds[i],target,0,0,i+1,seeds.size(),expanded)) {phaseLimited=true;break;}
+            beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,hardware.size());
+        }
+    }
+    for(std::size_t restart=0;restart<options.restarts;++restart) {
+        const auto share=[&](std::size_t total,std::size_t first) {
+            const auto remaining=total-first,index=restart+1;
+            return first+(remaining/options.restarts)*index+std::min(remaining%options.restarts,index);
+        };
+        contextCeiling=share(options.maxContexts,coverageContexts);
+        fullCeiling=share(options.maxFullEvaluations,coverageFull);phaseLimited=false;
+        if(restart) beam=retain(seeds,options.beamWidth,options.globalPsnrThreshold,hardware.size());
+        for(std::size_t pass=0;pass<=options.refinementRounds && !phaseLimited;++pass) {
+            auto traversal=order;if((restart+pass)%2) std::reverse(traversal.begin(),traversal.end());
+            for(const auto& target:traversal) {
+                auto expanded=beam;std::size_t done=0;
+                for(const auto& s:beam) if(!visit(s,target,restart,pass+1,++done,beam.size(),expanded)) {phaseLimited=true;break;}
+                beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,hardware.size());if(phaseLimited) break;
+            }
+        }
+    }
+    const auto replayBegin=Clock::now();std::map<std::string,State> finalists;
+    for(const auto& s:legal.states()) finalists.emplace(key(s.configuration),s);
+    for(const auto& s:numeric.states()) finalists.emplace(key(s.configuration),s);
+    for(auto& entry:finalists) {
+        auto& s=entry.second;validateSeed(s.configuration,hardware,nodes);++stats.finalReplayEvaluations;
+        const auto actual=measureBitflipQuality(reference,app.runApprox(image,s.configuration),binary);
+        verify(s.metrics,actual);s.metrics=actual;
+        if(!result.bestLegal || better(s,*result.bestLegal)) result.bestLegal=s;
+        if(feasible(actual,options.globalPsnrThreshold) && actual.roiMse>result.baseline.roiMse+1e-10) result.candidates.push_back(s);
+    }
+    std::stable_sort(result.candidates.begin(),result.candidates.end(),better);stats.finalReplaySeconds=seconds(replayBegin);
     return result;
 }
 }

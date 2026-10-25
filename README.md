@@ -64,3 +64,5 @@ bash scripts/rerank_force_active_stage3.sh \
 Conv、Sobel、DCT 三个电路的多节点位反转验证见 [跨电路位反转说明](docs/CIRCUIT_BITFLIP.md)。默认各运行前10张图，每项三张关键图片，原基准和ROI保持不变；本轮入口不执行消融。
 
 锐化的“多图筛选硬件、逐图自适应区间”试验见 [固定硬件与区间校准](docs/SHARPEN_BITFLIP_HARDWARE.md)。先用训练图产生节点/信号/位结构，在筛选图上只搜区间选定结构，最后冻结结构与训练起点库，对新图只更新区间。保留零触发安装节点，无额外使能参数，不执行消融。
+
+Conv、Sobel、DCT采用同一套多图固定硬件流程见 [三应用固定硬件与新图区间校准](docs/CIRCUIT_BITFLIP_HARDWARE.md)：复用1～10训练结果，在11～20筛选各应用H*，最后31～40仅搜索区间。支持并行筛选、原生8/11/32节点和每图三张关键图片。
