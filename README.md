@@ -70,3 +70,5 @@ Conv、Sobel、DCT采用同一套多图固定硬件流程见 [三应用固定硬
 整体效率版见 [共享训练、渐进筛选与任务复用](docs/BITFLIP_WORKFLOW_SPEED.md)：默认 balanced 使用敏感性优先级、跨训练图共享候选、有排名上界的提前停止和分档区间投入；可用 `--workflow reference` 对照原搜索策略，或 `--adaptive-intervals off` 先独立验证筛选收益。提供只读 `--resume-from`，报告实际任务数及所有尝试成本。新增代码与测试由用户在终端运行验证。
 
 针对上一轮耗时较长的 Sobel，新增可选 [连续细化与局部硬件搜索试点](docs/SOBEL_CONTINUATION_TRIAL.md)：使用 `--applications sobel --workflow continuation`，先校准已有结构再做局部修改，同时保留全局探索预算；区间搜索只启动一次并保留状态。原 balanced/reference 模式保留，实际效率及效果由用户运行比较。
+
+将硬件发现与选择合并到同一批1–10的新入口见 [10图直接确定硬件](docs/TEN_IMAGE_HARDWARE.md)：`scripts/run_circuit_bitflip_ten_train.py`维护有总预算的共享结构池，复用训练参考/基准及既有逐图结果，不再运行11–20筛选。先用 `--application sobel`试点；31–40只校准冻结H的区间，原流程仍可作对照。

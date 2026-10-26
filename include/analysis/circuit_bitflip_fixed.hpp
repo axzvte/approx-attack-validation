@@ -21,6 +21,7 @@ struct CircuitFixedBitflipStats {
     std::vector<std::uint64_t> contextsByNode;
     bool contextBudgetExhausted=false,fullBudgetExhausted=false;
     bool continuous=false,stoppedForConvergence=false;
+    bool referenceCacheHit=false,baselineCacheHit=false;
     std::size_t completedSweeps=0;
     double referenceSeconds=0,initializationSeconds=0,traceSeconds=0,profileSeconds=0;
     double intervalSeconds=0,finalReplaySeconds=0,fullEvaluationSeconds=0;
@@ -35,6 +36,25 @@ struct CircuitFixedBitflipResult {
     std::optional<JointBitflipState> bestLegal;
     CircuitFixedBitflipStats stats;
 };
+class CircuitFixedPreparedImage {
+public:
+    ~CircuitFixedPreparedImage()=default;
+    CircuitFixedPreparedImage(const CircuitFixedPreparedImage&)=delete;
+    CircuitFixedPreparedImage& operator=(const CircuitFixedPreparedImage&)=delete;
+    BitflipQuality baselineQuality() const {return quality_;}
+private:
+    CircuitFixedPreparedImage()=default;
+    cv::Mat image_,mask_,binary_,reference_,baseline_;
+    BitflipQuality quality_;
+    std::string applicationFingerprint_;
+    friend std::shared_ptr<const CircuitFixedPreparedImage> prepareCircuitFixedImage(
+        const core::Application&,const cv::Mat&,const cv::Mat&);
+    friend CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Application&,
+        const cv::Mat&,const cv::Mat&,const FixedBitflipHardware&,const CircuitFixedBitflipOptions&,
+        const std::function<void(const CircuitFixedBitflipProgress&)>&,const CircuitFixedPreparedImage*);
+};
+std::shared_ptr<const CircuitFixedPreparedImage> prepareCircuitFixedImage(
+    const core::Application&,const cv::Mat&,const cv::Mat&);
 bool matchesCircuitFixedBitflipHardware(const JointBitflipConfiguration&,
     const FixedBitflipHardware&,std::size_t nativeNodeCount);
 std::optional<JointBitflipConfiguration> dormantCircuitFixedBitflipSeed(
@@ -42,5 +62,6 @@ std::optional<JointBitflipConfiguration> dormantCircuitFixedBitflipSeed(
 CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Application&,
     const cv::Mat&,const cv::Mat&,const FixedBitflipHardware&,
     const CircuitFixedBitflipOptions& options={},
-    const std::function<void(const CircuitFixedBitflipProgress&)>& progress={});
+    const std::function<void(const CircuitFixedBitflipProgress&)>& progress={},
+    const CircuitFixedPreparedImage* prepared=nullptr);
 }

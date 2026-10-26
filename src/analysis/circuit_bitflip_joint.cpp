@@ -15,6 +15,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <typeinfo>
 
 namespace analysis {
 namespace {
@@ -38,6 +39,21 @@ approximate::ApproxUnitId applicationBaselineUnit(const core::Application& app,i
         case Kind::Dct:return dynamic_cast<const applications::DctApplication&>(app).baselineConfig()[node].unit;
     }
     throw std::runtime_error("Unknown circuit application.");
+}
+std::string applicationFingerprint(const core::Application& app) {
+    std::ostringstream out;out<<typeid(app).name()<<'|'<<app.name()<<'|'<<app.addNodes().size();
+    const auto append=[&](const auto& config) {
+        for(const auto& node:config) out<<'|'<<node.exact<<':'<<int(node.unit);
+    };
+    switch(kindOf(app)) {
+        case Kind::Conv:append(dynamic_cast<const applications::ConvApplication&>(app).baselineConfig());break;
+        case Kind::Sobel:append(dynamic_cast<const applications::SobelApplication&>(app).baselineConfig());break;
+        case Kind::Dct:append(dynamic_cast<const applications::DctApplication&>(app).baselineConfig());break;
+    }
+    return out.str();
+}
+bool identicalPixels(const cv::Mat& a,const cv::Mat& b) {
+    return a.type()==b.type() && a.size()==b.size() && cv::norm(a,b,cv::NORM_INF)==0;
 }
 void validateStructureSeed(const core::Application& app,const Config& config,std::size_t maxActive) {
     if(config.empty() || config.size()>maxActive)
@@ -823,9 +839,22 @@ std::optional<JointBitflipConfiguration> dormantCircuitFixedBitflipSeed(const co
     return fixed_circuit::dormant(app,image,binary,hardware,baseline,trace);
 }
 
+std::shared_ptr<const CircuitFixedPreparedImage> prepareCircuitFixedImage(
+    const core::Application& app,const cv::Mat& image,const cv::Mat& mask) {
+    auto prepared=std::shared_ptr<CircuitFixedPreparedImage>(new CircuitFixedPreparedImage);
+    prepared->applicationFingerprint_=applicationFingerprint(app);
+    prepared->binary_=binaryMask(image,mask);
+    prepared->image_=image.clone();prepared->mask_=mask.clone();
+    prepared->reference_=app.runExact(prepared->image_).clone();
+    prepared->baseline_=app.runApprox(prepared->image_,{}).clone();
+    prepared->quality_=measureBitflipQuality(prepared->reference_,prepared->baseline_,prepared->binary_);
+    return prepared;
+}
+
 CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Application& app,
     const cv::Mat& image,const cv::Mat& mask,const FixedBitflipHardware& hardware,
-    const CircuitFixedBitflipOptions& options,const std::function<void(const CircuitFixedBitflipProgress&)>& progress) {
+    const CircuitFixedBitflipOptions& options,const std::function<void(const CircuitFixedBitflipProgress&)>& progress,
+    const CircuitFixedPreparedImage* prepared) {
     using namespace fixed_circuit;
     const auto kind=kindOf(app);const auto nodes=app.addNodes().size();validateHardware(hardware,nodes);
     if(!options.beamWidth || !options.representativeCount || !options.restarts || !options.maxContexts ||
@@ -836,15 +865,20 @@ CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Applica
             options.restarts>std::numeric_limits<std::size_t>::max()/(options.refinementRounds+1)))
         throw std::invalid_argument("Invalid continuous fixed circuit convergence options.");
     for(const auto& c:options.seeds) validateSeed(c,hardware,nodes);
-    const auto binary=binaryMask(image,mask);
+    if(prepared && (prepared->applicationFingerprint_!=applicationFingerprint(app) ||
+            !identicalPixels(image,prepared->image_) || !identicalPixels(mask,prepared->mask_)))
+        throw std::invalid_argument("Prepared circuit image does not match image, mask or application configuration.");
+    const auto binary=prepared?prepared->binary_:binaryMask(image,mask);
     if(kind!=Kind::Dct && (image.rows<3 || image.cols<3))
         throw std::invalid_argument("Fixed pixel circuit search requires an interior pixel.");
     CircuitFixedBitflipResult result;
     result.stats.contextsByNode.resize(nodes);auto& stats=result.stats;
     stats.continuous=options.continuous;
-    const auto referenceBegin=Clock::now();const auto reference=app.runExact(image);stats.referenceSeconds=seconds(referenceBegin);
-    const auto initBegin=Clock::now();const auto baseline=app.runApprox(image,{});
-    result.baseline=measureBitflipQuality(reference,baseline,binary);
+    const auto referenceBegin=Clock::now();const auto reference=prepared?prepared->reference_:app.runExact(image);
+    stats.referenceSeconds=seconds(referenceBegin);stats.referenceCacheHit=prepared!=nullptr;
+    const auto initBegin=Clock::now();const auto baseline=prepared?prepared->baseline_:app.runApprox(image,{});
+    result.baseline=prepared?prepared->quality_:measureBitflipQuality(reference,baseline,binary);
+    stats.baselineCacheHit=prepared!=nullptr;
     std::vector<State> seeds;std::set<std::string> seedKeys;
     std::map<std::string,std::optional<State>> fullCache;
     const auto accept=[&](const Config& config,bool warm) {

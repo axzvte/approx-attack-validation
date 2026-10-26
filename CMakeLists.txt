@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 find_package(OpenCV REQUIRED)
+find_package(Threads REQUIRED)
 
 
 # =========================================================
@@ -55,6 +56,7 @@ add_library(
     src/analysis/sharpen_bitflip_joint.cpp
     src/analysis/sharpen_bitflip_fixed.cpp
     src/analysis/circuit_bitflip_joint.cpp
+    src/analysis/circuit_bitflip_ten_train.cpp
     src/analysis/brute_force_search.cpp
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
@@ -89,6 +91,7 @@ target_link_libraries(
     approx_framework
     PUBLIC
         evoapprox_units
+        Threads::Threads
         ${OpenCV_LIBS}
 )
 
@@ -127,6 +130,11 @@ add_test(NAME bitflip_sensitivity COMMAND test_bitflip_sensitivity)
 add_executable(test_circuit_bitflip_continuation tests/test_circuit_bitflip_continuation.cpp)
 target_link_libraries(test_circuit_bitflip_continuation PRIVATE approx_framework)
 add_test(NAME circuit_bitflip_continuation COMMAND test_circuit_bitflip_continuation)
+add_executable(circuit_bitflip_ten_train app/circuit_bitflip_ten_train.cpp)
+target_link_libraries(circuit_bitflip_ten_train PRIVATE approx_framework Threads::Threads)
+add_executable(test_circuit_bitflip_ten_train tests/test_circuit_bitflip_ten_train.cpp)
+target_link_libraries(test_circuit_bitflip_ten_train PRIVATE approx_framework Threads::Threads)
+add_test(NAME circuit_bitflip_ten_train COMMAND test_circuit_bitflip_ten_train)
 
 add_executable(sharpen_bitflip_joint app/sharpen_bitflip_joint.cpp)
 target_link_libraries(sharpen_bitflip_joint PRIVATE approx_framework)
@@ -159,6 +167,13 @@ if(UNIX)
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_workflow_pipeline.py)
         add_test(NAME sobel_continuation_pipeline
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sobel_continuation_pipeline.py)
+        add_test(NAME ten_train_report
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_ten_train_report.py)
+        add_test(NAME circuit_bitflip_ten_train_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_pipeline.py)
+        add_test(NAME circuit_bitflip_ten_train_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_cli.py
+            $<TARGET_FILE:circuit_bitflip_ten_train>)
         add_test(NAME circuit_bitflip_continuation_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_continuation_cli.py
             $<TARGET_FILE:circuit_bitflip_joint> $<TARGET_FILE:circuit_bitflip_fixed>)
