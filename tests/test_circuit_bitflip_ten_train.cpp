@@ -3,6 +3,7 @@
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
+#include "applications/sharpen.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -52,6 +53,26 @@ void preparedIdentity() {
     require(cached.stats.referenceCacheHit && cached.stats.baselineCacheHit,"Prepared hits must be reported");
     require(!plain.stats.referenceCacheHit && !plain.stats.baselineCacheHit,"Plain path falsely reports cache hit");
     equal(cached.baseline,plain.baseline);require(bool(cached.bestLegal)==bool(plain.bestLegal),"Cache altered legality");
+    if(cached.bestLegal) equal(cached.bestLegal->metrics,plain.bestLegal->metrics);
+}
+// Authored before Sharpen preparation support; unrun locally.
+void preparedSharpenIdentity() {
+    applications::SharpenApplication app;const auto input=images().front();
+    const auto prepared=analysis::prepareCircuitFixedImage(app,input.image,input.mask);
+    const analysis::FixedBitflipHardware h{{0,core::MonitorSignal::Input1,0},{3,core::MonitorSignal::BaselineOutput,1}};
+    for(const bool changeExact:{false,true}) {
+        auto config=app.baselineConfig();
+        if(changeExact) config[1].exact=!config[1].exact;
+        else config[2].unit=approximate::ApproxUnitId::Add12se5L8;
+        applications::SharpenApplication changed(config);bool rejected=false;
+        try {analysis::searchCircuitFixedBitflipIntervals(changed,input.image,input.mask,h,small().intervals,{},prepared.get());}
+        catch(const std::invalid_argument&) {rejected=true;}
+        require(rejected,"Prepared Sharpen identity must include exact flags and unit IDs");
+    }
+    const auto cached=analysis::searchCircuitFixedBitflipIntervals(app,input.image,input.mask,h,small().intervals,{},prepared.get());
+    const auto plain=analysis::searchCircuitFixedBitflipIntervals(app,input.image,input.mask,h,small().intervals);
+    require(cached.stats.referenceCacheHit && cached.stats.baselineCacheHit,"Sharpen prepared cache not used");
+    equal(cached.baseline,plain.baseline);require(bool(cached.bestLegal)==bool(plain.bestLegal),"Sharpen cache changed legality");
     if(cached.bestLegal) equal(cached.bestLegal->metrics,plain.bestLegal->metrics);
 }
 void budgetAndOracle(const core::Application& app) {
@@ -201,6 +222,18 @@ void schedulingBudgets() {
             }
         }
     }
+    // If the exploration ceiling, rather than round count, ended discovery,
+    // completing all competitive pending rows must not claim a round limit.
+    auto exhaustedOptions=small();exhaustedOptions.maxEvaluations=80;
+    exhaustedOptions.maxCandidates=30;exhaustedOptions.initialCandidates=8;
+    exhaustedOptions.maxRounds=30;exhaustedOptions.patience=30;
+    const auto exhausted=analysis::searchCircuitTenTrain(app,images(),exhaustedOptions);
+    if(exhausted.actualEvaluations<exhaustedOptions.maxEvaluations &&
+            exhausted.referenceEvaluations+exhausted.explorationEvaluations>=
+                exhaustedOptions.maxEvaluations-exhausted.effectiveCompletionReserve &&
+            !analysis::detail::completionChoice(exhausted.candidates,exhausted.bestIndex,10))
+        require(exhausted.stopReason=="exploration_budget_exhausted_completion_finished",
+            "Finished exploration/completion falsely reported a round limit");
     auto o=small();o.scheduling="sequential";
     std::vector<std::pair<std::string,int>> trajectory;
     const auto r=analysis::searchCircuitTenTrain(app,images(),o,[&](const auto& p) {
@@ -266,7 +299,8 @@ void rankingContract() {
 }
 }
 int main() {
-    try {preparedIdentity();validationAndDefaults();schedulingBudgets();adversarialCompletion();rankingContract();preparedBuildCounts();priorityMaskThreshold();budgetAndOracle(applications::ConvApplication{});
+    try {preparedIdentity();preparedSharpenIdentity();validationAndDefaults();schedulingBudgets();adversarialCompletion();rankingContract();preparedBuildCounts();priorityMaskThreshold();budgetAndOracle(applications::ConvApplication{});
+        budgetAndOracle(applications::SharpenApplication{});
         budgetAndOracle(applications::SobelApplication{});budgetAndOracle(applications::DctApplication{});
         std::cout<<"Ten-image native contracts passed\n";return 0;
     }catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}

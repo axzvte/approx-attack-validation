@@ -15,7 +15,7 @@ from run_sharpen_bitflip_batch import process,atomic_csv
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
-def effort_levels(args,node_count,application):
+def effort_levels(args,node_count,application,*,circuit_entry=False):
     """All circuits use the same fractions; counts only set coverage minima."""
     adaptive=args.workflow!='continuation' and (args.adaptive_intervals=='on' or (args.adaptive_intervals=='auto' and args.workflow=='balanced'))
     levels=[]
@@ -23,7 +23,7 @@ def effort_levels(args,node_count,application):
         level=dict(context_budget=min(args.context_budget,max(node_count,math.ceil(args.context_budget*fraction))),
                    beam=args.beam,refinement=args.refinement if fraction==1 else 0,
                    restarts=args.restarts if fraction==1 else 1,boundary_budget=args.boundary_budget)
-        if application!='sharpen':
+        if application!='sharpen' or circuit_entry:
             level.update(max_full_evals=min(args.max_full_evals,max(node_count,math.ceil(args.max_full_evals*fraction))),
                          full_candidates=args.full_candidates)
         if level not in levels:levels.append(level)
@@ -36,7 +36,7 @@ def result_key(row):
     return (0,0.,0.)
 
 def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_path,seeds_path,
-                      args,phase,cache,source_hash,image_path,mask_hash,report_reader):
+                      args,phase,cache,source_hash,image_path,mask_hash,report_reader,circuit_entry=False):
     """Return (status,row,staged,attempt_diagnostics); caller alone writes globals."""
     relative=f"{phase}/{h['hardware_id']}/image_{image:02d}"
     report=out/relative;report.parent.mkdir(parents=True,exist_ok=True)
@@ -45,16 +45,18 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
                 elapsed_seconds='',log=log,detail='',cache_hit=0)
     begin=time.monotonic();staged={};attempt_rows=[]
     native_nodes={'sharpen':4,'conv':8,'sobel':11,'dct':32}[application]
-    levels=effort_levels(args,len(h['key']),application)
+    generic_entry=application!='sharpen' or circuit_entry
+    levels=effort_levels(args,len(h['key']),application,circuit_entry=circuit_entry)
     continuous=args.workflow=='continuation'
     signature=dict(schema=1,kind='fixed_intervals',application=application,phase=phase,image=image,
                    input_sha256=digest(image_path),mask_sha256=mask_hash,source_sha256=source_hash,
                    executable_sha256=digest(fixed),hardware_sha256=digest(hardware_path),seeds_sha256=digest(seeds_path),
                    global_psnr=args.global_psnr,image_mode=mode,effort_levels=levels,
-                   adaptive_min_gain=args.adaptive_min_gain,native_continuation=continuous)
+                   adaptive_min_gain=args.adaptive_min_gain,native_continuation=continuous,
+                   entry_style='circuit' if generic_entry else 'legacy_sharpen')
     def read(path):
         return report_reader(path,image,h['key'],mode,relative,args.global_psnr,native_nodes,
-                             application if application!='sharpen' else None)
+                             application if generic_entry else None)
     try:
         if cache.restore(relative,signature):
             staged,row=read(report);status.update(status='completed',returncode=0,cache_hit=1,
@@ -70,12 +72,12 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
             best=None;best_path=None;previous_best=None
             for index,level in enumerate(levels):
                 target=attempt_root/f'attempt_{index+1}'
-                command=[fixed,*([application] if application!='sharpen' else []),data,target,
+                command=[fixed,*([application] if generic_entry else []),data,target,
                          '--hardware',hardware_path,'--seeds',seeds_path,'--image',image,
                          '--beam',level['beam'],'--refinement',level['refinement'],'--restarts',level['restarts'],
                          '--boundary-budget',level['boundary_budget'],'--context-budget',level['context_budget'],
                          '--global-psnr',args.global_psnr,'--image-mode',mode]
-                if application!='sharpen':
+                if generic_entry:
                     command.extend(['--max-full-evals',level['max_full_evals'],'--full-candidates',level['full_candidates']])
                 if continuous:command.extend(['--continuous','--convergence-tolerance',args.adaptive_min_gain])
                 started=time.monotonic()

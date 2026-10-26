@@ -154,7 +154,7 @@ def validate_training_report(report: Path, application: str, train: list[int],
 
 
 def _validate(report, application, train, floor, max_evaluations, max_candidates):
-    if application not in ("conv", "sobel", "dct"):
+    if application not in ("sharpen", "conv", "sobel", "dct"):
         raise ValueError("Unsupported native application")
     if (not train or len(set(train)) != len(train) or
             any(type(image) is not int or not 1 <= image <= 10 for image in train)):

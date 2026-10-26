@@ -22,10 +22,10 @@ from ten_train_report import validate_training_report
 TRAIN_FILES=('training_baselines.csv','candidate_hardware.csv','training_ranking.csv',
              'training_evaluations.csv','training_configurations.csv','search_stats.csv')
 
-def parser(root):
+def parser(root,*,include_application=True):
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('data',type=Path);p.add_argument('output',type=Path)
-    p.add_argument('--application',choices=('sobel','conv','dct'),default='sobel')
+    if include_application:p.add_argument('--application',choices=('sharpen','sobel','conv','dct'),default='sobel')
     p.add_argument('--train',default='1:10');p.add_argument('--test',default='31:40')
     p.add_argument('--max-train-evaluations',type=int,default=80)
     p.add_argument('--max-candidates',type=int,default=24);p.add_argument('--initial-candidates',type=int,default=3)
@@ -46,26 +46,31 @@ def parser(root):
 
 def overlap(a,b):return a==b or a in b.parents or b in a.parents
 
+def validate_search_options(args):
+    train=protocol.split_range(args.train);test=protocol.split_range(args.test)
+    if train!=list(range(1,11)):raise ValueError('This workflow selects H using exactly images1–10; use --train 1:10')
+    if set(train)&set(test):raise ValueError('Test images overlap the ten hardware-selection images')
+    if test!=list(range(31,41)):raise ValueError('This workflow tests exactly images31–40; images11–20 are not evaluated')
+    if not (len(train)<=args.max_train_evaluations<=100000 and 1<=args.max_candidates<=10000 and
+            1<=args.initial_candidates<=args.max_candidates and 1<=args.proposals_per_round<=1000 and
+            1<=args.max_rounds<=1000 and 1<=args.patience<=1000 and 1<=args.workers<=64 and
+            1<=args.initial_batch<=10 and 0<=args.completion_reserve<=10000000 and
+            1<=args.train_context_budget<=1000000 and 1<=args.context_budget<=1000000 and
+            1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
+            (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 1<=args.max_full_evals<=10000000 and
+            1<=args.full_candidates<=1024 and 1<=args.seed_limit<=10 and 1<=args.jobs<=64 and
+            math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000 and
+            math.isfinite(args.convergence_tolerance) and 0<=args.convergence_tolerance<=1):
+        raise ValueError('Invalid ten-image search options')
+    if (args.train_exe or args.fixed_exe) and not args.skip_build:raise ValueError('External executables require --skip-build')
+    return train,test
+
+
 def main(argv=None):
     root=Path(__file__).resolve().parents[1];args=parser(root).parse_args(argv)
     owned=False;meta=None;begin=time.monotonic()
     try:
-        train=protocol.split_range(args.train);test=protocol.split_range(args.test)
-        if train!=list(range(1,11)):raise ValueError('This pilot selects H using exactly images1–10; use --train 1:10')
-        if set(train)&set(test):raise ValueError('Test images overlap the ten hardware-selection images')
-        if test!=list(range(31,41)):raise ValueError('This pilot tests exactly images31–40; images11–20 are not evaluated')
-        if not (len(train)<=args.max_train_evaluations<=100000 and 1<=args.max_candidates<=10000 and
-                1<=args.initial_candidates<=args.max_candidates and 1<=args.proposals_per_round<=1000 and
-                1<=args.max_rounds<=1000 and 1<=args.patience<=1000 and 1<=args.workers<=64 and
-                1<=args.initial_batch<=10 and 0<=args.completion_reserve<=10000000 and
-                1<=args.train_context_budget<=1000000 and 1<=args.context_budget<=1000000 and
-                1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
-                (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 1<=args.max_full_evals<=10000000 and
-                1<=args.full_candidates<=1024 and 1<=args.seed_limit<=10 and 1<=args.jobs<=64 and
-                math.isfinite(args.global_psnr) and 0<=args.global_psnr<=1000 and
-                math.isfinite(args.convergence_tolerance) and 0<=args.convergence_tolerance<=1):
-            raise ValueError('Invalid ten-image search options')
-        if (args.train_exe or args.fixed_exe) and not args.skip_build:raise ValueError('External executables require --skip-build')
+        train,test=validate_search_options(args)
         data=args.data.resolve();out=args.output.resolve();build=args.build_dir.resolve()
         resume=args.resume_from.resolve() if args.resume_from else None
         for writable in [out]+([] if args.skip_build else [build]):
@@ -182,7 +187,8 @@ def main(argv=None):
                 result=run_interval_task(root=root,out=out,data=data,fixed=fixed,application=args.application,
                     h=dict(hardware_id=hid,key=hardware),image=image,mode=args.image_mode,
                     hardware_path=out/'frozen_hardware.csv',seeds_path=out/'frozen_seeds.csv',args=fixed_args,phase='test',
-                    cache=cache,source_hash=source_hash,image_path=paths[image],mask_hash=mask_hash,report_reader=protocol.fixed_report)
+                    cache=cache,source_hash=source_hash,image_path=paths[image],mask_hash=mask_hash,
+                    report_reader=protocol.fixed_report,circuit_entry=True)
                 state,row,staged,efforts=result;statuses.append(dict(application=args.application,**state))
                 row.update(application=args.application);best.append(row)
                 attempts.extend(dict(application=args.application,**e) for e in efforts)
@@ -191,16 +197,22 @@ def main(argv=None):
                 else:
                     for name,rs in staged.items():tables[name].extend({**r,'application':args.application,'phase':'test','hardware_id':hid,'image':image} for r in rs)
                 meta['test_wall_seconds']=time.monotonic()-test_started;flush()
-        finally:meta['test_wall_seconds']=time.monotonic()-test_started
+        finally:
+            meta['test_wall_seconds']=time.monotonic()-test_started
+            flush()
         if any(protocol.digest(out/name)!=value for name,value in frozen.items()):raise RuntimeError('Frozen bank changed during test')
         meta.update(completed=True,all_succeeded=not meta['failed_tasks'],seed_bank_unchanged_after_test=True);flush()
         print(f"Selected {hid} from images1–10; {sum(r['status']=='numeric_eligible' for r in best)}/{len(test)} test images numeric eligible. Visual review pending.")
         return 0 if meta['all_succeeded'] else 1
     except KeyboardInterrupt:
-        if owned and meta is not None:meta['error']='Interrupted by user';atomic_json(out/'RUN.json',meta)
+        if owned and meta is not None:
+            meta['error']='Interrupted by user';meta['total_wall_seconds']=time.monotonic()-begin
+            atomic_json(out/'RUN.json',meta)
         print('Interrupted; complete artifacts preserved',file=sys.stderr);return 130
     except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
-        if owned and meta is not None:meta['error']=str(exc);atomic_json(out/'RUN.json',meta)
+        if owned and meta is not None:
+            meta['error']=str(exc);meta['total_wall_seconds']=time.monotonic()-begin
+            atomic_json(out/'RUN.json',meta)
         print(f'Ten-image hardware selection failed: {exc}',file=sys.stderr);return 1
 
 if __name__=='__main__':sys.exit(main())

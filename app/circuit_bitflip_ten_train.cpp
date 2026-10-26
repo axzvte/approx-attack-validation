@@ -3,6 +3,7 @@
 #include "applications/conv.hpp"
 #include "applications/dct.hpp"
 #include "applications/sobel.hpp"
+#include "applications/sharpen.hpp"
 #include "io/image_io.hpp"
 #include "region/region_mask.hpp"
 #include <algorithm>
@@ -254,7 +255,7 @@ void validateResult(const analysis::TenTrainResult& result, std::size_t nativeCo
 int main(int argc, char** argv) {
     try {
         if (argc < 4) throw std::runtime_error(
-            "Usage: circuit_bitflip_ten_train sobel|conv|dct DATA NEW_OUTPUT [--train 1:10] "
+            "Usage: circuit_bitflip_ten_train sharpen|sobel|conv|dct DATA NEW_OUTPUT [--train 1:10] "
             "[--max-evaluations 80] [--max-candidates 24] [--initial-candidates 3] "
             "[--proposals-per-round 3] [--max-rounds 6] [--patience 2] [--workers 4] "
             "[--scheduling interleaved|sequential] [--initial-batch 4] [--completion-reserve 20] "
@@ -265,6 +266,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<core::Application> app;
         // Use the original default baseline, exact reference, widths and graph.
         if (application == "sobel") app = std::make_unique<applications::SobelApplication>();
+        else if (application == "sharpen") app = std::make_unique<applications::SharpenApplication>();
         else if (application == "conv") app = std::make_unique<applications::ConvApplication>();
         else if (application == "dct") app = std::make_unique<applications::DctApplication>();
         else throw std::runtime_error("Unknown circuit: " + application);

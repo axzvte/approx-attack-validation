@@ -17,7 +17,7 @@ struct CircuitFixedBitflipStats {
     // Search-only complete image scores; initialization is timed separately.
     // Pixel applications use exact conditional scores instead of full scores.
     std::uint64_t fullEvaluations=0,finalReplayEvaluations=0,traceBuilds=0,traceCacheHits=0;
-    // Indexed by native node id (8/11/32), including untouched zero entries.
+    // Indexed by native node id (4/8/11/32), including untouched zero entries.
     std::vector<std::uint64_t> contextsByNode;
     bool contextBudgetExhausted=false,fullBudgetExhausted=false;
     bool continuous=false,stoppedForConvergence=false;

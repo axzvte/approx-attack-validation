@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as temporary:
                  for y in range(16) for x in range(16))
     (data / "mask/roi_mask.jpg").write_bytes(b"P5\n16 16\n255\n" + mask)
 
-    for app, native in (("conv", 8), ("sobel", 11), ("dct", 32)):
+    for app, native in (("sharpen", 4), ("conv", 8), ("sobel", 11), ("dct", 32)):
         hardware = root / (app + "_hardware.csv")
         seed = root / (app + "_seeds.csv")
         write_csv(hardware, ("node_id", "monitor", "bit"),

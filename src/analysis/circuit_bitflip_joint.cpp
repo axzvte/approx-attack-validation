@@ -4,6 +4,7 @@
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
+#include "applications/sharpen.hpp"
 #include "core/bitflip_payload.hpp"
 #include <algorithm>
 #include <array>
@@ -25,15 +26,17 @@ using Bin=JointBitflipBin;
 using Sum=std::int64_t;
 constexpr std::array<core::MonitorSignal,3> signals{core::MonitorSignal::Input1,
     core::MonitorSignal::Input2,core::MonitorSignal::BaselineOutput};
-enum class Kind {Conv,Sobel,Dct};
+enum class Kind {Conv,Sobel,Dct,Sharpen};
 Kind kindOf(const core::Application& app) {
+    if(dynamic_cast<const applications::SharpenApplication*>(&app)) return Kind::Sharpen;
     if(dynamic_cast<const applications::ConvApplication*>(&app)) return Kind::Conv;
     if(dynamic_cast<const applications::SobelApplication*>(&app)) return Kind::Sobel;
     if(dynamic_cast<const applications::DctApplication*>(&app)) return Kind::Dct;
-    throw std::invalid_argument("Circuit bit-flip search supports Conv, Sobel and DCT only.");
+    throw std::invalid_argument("Circuit bit-flip search supports Sharpen, Conv, Sobel and DCT only.");
 }
 approximate::ApproxUnitId applicationBaselineUnit(const core::Application& app,int node) {
     switch(kindOf(app)) {
+        case Kind::Sharpen:return dynamic_cast<const applications::SharpenApplication&>(app).baselineConfig()[node].unit;
         case Kind::Conv:return dynamic_cast<const applications::ConvApplication&>(app).baselineConfig()[node].unit;
         case Kind::Sobel:return dynamic_cast<const applications::SobelApplication&>(app).baselineConfig()[node].unit;
         case Kind::Dct:return dynamic_cast<const applications::DctApplication&>(app).baselineConfig()[node].unit;
@@ -46,6 +49,7 @@ std::string applicationFingerprint(const core::Application& app) {
         for(const auto& node:config) out<<'|'<<node.exact<<':'<<int(node.unit);
     };
     switch(kindOf(app)) {
+        case Kind::Sharpen:append(dynamic_cast<const applications::SharpenApplication&>(app).baselineConfig());break;
         case Kind::Conv:append(dynamic_cast<const applications::ConvApplication&>(app).baselineConfig());break;
         case Kind::Sobel:append(dynamic_cast<const applications::SobelApplication&>(app).baselineConfig());break;
         case Kind::Dct:append(dynamic_cast<const applications::DctApplication&>(app).baselineConfig());break;
@@ -132,7 +136,11 @@ bool replay(const Context& c,const Pixel& p,int bit,bool targetOn,int& output) {
     std::array<int,11> values{};
     for(std::size_t n=0;n<c.units.size();++n) {
         int a=p.trace[n].input1,b=p.trace[n].input2;
-        if(c.kind==Kind::Conv) {
+        if(c.kind==Kind::Sharpen) {
+            // A0(5*center,-top), then subtract bottom, left and right.
+            // Each monitor sees the preceding node's newly attacked output.
+            if(n) a=values[n-1];
+        } else if(c.kind==Kind::Conv) {
             switch(n) {
                 case 4:a=values[0];b=values[1];break;
                 case 5:a=values[2];b=values[3];break;
@@ -174,6 +182,7 @@ Context makeContext(const core::Application& app,const cv::Mat& image,const cv::
         throw std::invalid_argument("Pixel profiling needs an interior pixel and a valid node.");
     validateConfig(current,app.addNodes().size());
     if(c.kind==Kind::Conv) c.units=unitsFor(dynamic_cast<const applications::ConvApplication&>(app).baselineConfig());
+    else if(c.kind==Kind::Sharpen) c.units=unitsFor(dynamic_cast<const applications::SharpenApplication&>(app).baselineConfig());
     else c.units=unitsFor(dynamic_cast<const applications::SobelApplication&>(app).baselineConfig());
     c.active.resize(c.units.size());for(const auto& attack:c.others) c.active[attack.nodeId]=attack;
     std::vector<core::AddSample> collected;
@@ -195,7 +204,7 @@ Context makeContext(const core::Application& app,const cv::Mat& image,const cv::
         else ++c.invalid;
         c.pixels.push_back(std::move(p));
     }
-    // Both original application borders are identical to their exact borders.
+    // Pixel application borders are identical to their exact borders.
     return c;
 }
 std::array<JointBitflipProfile,3> profilesFor(const Context& c,int bit,
@@ -341,7 +350,7 @@ std::vector<State> expandPixels(const core::Application& app,const cv::Mat& imag
             if(!score.roiTriggers && !score.nonRoiTriggers) return;
             pool.offer(score.metrics,[&] {
                 auto config=profile.others;auto candidate=attack(node,bit,profile.monitor,values[lo],values[hi]);
-                if(allowed) candidate.unit=applicationBaselineUnit(app,node);
+                if(allowed || context.kind==Kind::Sharpen) candidate.unit=applicationBaselineUnit(app,node);
                 config.push_back(candidate);return config;
             });
         });

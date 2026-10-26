@@ -2,6 +2,7 @@
 #include "analysis/circuit_bitflip_fixed.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
+#include "applications/sharpen.hpp"
 #include "applications/dct.hpp"
 #include "io/image_io.hpp"
 #include "region/region_mask.hpp"
@@ -295,7 +296,7 @@ struct Verified { Config configuration; Quality metrics; cv::Mat image; };
 int main(int argc, char** argv) {
     try {
         if (argc < 4) throw std::runtime_error(
-            "Usage: circuit_bitflip_fixed conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR --hardware H.csv "
+            "Usage: circuit_bitflip_fixed sharpen|conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR --hardware H.csv "
             "[--seeds seeds.csv] [--image 1..40] [--beam 4] [--refinement 1] [--restarts 2] "
             "[--boundary-budget 24] [--context-budget 128] [--max-full-evals 256] "
             "[--full-candidates 8] [--global-psnr 30] [--image-mode compact|none|full] "
@@ -304,6 +305,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<core::Application> app;
         // Preserve native baseline units, graph widths and exact/reference behavior.
         if (application == "conv") app = std::make_unique<applications::ConvApplication>();
+        else if (application == "sharpen") app = std::make_unique<applications::SharpenApplication>();
         else if (application == "sobel") app = std::make_unique<applications::SobelApplication>();
         else if (application == "dct") app = std::make_unique<applications::DctApplication>();
         else throw std::runtime_error("Unknown circuit: " + application);

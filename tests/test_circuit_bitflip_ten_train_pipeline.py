@@ -27,13 +27,14 @@ class TenTrainPipelineTests(unittest.TestCase):
 import csv,math,sys
 from pathlib import Path
 app=sys.argv[1];out=Path(sys.argv[3]);opts=dict(zip(sys.argv[4::2],sys.argv[5::2]))
-if (Path(__file__).parent/'fail_train').exists():sys.exit(7)
+if (Path(__file__).parent/'fail_train').exists() or (Path(__file__).parent/('fail_train_'+app)).exists():sys.exit(7)
 first,last=map(int,opts['--train'].split(':'));images=list(range(first,last+1));out.mkdir()
 def table(name,fields,rows):
  with (out/name).open('w',newline='') as f:
   writer=csv.DictWriter(f,fields);writer.writeheader();writer.writerows(rows)
 base=[dict(application=app,image=i,global_mse=20,roi_mse=20,non_roi_mse=20) for i in images]
-h=[dict(hardware_id='h0001',node_id=n,monitor='input1',bit=1) for n in (0,10)]
+last={'sharpen':3,'conv':7,'sobel':10,'dct':31}[app]
+h=[dict(hardware_id='h0001',node_id=n,monitor='input1',bit=1) for n in (0,last)]
 es=[dict(application=app,hardware_id='h0001',image=i,status='numeric_eligible',global_mse=60,roi_mse=200,non_roi_mse=40,baseline_roi_mse=20,roi_drop_score=10,elapsed_seconds=.1,contexts_built=2,full_evaluations=0,completed_sweeps=2,stopped_for_convergence=1,reference_cache_hit=1,baseline_cache_hit=1) for i in images]
 for row in base+es:
  for region in ('global','roi','non_roi'):row[region+'_psnr']=10*math.log10(65025/row[region+'_mse'])
@@ -41,7 +42,7 @@ schedule=opts['--scheduling'];reserve=int(opts['--completion-reserve'])
 order=[images[i] for i in (0,9,4,2,7,1,8,3,6,5)] if schedule=='interleaved' else images
 diag=dict(scheduling=schedule,initial_batch=opts['--initial-batch'],completion_reserve=reserve,effective_completion_reserve=min(reserve,max(0,int(opts['--max-evaluations'])-len(images)-int(opts['--initial-batch']))) if schedule=='interleaved' else 0,reference_evaluations=len(images),exploration_evaluations=0,completion_evaluations=0,completion_candidates=0,evaluation_image_order=','.join(map(str,order)))
 for row in es:row['phase']='reference' if schedule=='interleaved' else 'sequential'
-cs=[dict(hardware_id='h0001',image=i,node_id=n,monitor='input1',bit=1,lower=i,upper=i+1) for i in images for n in (0,10)]
+cs=[dict(hardware_id='h0001',image=i,node_id=n,monitor='input1',bit=1,lower=i,upper=i+1) for i in images for n in (0,last)]
 partial=(Path(__file__).parent/'partial').exists()
 no_numeric=(Path(__file__).parent/'no_numeric').exists()
 if no_numeric:
@@ -66,6 +67,19 @@ with (out/'RUN.txt').open('a') as stream:
 
     def args(self,data,fixed,train,out):
         return [str(data),str(out),'--application','sobel','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
+
+    def test_remaining_applications_use_generic_fixed_entry_and_same_protocol(self):
+        for app,last in (('sharpen',3),('conv',7),('dct',31)):
+            with self.subTest(application=app),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);data,fixed,train=self.fixture(root);out=root/'run'
+                argv=self.args(data,fixed,train,out);argv[argv.index('--application')+1]=app
+                self.assertEqual(runner.main(argv),0)
+                meta=json.loads((out/'RUN.json').read_text())
+                self.assertEqual(meta['application'],app);self.assertTrue(meta['all_succeeded'])
+                self.assertEqual(meta['options']['max_train_evaluations'],80)
+                self.assertEqual({int(row['node_id']) for row in fixtures.read(out/'frozen_hardware.csv')},{0,last})
+                self.assertEqual(len(fixtures.read(out/'best_per_image.csv')),10)
+                self.assertEqual(len(fixtures.read(out/'images_all.csv')),30)
 
     def test_only_ten_images_select_h_then_frozen_test_and_full_task_reuse(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -152,6 +166,9 @@ with (out/'RUN.txt').open('a') as stream:
             fixed.write_text(fixed.read_text()+'\nif image==31:Path(opts["--seeds"]).write_text("tampered")\n')
             out=root/'changed';self.assertEqual(runner.main(self.args(data,fixed,train,out)),1)
             self.assertEqual([r['image'] for r in fixtures.read(out/'best_per_image.csv')],['31'])
+            meta=json.loads((out/'RUN.json').read_text());summary=fixtures.read(out/'applications.csv')[0]
+            self.assertEqual(float(summary['test_wall_seconds']),meta['test_wall_seconds'])
+            self.assertGreaterEqual(meta['total_wall_seconds'],meta['training_wall_seconds']+meta['test_wall_seconds'])
 
     def test_synced_sources_and_nonpilot_test_split_rejected_before_writes(self):
         with tempfile.TemporaryDirectory() as tmp:

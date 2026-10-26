@@ -67,7 +67,7 @@ class TrainingReportTests(unittest.TestCase):
                 with (report / name).open("w", newline="", encoding="utf-8") as stream:
                     writer = csv.DictWriter(stream, list(rows[0]))
                     writer.writeheader(); writer.writerows(rows)
-            return validate_training_report(report, "sobel", [1, 2, 3], 30,
+            return validate_training_report(report, options.get('application',"sobel"), [1, 2, 3], 30,
                                             options.get("max_evaluations", 8),
                                             options.get("max_candidates", 4))
 
@@ -77,6 +77,16 @@ class TrainingReportTests(unittest.TestCase):
         self.assertEqual(len(result["evaluations"]), 3)
         self.assertEqual(len(result["configurations"]), 4)
         self.assertEqual({r["seed_id"] for r in result["seed_rows"]}, {"train_01_ten"})
+
+    def test_all_native_applications_use_the_same_report_rules(self):
+        for app,last in (('sharpen',3),('conv',7),('sobel',10),('dct',31)):
+            notes,tables=self.fixture();notes['application']=app
+            for rows in tables.values():
+                for row in rows:
+                    if 'application' in row:row['application']=app
+                    if str(row.get('node_id'))=='10':row['node_id']=last
+            result=self.validate(notes,tables,application=app)
+            self.assertEqual(result['selected']['key'],((0,'input1',1),(last,'input1',1)))
 
     def scheduled_fixture(self, scheduling="interleaved"):
         notes, tables = self.fixture()

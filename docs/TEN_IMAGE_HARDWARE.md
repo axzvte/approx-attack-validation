@@ -1,6 +1,6 @@
 # 只用10张图直接确定硬件：共享结构联合搜索
 
-本入口将训练发现和硬件选择合并：仅使用图片1–10得到一套固定H*，不读取或评价11–20；冻结后对31–40只搜索L/U。先以Sobel作试点，原生接口也支持Conv、DCT，规则相同。原 balanced/continuation 入口保留作对照。
+本入口将训练发现和硬件选择合并：仅使用图片1–10得到一套固定H*，不读取或评价11–20；冻结后对31–40只搜索L/U。统一接口支持Sharpen、Conv、Sobel、DCT，规则相同。每个应用分别固定自己的H，同一应用的全部新图共用其节点、监控信号和翻转位。原 balanced/continuation 入口保留作对照。
 
 编写方只编写代码、测试并做静态审查，没有执行构建、测试、语法检查、实验或仓库分析程序。下面命令由用户运行。新策略改变搜索轨迹和预算，不承诺相同硬件、同等效果或某个加速比例。
 
@@ -15,6 +15,8 @@
 精确参考和基准输出在同一训练进程内每图准备一次。预处理对象含不可变输入、掩码及应用配置身份检查，避免错用缓存；不保存10张图的全部大轨迹。每个候选仍可能为无触发起点收集基准轨迹，改变联合配置后也仍需重算相应条件统计，所以并非消除了所有像素扫描。
 
 工作线程默认4，同一候选的一批图片并行执行；先预留任务预算，再启动线程，结果按图片编号汇总，完成时间不会改变排名。每个任务的追踪/条件缓存独立，没有跨线程共享可变追踪。
+
+锐化也接入统一的准备缓存、连续区间校准和预算调度。其原计算链为A0(5×中心,-上方)、A1(A0,-下方)、A2(A1,-左侧)、A3(A2,-右侧)；条件评分按该依赖链重算下游操作数与触发，最终以原SharpenApplication完整运行复核。四个应用都保留原近似基准、ROI与位宽，DCT仍使用完整变换及重建评分。
 
 ## 预算如何调度
 
@@ -71,3 +73,34 @@ python3 scripts/run_circuit_bitflip_ten_train.py \
 - images_all.csv与test/H/image_NN：每张数值达标测试图三张关键PNG：结果、ROI对比、背景对比。训练无PNG。
 
 请回传RUN.json、applications.csv、training_ranking.csv、training_evaluations.csv、best_per_image.csv、search_stats_all.csv、interval_attempts.csv、run_status.csv，并附好/弱图片的ROI和背景对比。比较硬件确定实际用时、达标张数、ROI PSNR具体均值/最弱图以及背景视觉，不能只比较调用次数。
+
+## 批量测试其他应用
+
+默认顺序运行锐化、Conv、DCT，Sobel可显式加入。各应用使用同一组搜索参数，构建一次，每个应用内部默认4个工作线程。默认三个应用合计最多240次训练校准，每个应用各80次；训练单任务64条件、新图单任务128条件。硬件排名仍依次比较数值达标图数、最弱与平均ROI下降分数，最后用节点数与结构键打破平局。
+
+```bash
+git switch feature/sharpen-bitflip &&
+git pull --ff-only origin feature/sharpen-bitflip &&
+cmake -S . -B build-bitflip -DCMAKE_BUILD_TYPE=Release &&
+cmake --build build-bitflip -j4 &&
+ctest --test-dir build-bitflip --output-on-failure &&
+python3 scripts/run_circuit_bitflip_ten_train_batch.py \
+  data results/bitflip/other_apps_ten_train_scheduled_20261026 \
+  --workers 4 --skip-build
+```
+
+`--applications sharpen,conv,dct`为默认，可用`--applications conv,dct`仅跑两项，或`--applications sharpen,conv,sobel,dct`跑四项。也可用原单应用入口加`--application sharpen`等名称。所有应用保留1:10/31:40分组，数值达标新图默认各输出三张关键图片，没有消融实验。
+
+新入口自动构建时只构建两个统一程序；`--skip-build`表示使用已经更新的程序。外部程序仍要求显式`--skip-build`。锐化在新入口调用`circuit_bitflip_fixed sharpen ...`，旧锐化入口继续使用其原程序；任务缓存记录入口类型，避免混用。
+
+批量根目录包含：
+
+- `applications.csv`：每应用的硬件确定时间、10张新图校准时间、应用总时间、实际训练调用数、各阶段计数、完整/淘汰/未完成候选数、安装节点数、数值达标张数及整体/ROI/背景PSNR均值。
+- `metric_images`给出均值实际包含的合法测试图数量；无合法结果时均值留空，失败图不会被填成0分贝。PSNR均值为逐图PSNR的算术平均。
+- `training_ranking_all.csv`、`training_evaluations_all.csv`、`training_configurations_all.csv`、`training_search_stats_all.csv`及候选/基准汇总保留全部应用标识。
+- `best_per_image.csv`、`search_stats_all.csv`、`images_all.csv`、`interval_attempts_all.csv`、`run_status.csv`汇总新图与调用记录。图片与日志路径带应用前缀，例如`conv/test/H/image_31/...`；原始报告在`sharpen/`、`conv/`、`dct/`子目录。
+- `RUN.json`记录整体完成与失败情况。单个应用失败会保留错误并继续后续应用；批量最终返回失败。手动中断会停止启动后续应用，汇总表仍保留已经完成的训练计数、阶段时间和已测图片指标，并给出实际metric_images数量。
+
+要比较调度带来的时间变化，可在另一新目录运行相同命令并追加`--scheduling sequential`，两轮均不用resume，保持预算、图片和线程一致。以前多阶段流程与本入口的候选和任务数不同，应将其作为完整流程的历史对照。不同电路单次校准成本不同，有限预算搜索可能用不满80次；实际加速、ROI破坏和背景视觉均以用户运行结果为准。
+
+批量复用可加`--resume-from OLD_BATCH`，只读访问其对应应用子目录，输出必须为新目录。比较算法耗时请关闭复用。回传批量根目录的RUN.json、applications.csv、training_ranking_all.csv、training_evaluations_all.csv、best_per_image.csv、training_search_stats_all.csv及代表性图片即可。

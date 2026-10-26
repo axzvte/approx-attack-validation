@@ -2,6 +2,7 @@
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
+#include "applications/sharpen.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -92,6 +93,60 @@ void branchesAbsAndSingleReference() {
     require(failing.stats.retainedQualityFailures>0,"Executable quality-failing states must remain searchable");
     require(failing.candidates.empty(),"Numeric eligibility ignored global floor");
 }
+// Authored before the generic Sharpen adapter; intentionally unrun locally.
+void sharpenChainOracle() {
+    applications::SharpenApplication app(applications::SharpenApplication::createAllExactBaselineConfig());
+    const auto attack=[](int n,core::MonitorSignal m,int lo,int hi,int bit) {
+        return core::AttackConfig{n,approximate::ApproxUnitId::Add12se5RP,m,lo,hi,core::AttackPayload::BitFlip,bit};
+    };
+    cv::Mat image(3,3,CV_8UC1,cv::Scalar(40)),mask(3,3,CV_8UC1,cv::Scalar(0));
+    mask.at<unsigned char>(1,1)=255;
+    analysis::JointBitflipConfiguration chain{
+        attack(0,core::MonitorSignal::BaselineOutput,160,160,4),
+        attack(1,core::MonitorSignal::Input1,176,176,4),
+        attack(2,core::MonitorSignal::Input1,152,152,4),
+        attack(3,core::MonitorSignal::Input1,96,96,4)};
+    std::vector<core::AddSample> trace;app.collectConfiguredAddSamples(image,mask,chain,trace);
+    require(trace.size()==4 && trace[1].input1==176 && trace[2].input1==152 &&
+        trace[3].input1==96 && trace[3].output==40,"Upstream flips must trigger every downstream Sharpen node");
+    const auto verify=[&](const core::Application& application,const cv::Mat& pixels,
+            const analysis::JointBitflipConfiguration& current) {
+        for(int node=0;node<4;++node) for(const auto signal:{core::MonitorSignal::Input1,
+                core::MonitorSignal::Input2,core::MonitorSignal::BaselineOutput}) {
+            const auto profile=analysis::profileCircuitBitflip(application,pixels,mask,current,node,4,signal);
+            for(const auto& bin:profile.bins) {
+                auto config=current;
+                config.erase(std::remove_if(config.begin(),config.end(),[&](const auto& c){return c.nodeId==node;}),config.end());
+                auto added=attack(node,signal,bin.first,bin.first,4);
+                const auto* sharpen=dynamic_cast<const applications::SharpenApplication*>(&application);
+                added.unit=sharpen->baselineConfig()[node].unit;config.push_back(added);
+                const auto score=analysis::scoreJointInterval(profile,bin.first,bin.first);
+                require(score.valid,"Legal Sharpen fixture profile rejected");
+                equal(score.metrics,analysis::measureBitflipQuality(application.runExact(pixels),application.runApprox(pixels,config),mask));
+            }
+        }
+    };
+    verify(app,image,chain);
+    analysis::FixedBitflipHardware installed;
+    for(const auto& c:chain) installed.push_back({c.nodeId,c.monitorInput,c.bitIndex});
+    auto options=small();options.maxContexts=4;options.seeds={chain};
+    const auto fixed=analysis::searchCircuitFixedBitflipIntervals(app,image,mask,installed,options);
+    require(fixed.bestLegal && fixed.stats.contextsBuilt==4,"Fixed Sharpen chain lost installed-node coverage");
+    equal(fixed.bestLegal->metrics,analysis::measureBitflipQuality(app.runExact(image),app.runApprox(image,fixed.bestLegal->configuration),mask));
+    for(const auto& candidate:fixed.candidates)
+        equal(candidate.metrics,analysis::measureBitflipQuality(app.runExact(image),app.runApprox(image,candidate.configuration),mask));
+    for(const int center:{0,255}) {
+        image.setTo(255-center);image.at<unsigned char>(1,1)=center;
+        const auto output=app.runApprox(image,{});
+        require(output.at<unsigned char>(1,1)==center,"Sharpen signed output must clamp without absolute value");
+        for(int r=0;r<3;++r) for(int c=0;c<3;++c) if(r!=1 || c!=1)
+            require(output.at<unsigned char>(r,c)==image.at<unsigned char>(r,c),"Sharpen borders must preserve source pixels");
+        verify(app,image,{});
+    }
+    auto units=applications::SharpenApplication::createDefaultBaselineConfig();
+    units[1].exact=true;units[2].unit=approximate::ApproxUnitId::Add12se5L8;
+    applications::SharpenApplication mixed(units);verify(mixed,image,{});
+}
 void invalidRemovalRepair() {
     auto units=applications::ConvApplication::createAllExactBaselineConfig();units[6].exact=false;
     applications::ConvApplication app(units);
@@ -167,6 +222,7 @@ void dctRefinementAndHonestIncompleteCoverage() {
 int main() {
     try {
         oracleAndCoverage(applications::ConvApplication{},8);
+        oracleAndCoverage(applications::SharpenApplication{},4);sharpenChainOracle();
         oracleAndCoverage(applications::SobelApplication{},11);
         oracleAndCoverage(applications::DctApplication{},32);
         branchesAbsAndSingleReference();invalidRemovalRepair();malformedAndUnexpectedErrors();

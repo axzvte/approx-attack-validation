@@ -160,7 +160,7 @@ with tempfile.TemporaryDirectory() as temporary:
              "--max-rounds", 0, "--patience", 1, "--workers", 1, "--context-budget", 1, "--beam", 1,
              "--refinement", 0, "--restarts", 1, "--boundary-budget", 2, "--max-full-evals", 8,
              "--full-candidates", 1, "--global-psnr", 0]
-    for app, native in (("sobel", 11), ("conv", 8), ("dct", 32)):
+    for app, native in (("sharpen", 4), ("sobel", 11), ("conv", 8), ("dct", 32)):
         output = root / app
         invoke(app, data, output, *small, "--max-evaluations", 10)
         inspect(output, app, native, 10)

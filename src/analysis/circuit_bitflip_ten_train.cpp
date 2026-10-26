@@ -4,6 +4,7 @@
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
+#include "applications/sharpen.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -34,10 +35,11 @@ HardwareKey hardwareKey(const FixedBitflipHardware& h) {
     std::sort(out.begin(),out.end());return out;
 }
 approximate::ApproxUnitId baselineUnit(const core::Application& app,int node) {
+    if(const auto* p=dynamic_cast<const applications::SharpenApplication*>(&app)) return p->baselineConfig()[node].unit;
     if(const auto* p=dynamic_cast<const applications::ConvApplication*>(&app)) return p->baselineConfig()[node].unit;
     if(const auto* p=dynamic_cast<const applications::SobelApplication*>(&app)) return p->baselineConfig()[node].unit;
     if(const auto* p=dynamic_cast<const applications::DctApplication*>(&app)) return p->baselineConfig()[node].unit;
-    throw std::invalid_argument("Ten-image training supports Conv, Sobel and DCT only.");
+    throw std::invalid_argument("Ten-image training supports Sharpen, Conv, Sobel and DCT only.");
 }
 double cappedPsnr(double mse) {return mse<=0?100:std::min(100.0,10*std::log10(255.0*255.0/mse));}
 double score(const TenTrainEvaluation& e) {
@@ -322,6 +324,13 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
             if(!next) break;
             evaluate(*next,options.maxEvaluations,images.size(),"completion");prunePending();
         }
+        // Discovery can consume its allocation before the round limit. Once
+        // no competitive unfinished row remains, unused completion reserve is
+        // intentional; it does not authorize discovery of another structure.
+        if(result.stopReason.empty() && result.actualEvaluations<options.maxEvaluations &&
+                result.referenceEvaluations+result.explorationEvaluations>=explorationLimit &&
+                !detail::completionChoice(result.candidates,result.bestIndex,images.size()))
+            result.stopReason="exploration_budget_exhausted_completion_finished";
     } else {
     for(std::size_t i=0;i<options.initialCandidates && result.candidates.size()<options.maxCandidates &&
             result.actualEvaluations<options.maxEvaluations;++i) {

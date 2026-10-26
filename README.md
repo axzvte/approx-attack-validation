@@ -72,3 +72,5 @@ Conv、Sobel、DCT采用同一套多图固定硬件流程见 [三应用固定硬
 针对上一轮耗时较长的 Sobel，新增可选 [连续细化与局部硬件搜索试点](docs/SOBEL_CONTINUATION_TRIAL.md)：使用 `--applications sobel --workflow continuation`，先校准已有结构再做局部修改，同时保留全局探索预算；区间搜索只启动一次并保留状态。原 balanced/reference 模式保留，实际效率及效果由用户运行比较。
 
 将硬件发现与选择合并到同一批1–10的新入口见 [10图直接确定硬件](docs/TEN_IMAGE_HARDWARE.md)：`scripts/run_circuit_bitflip_ten_train.py`维护有总预算的共享结构池，默认80次中先完成首套10图、交错初评并预留20次补齐；复用训练参考/基准及既有逐图结果，不再运行11–20筛选。`--scheduling sequential`保留顺序搜索作对照。先用 `--application sobel`试点；31–40只校准冻结H的区间。
+
+其他应用使用同一流程：`scripts/run_circuit_bitflip_ten_train_batch.py`默认运行锐化、Conv、DCT，构建一次，每应用各80次训练上限；`applications.csv`汇总实际耗时、候选完成情况和具体PSNR。可用`--applications sharpen,conv,sobel,dct`运行四项，单应用入口也支持锐化。各应用使用相同预算和排名规则，保留各自原基准、ROI与完整图像评分。
