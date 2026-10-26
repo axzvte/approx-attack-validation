@@ -4,6 +4,8 @@ Authored before the wrapper. No tests or fixture executables run by the author.
 """
 import json
 import math
+import io
+from contextlib import redirect_stderr
 from pathlib import Path
 import shutil
 import sys
@@ -76,7 +78,9 @@ class TenTrainBatchTests(unittest.TestCase):
     def test_failure_is_visible_and_later_application_still_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);_,_,_,argv=self.setup_run(root);(root/'fail_train_conv').write_text('fail')
-            self.assertEqual(batch.main(argv),1);out=root/'all'
+            errors=io.StringIO()
+            with redirect_stderr(errors):self.assertEqual(batch.main(argv),1)
+            self.assertIn('conv failed:',errors.getvalue());out=root/'all'
             apps={r['application']:r for r in fixtures.read(out/'applications.csv')}
             self.assertEqual(apps['conv']['status'],'failed');self.assertEqual(apps['conv']['mean_roi_psnr'],'')
             self.assertEqual(apps['dct']['status'],'completed');self.assertEqual(apps['sharpen']['status'],'completed')

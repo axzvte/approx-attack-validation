@@ -4,6 +4,7 @@ Tests authored before the runner, unrun by the author per AGENTS.md.
 """
 import importlib.util
 import json
+import math
 from pathlib import Path
 import sys
 import tempfile
@@ -21,6 +22,11 @@ class TenTrainPipelineTests(unittest.TestCase):
         code=fixed.read_text().replace('import sys\n','import sys\nif "--continuous" in sys.argv:sys.argv.remove("--continuous")\n')
         code=code.replace('table("search_stats.csv",["contexts_built","context_budget_exhausted"],[dict(contexts_built=2,context_budget_exhausted=1)])',
                           'table("search_stats.csv",["contexts_built","context_budget_exhausted","continuous","completed_sweeps","stopped_for_convergence"],[dict(contexts_built=2,context_budget_exhausted=0,continuous=1,completed_sweeps=2,stopped_for_convergence=1)])')
+        # Match the real fixed CLI schema, including the values consumed by
+        # the batch summary. The inherited legacy fixture only emitted MSE.
+        code=code.replace('import csv\n','import csv,math\n')
+        code=code.replace('table("summary.csv",list(summary[0]),summary)',
+            'for row in summary:\n for region in ("global","roi","non_roi"):\n  mse=row[region+"_mse"];row[region+"_psnr"]=10*math.log10(65025/mse) if mse else float("inf")\ntable("summary.csv",list(summary[0]),summary)')
         fixed.write_text(code)
         train=root/'train_solver'
         train.write_text('''#!/usr/bin/env python3
@@ -80,6 +86,9 @@ with (out/'RUN.txt').open('a') as stream:
                 self.assertEqual({int(row['node_id']) for row in fixtures.read(out/'frozen_hardware.csv')},{0,last})
                 self.assertEqual(len(fixtures.read(out/'best_per_image.csv')),10)
                 self.assertEqual(len(fixtures.read(out/'images_all.csv')),30)
+                for row in fixtures.read(out/'summary_all.csv'):
+                    for region in ('global','roi','non_roi'):
+                        self.assertAlmostEqual(float(row[region+'_psnr']),10*math.log10(65025/float(row[region+'_mse'])))
 
     def test_only_ten_images_select_h_then_frozen_test_and_full_task_reuse(self):
         with tempfile.TemporaryDirectory() as tmp:

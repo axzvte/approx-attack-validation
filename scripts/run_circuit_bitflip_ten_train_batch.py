@@ -210,6 +210,8 @@ def main(argv=None):
                     if status['status']!='interrupted':status.update(status='failed',detail=str(error))
                 if status['status']=='failed' and application not in meta['failed_applications']:
                     meta['failed_applications'].append(application)
+                if status['status']=='failed':
+                    print(f"{application} failed: {status['detail']}",file=sys.stderr)
                 flush()
         meta.update(completed=True,all_succeeded=not meta['failed_applications']);flush()
         print(f"Completed {len(applications)} applications; compare applications.csv times and PSNR values. Visual review pending.")
