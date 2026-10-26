@@ -11,8 +11,10 @@ namespace {
 void require(bool ok,const char* message) {if(!ok) throw std::runtime_error(message);}
 struct Fixture {
     applications::SharpenApplication app;
-    cv::Mat image{5,5,CV_8UC1},mask{5,5,CV_8UC1,cv::Scalar(0)};
+    cv::Mat image=cv::Mat(5,5,CV_8UC1),mask=cv::Mat(5,5,CV_8UC1,cv::Scalar(0));
     Fixture() {
+        require(image.rows==5 && image.cols==5 && image.type()==CV_8UC1,
+            "Coverage fixture must construct a 5x5 uint8 image, not an integer initializer list");
         for(int r=0;r<5;++r) for(int c=0;c<5;++c)
             image.at<unsigned char>(r,c)=40+((r*19+c*31)%140);
         mask(cv::Rect(1,1,2,2)).setTo(255);

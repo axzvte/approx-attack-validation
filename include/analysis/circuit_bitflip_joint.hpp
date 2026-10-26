@@ -11,11 +11,19 @@ struct CircuitBitflipOptions {
     std::size_t maxActiveNodes=0; // Zero permits all native static nodes.
     std::size_t maxContexts=256,maxFullEvaluations=4096,dctFullCandidates=16;
     bool sensitivityOrder=false; // Same baseline-only heuristic as Sharpen.
+    // Seeds must already execute on this image. Local distance ignores L/U;
+    // the global reserve is part of maxContexts, never an additional budget.
+    std::vector<JointBitflipConfiguration> structureSeeds;
+    std::size_t structureRadius=1,globalExplorationContexts=0;
 };
 struct CircuitBitflipStats : JointBitflipStats {
     std::uint64_t fullEvaluations=0,proposalsRetained=0;
     bool fullBudgetExhausted=false; // contextBudgetExhausted is inherited.
+    std::uint64_t acceptedStructureSeeds=0,rejectedStructureSeeds=0;
+    std::uint64_t localContexts=0,globalContexts=0,localCandidatesFiltered=0;
 };
+std::size_t bitflipStructureDistance(const JointBitflipConfiguration&,
+    const JointBitflipConfiguration&);
 struct CircuitBitflipResult {
     BitflipQuality baseline;
     std::vector<JointBitflipState> candidates;

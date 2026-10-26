@@ -8,6 +8,8 @@ struct CircuitFixedBitflipOptions : FixedBitflipOptions {
     // initialization and final oracle replay are separate. Coverage reserves
     // about half the budget for subsequent joint refinement and restarts.
     std::size_t maxFullEvaluations=256,fullCandidatesPerContext=8;
+    bool continuous=false;
+    double convergenceTolerance=.001;
 };
 struct CircuitFixedBitflipStats {
     std::uint64_t contextsBuilt=0,cacheHits=0,evaluatedIntervals=0,rangeRejected=0;
@@ -18,6 +20,8 @@ struct CircuitFixedBitflipStats {
     // Indexed by native node id (8/11/32), including untouched zero entries.
     std::vector<std::uint64_t> contextsByNode;
     bool contextBudgetExhausted=false,fullBudgetExhausted=false;
+    bool continuous=false,stoppedForConvergence=false;
+    std::size_t completedSweeps=0;
     double referenceSeconds=0,initializationSeconds=0,traceSeconds=0,profileSeconds=0;
     double intervalSeconds=0,finalReplaySeconds=0,fullEvaluationSeconds=0;
 };

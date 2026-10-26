@@ -17,7 +17,7 @@ def digest(path):
 
 def effort_levels(args,node_count,application):
     """All circuits use the same fractions; counts only set coverage minima."""
-    adaptive=args.adaptive_intervals=='on' or (args.adaptive_intervals=='auto' and args.workflow=='balanced')
+    adaptive=args.workflow!='continuation' and (args.adaptive_intervals=='on' or (args.adaptive_intervals=='auto' and args.workflow=='balanced'))
     levels=[]
     for fraction in ((.25,.5,1.) if adaptive else (1.,)):
         level=dict(context_budget=min(args.context_budget,max(node_count,math.ceil(args.context_budget*fraction))),
@@ -46,11 +46,12 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
     begin=time.monotonic();staged={};attempt_rows=[]
     native_nodes={'sharpen':4,'conv':8,'sobel':11,'dct':32}[application]
     levels=effort_levels(args,len(h['key']),application)
+    continuous=args.workflow=='continuation'
     signature=dict(schema=1,kind='fixed_intervals',application=application,phase=phase,image=image,
                    input_sha256=digest(image_path),mask_sha256=mask_hash,source_sha256=source_hash,
                    executable_sha256=digest(fixed),hardware_sha256=digest(hardware_path),seeds_sha256=digest(seeds_path),
                    global_psnr=args.global_psnr,image_mode=mode,effort_levels=levels,
-                   adaptive_min_gain=args.adaptive_min_gain)
+                   adaptive_min_gain=args.adaptive_min_gain,native_continuation=continuous)
     def read(path):
         return report_reader(path,image,h['key'],mode,relative,args.global_psnr,native_nodes,
                              application if application!='sharpen' else None)
@@ -76,10 +77,12 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
                          '--global-psnr',args.global_psnr,'--image-mode',mode]
                 if application!='sharpen':
                     command.extend(['--max-full-evals',level['max_full_evals'],'--full-candidates',level['full_candidates']])
+                if continuous:command.extend(['--continuous','--convergence-tolerance',args.adaptive_min_gain])
                 started=time.monotonic()
                 effort=dict(phase=phase,hardware_id=h['hardware_id'],image=image,attempt=index+1,**level,
                             status='running',returncode='',roi_drop_score='',global_mse='',elapsed_seconds='',
-                            contexts_built='',full_evaluations='',selected=0,cache_hit=0,detail='')
+                            contexts_built='',full_evaluations='',continuous=int(continuous),completed_sweeps='',
+                            stopped_for_convergence='',selected=0,cache_hit=0,detail='')
                 attempt_rows.append(effort)
                 try:
                     code=process(command,out/log,root,append=index>0);status['returncode']=code;effort['returncode']=code
@@ -88,7 +91,11 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
                     native_stats=attempt_tables['search_stats_all.csv'][0]
                     effort.update(status=candidate['status'],roi_drop_score=candidate['roi_drop_score'],
                                   global_mse=candidate.get('global_mse',''),contexts_built=native_stats.get('contexts_built',''),
-                                  full_evaluations=native_stats.get('full_evaluations',''))
+                                  full_evaluations=native_stats.get('full_evaluations',''),
+                                  completed_sweeps=native_stats.get('completed_sweeps',''),
+                                  stopped_for_convergence=native_stats.get('stopped_for_convergence',''))
+                    if continuous and native_stats.get('continuous')!='1':
+                        raise ValueError('Native executable did not confirm continuous interval search')
                 except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
                     effort.update(status='run_failed',detail=str(exc));raise
                 finally:

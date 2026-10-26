@@ -10,6 +10,7 @@
 #include <cmath>
 #include <chrono>
 #include <map>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -29,6 +30,30 @@ Kind kindOf(const core::Application& app) {
     if(dynamic_cast<const applications::SobelApplication*>(&app)) return Kind::Sobel;
     if(dynamic_cast<const applications::DctApplication*>(&app)) return Kind::Dct;
     throw std::invalid_argument("Circuit bit-flip search supports Conv, Sobel and DCT only.");
+}
+approximate::ApproxUnitId applicationBaselineUnit(const core::Application& app,int node) {
+    switch(kindOf(app)) {
+        case Kind::Conv:return dynamic_cast<const applications::ConvApplication&>(app).baselineConfig()[node].unit;
+        case Kind::Sobel:return dynamic_cast<const applications::SobelApplication&>(app).baselineConfig()[node].unit;
+        case Kind::Dct:return dynamic_cast<const applications::DctApplication&>(app).baselineConfig()[node].unit;
+    }
+    throw std::runtime_error("Unknown circuit application.");
+}
+void validateStructureSeed(const core::Application& app,const Config& config,std::size_t maxActive) {
+    if(config.empty() || config.size()>maxActive)
+        throw std::invalid_argument("Structural seed requires 1..maxActiveNodes native nodes.");
+    std::set<int> seen;
+    for(const auto& c:config) {
+        if(c.nodeId<0 || std::size_t(c.nodeId)>=app.addNodes().size() || !seen.insert(c.nodeId).second ||
+                c.payload!=core::AttackPayload::BitFlip || c.bitIndex<0 || c.bitIndex>=12)
+            throw std::invalid_argument("Invalid structural seed node, payload or bit.");
+        const bool input=c.monitorInput==core::MonitorSignal::Input1 || c.monitorInput==core::MonitorSignal::Input2;
+        if(!input && c.monitorInput!=core::MonitorSignal::BaselineOutput)
+            throw std::invalid_argument("Invalid structural seed monitor.");
+        if(c.lower>c.upper || c.lower<(input?-2048:-4096) || c.upper>(input?2047:4095) ||
+                c.unit!=applicationBaselineUnit(app,c.nodeId))
+            throw std::invalid_argument("Structural seed interval or baseline unit is invalid.");
+    }
 }
 int monitored(core::MonitorSignal m,int a,int b,int raw) {
     switch(m) {
@@ -157,7 +182,8 @@ Context makeContext(const core::Application& app,const cv::Mat& image,const cv::
     // Both original application borders are identical to their exact borders.
     return c;
 }
-std::array<JointBitflipProfile,3> profilesFor(const Context& c,int bit) {
+std::array<JointBitflipProfile,3> profilesFor(const Context& c,int bit,
+    const std::array<bool,3>* selected=nullptr) {
     core::flipNonSignOutputBit(0,bit);std::array<JointBitflipProfile,3> out;
     for(std::size_t m=0;m<signals.size();++m) {
         auto& p=out[m];p.others=c.others;p.node=c.target;p.bit=bit;p.monitor=signals[m];
@@ -168,6 +194,7 @@ std::array<JointBitflipProfile,3> profilesFor(const Context& c,int bit) {
         const Sum delta=(valid?square(final-pixel.reference):0)-pixel.offSse;
         const auto& sample=pixel.trace[c.target];
         for(std::size_t m=0;m<signals.size();++m) {
+            if(selected && !(*selected)[m]) continue;
             auto& bin=out[m].bins[monitored(signals[m],sample.input1,sample.input2,sample.baselineOutput)];
             if(pixel.roi) {bin.roiDelta+=delta;++bin.roiHits;} else {bin.nonRoiDelta+=delta;++bin.nonRoiHits;}
             bin.invalidDelta+=Sum(!valid)-Sum(!pixel.offValid);
@@ -245,19 +272,42 @@ template<class Evaluate> void intervals(std::size_t size,std::size_t budget,cons
 core::AttackConfig attack(int node,int bit,core::MonitorSignal signal,int lo,int hi) {
     return {node,approximate::ApproxUnitId::Add12se5RP,signal,lo,hi,core::AttackPayload::BitFlip,bit};
 }
+std::vector<int> candidateBits(const Config& current,int node,const CircuitBitflipOptions& options,bool local) {
+    auto bits=options.bits;
+    // A warm structure can contain a bit outside the global discovery list.
+    // Its existing interval must still be refinable without a structure edit.
+    if(local) for(const auto& c:current) if(c.nodeId==node &&
+            std::find(bits.begin(),bits.end(),c.bitIndex)==bits.end()) bits.push_back(c.bitIndex);
+    return bits;
+}
 std::vector<State> expandPixels(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
     const cv::Mat& reference,const Config& current,int node,const CircuitBitflipOptions& options,CircuitBitflipStats& stats,
-    const std::vector<core::AddSample>* cachedSamples=nullptr) {
+    const std::vector<core::AddSample>* cachedSamples=nullptr,
+    const std::function<bool(const Config&)>& allowed={}) {
     const auto context=makeContext(app,image,mask,reference,current,node,cachedSamples);++stats.contextsBuilt;
     Representatives pool(options.representativeCount,options.globalPsnrThreshold);
     if(!context.invalid) {
         const BitflipQuality q{double(context.roiSse+context.nonSse)/(context.roi+context.non),
             double(context.roiSse)/context.roi,double(context.nonSse)/context.non};
-        pool.offer(q,[&]{return context.others;});
+        if(!allowed || allowed(context.others)) pool.offer(q,[&]{return context.others;});
+        else ++stats.localCandidatesFiltered;
     }
-    for(int bit:options.bits) for(const auto& profile:profilesFor(context,bit)) {
+    for(int bit:candidateBits(current,node,options,bool(allowed))) {
+      std::array<bool,3> selected{true,true,true};bool any=false;
+      for(std::size_t m=0;m<signals.size();++m) {
+        auto structure=context.others;structure.push_back(attack(node,bit,signals[m],0,0));
+        selected[m]=!allowed || allowed(structure);any=any || selected[m];
+        if(!selected[m]) ++stats.localCandidatesFiltered;
+      }
+      if(!any) continue; // Avoid the per-pixel graph replay for disallowed bits.
+      const auto profiles=profilesFor(context,bit,&selected);
+      for(std::size_t m=0;m<signals.size();++m) {
+        if(!selected[m]) continue;
+        const auto& profile=profiles[m];
         std::vector<int> values;std::vector<Bin> prefix(1);
         for(const auto& x:profile.bins) {
+            const bool input=profile.monitor!=core::MonitorSignal::BaselineOutput;
+            if(allowed && (x.first<(input?-2048:-4096) || x.first>(input?2047:4095))) continue;
             values.push_back(x.first);auto sum=prefix.back();const auto& b=x.second;
             sum.roiDelta+=b.roiDelta;sum.nonRoiDelta+=b.nonRoiDelta;sum.invalidDelta+=b.invalidDelta;
             sum.roiHits+=b.roiHits;sum.nonRoiHits+=b.nonRoiHits;prefix.push_back(sum);
@@ -273,8 +323,13 @@ std::vector<State> expandPixels(const core::Application& app,const cv::Mat& imag
             const auto score=scoreJointInterval(summary,0,0);
             if(!score.valid) {++stats.rangeRejected;return;}
             if(!score.roiTriggers && !score.nonRoiTriggers) return;
-            pool.offer(score.metrics,[&] {auto config=profile.others;config.push_back(attack(node,bit,profile.monitor,values[lo],values[hi]));return config;});
+            pool.offer(score.metrics,[&] {
+                auto config=profile.others;auto candidate=attack(node,bit,profile.monitor,values[lo],values[hi]);
+                if(allowed) candidate.unit=applicationBaselineUnit(app,node);
+                config.push_back(candidate);return config;
+            });
         });
+      }
     }
     return pool.states();
 }
@@ -306,13 +361,19 @@ bool sameProposal(const Proposal& a,const Proposal& b) {
     return x.bitIndex==y.bitIndex && x.monitorInput==y.monitorInput && x.lower==y.lower && x.upper==y.upper;
 }
 std::vector<Proposal> proposeDct(const std::vector<const core::AddSample*>& targetCalls,int node,
-    const CircuitBitflipOptions& options,CircuitBitflipStats& stats) {
+    const CircuitBitflipOptions& options,CircuitBitflipStats& stats,const Config& others,
+    const std::function<bool(const Config&)>& allowed) {
     using Lists=std::array<std::vector<Proposal>,6>;
     std::vector<Lists> groups;
     for(int bit:options.bits) for(auto signal:signals) {
+        auto structure=others;structure.push_back(attack(node,bit,signal,0,0));
+        if(allowed && !allowed(structure)) {++stats.localCandidatesFiltered;continue;}
         std::map<int,Local> bins;
         for(const auto* call:targetCalls) {
             const auto& sample=*call;
+            const int monitorValue=monitored(signal,sample.input1,sample.input2,sample.baselineOutput);
+            const bool input=signal!=core::MonitorSignal::BaselineOutput;
+            if(allowed && (monitorValue<(input?-2048:-4096) || monitorValue>(input?2047:4095))) continue;
             // A current trace is executable, including repeated row/column
             // invocations. Local differences only order a bounded shortlist;
             // they NEVER become image quality, validity, or beam state scores.
@@ -323,7 +384,7 @@ std::vector<Proposal> proposeDct(const std::vector<const core::AddSample*>& targ
             const double delta=newError*newError-oldError*oldError;
             const double signedDelta=double(replacement)-sample.output;
             const double weight=sample.roiWeight;
-            auto& bin=bins[monitored(signal,sample.input1,sample.input2,sample.baselineOutput)];
+            auto& bin=bins[monitorValue];
             bin+={delta*weight,delta*(1-weight),signedDelta*weight,signedDelta*(1-weight),weight,1};
         }
         std::vector<int> values;std::vector<Local> prefix(1);
@@ -363,7 +424,8 @@ std::vector<Proposal> proposeDct(const std::vector<const core::AddSample*>& targ
 struct Budget {std::uint64_t contexts,full;};
 std::vector<State> expandDct(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
     const cv::Mat& reference,const Config& current,int node,const CircuitBitflipOptions& options,
-    CircuitBitflipStats& stats,const Budget& budget,const std::vector<core::AddSample>* cachedSamples=nullptr) {
+    CircuitBitflipStats& stats,const Budget& budget,const std::vector<core::AddSample>* cachedSamples=nullptr,
+    const std::function<bool(const Config&)>& allowed={}) {
     std::vector<core::AddSample> owned;
     if(!cachedSamples) {app.collectConfiguredAddSamples(image,mask,current,owned);cachedSamples=&owned;}
     const auto& samples=*cachedSamples;++stats.contextsBuilt;
@@ -380,6 +442,7 @@ std::vector<State> expandDct(const core::Application& app,const cv::Mat& image,c
     Representatives pool(options.representativeCount,options.globalPsnrThreshold);
     const auto others=without(current,node);
     auto evaluate=[&](const Config& config) {
+        if(allowed && !allowed(config)) {++stats.localCandidatesFiltered;return;}
         if(stats.fullEvaluations>=budget.full) {stats.fullBudgetExhausted=true;return;}
         ++stats.fullEvaluations;
         cv::Mat output;
@@ -392,15 +455,32 @@ std::vector<State> expandDct(const core::Application& app,const cv::Mat& image,c
     // No target-removal trace collection: removal can be illegal even though
     // current is legal. Candidate intervals always originate in CURRENT traces.
     if(others.size()!=current.size()) evaluate(others);
-    const auto proposals=proposeDct(targetCalls,node,options,stats);
+    auto proposalOptions=options;proposalOptions.bits=candidateBits(current,node,options,bool(allowed));
+    const auto proposals=proposeDct(targetCalls,node,proposalOptions,stats,others,allowed);
     for(const auto& p:proposals) {
         if(stats.fullEvaluations>=budget.full) {stats.fullBudgetExhausted=true;break;}
-        auto config=others;config.push_back(p.config);evaluate(config);
+        auto config=others;auto candidate=p.config;
+        if(allowed) candidate.unit=applicationBaselineUnit(app,node);
+        config.push_back(candidate);evaluate(config);
     }
     return pool.states();
 }
 }
 
+std::size_t bitflipStructureDistance(const JointBitflipConfiguration& a,const JointBitflipConfiguration& b) {
+    // A changed monitor and/or bit at an existing node is one edit. Replacing
+    // the node identity is a removal plus an addition, independent of L/U.
+    std::map<int,std::pair<core::MonitorSignal,int>> left,right;
+    for(const auto& c:a) left.emplace(c.nodeId,std::make_pair(c.monitorInput,c.bitIndex));
+    for(const auto& c:b) right.emplace(c.nodeId,std::make_pair(c.monitorInput,c.bitIndex));
+    std::size_t edits=0;
+    for(const auto& c:left) {
+        const auto found=right.find(c.first);
+        if(found==right.end() || c.second!=found->second) ++edits;
+    }
+    for(const auto& c:right) if(!left.count(c.first)) ++edits;
+    return edits;
+}
 JointBitflipProfile profileCircuitBitflip(const core::Application& app,const cv::Mat& image,
     const cv::Mat& mask,const Config& current,int node,int bit,core::MonitorSignal signal) {
     if(kindOf(app)==Kind::Dct) throw std::invalid_argument("DCT does not support additive conditional image profiles.");
@@ -421,9 +501,23 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
         core::flipNonSignOutputBit(0,bit);if(!seen.insert(bit).second) throw std::invalid_argument("Duplicate circuit candidate bit.");
     }
     const auto maxActive=options.maxActiveNodes?std::min(nodes,options.maxActiveNodes):nodes;
+    for(const auto& seed:options.structureSeeds) validateStructureSeed(app,seed,maxActive);
     const auto binary=binaryMask(image,mask);const auto reference=app.runExact(image);
     CircuitBitflipResult result;
     result.baseline=measureBitflipQuality(reference,app.runApprox(image,{}),binary);result.stats.fullEvaluations=1;
+    std::vector<State> structureSeeds;std::set<std::string> seedKeys;
+    for(const auto& seed:options.structureSeeds) {
+        if(!seedKeys.insert(key(seed)).second) continue;
+        // Warm validation is initialization, as in fixed-H search. Search DCT
+        // reconstructions still share maxFullEvaluations (baseline included).
+        cv::Mat output;
+        try {output=app.runApprox(image,seed);} catch(const std::runtime_error& e) {
+            if(!rangeError(e)) throw;
+            ++result.stats.rejectedStructureSeeds;++result.stats.rangeRejected;continue;
+        }
+        structureSeeds.push_back({seed,measureBitflipQuality(reference,output,binary)});
+        ++result.stats.acceptedStructureSeeds;
+    }
     std::vector<core::AddSample> cachedSamples;
     std::string traceKey;bool hasTrace=false;
     const auto trace=[&](const Config& current)->const std::vector<core::AddSample>& {
@@ -446,15 +540,35 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
     }
     const State initial{{},result.baseline};std::vector<State> archive;
     std::map<std::string,std::vector<State>> cache;
-    for(std::size_t restart=0;restart<options.restarts;++restart) {
+    const auto remember=[&](const std::vector<State>& states) {
+        for(const auto& state:states) {
+            if(!feasible(state.metrics,options.globalPsnrThreshold)) ++result.stats.retainedQualityFailures;
+            if(state.configuration.size()>=2 && feasible(state.metrics,options.globalPsnrThreshold) &&
+                    state.metrics.roiMse>result.baseline.roiMse+1e-10) archive.push_back(state);
+        }
+        archive=retain(archive,options.candidatesPerCount,options.globalPsnrThreshold,maxActive);
+    };
+    remember(structureSeeds);
+    // This predicate always compares with original, immutable anchors. The
+    // retained beam is never promoted into a new structural radius centre.
+    const std::function<bool(const Config&)> localAllowed=[&](const Config& c) {
+        return std::any_of(structureSeeds.begin(),structureSeeds.end(),[&](const auto& seed) {
+            return bitflipStructureDistance(c,seed.configuration)<=options.structureRadius;
+        });
+    };
+    const auto phase=[&](bool local,const std::vector<State>& starts,std::size_t phaseContexts,bool legacy) {
+      if(!phaseContexts) return;
+      const auto contextStart=result.stats.contextsBuilt;
+      const std::function<bool(const Config&)> allowed=local?localAllowed:std::function<bool(const Config&)>{};
+      for(std::size_t restart=0;restart<options.restarts;++restart) {
         // Cumulative budget shares reserve work for alternate visitation orders.
         // Unused earlier shares are automatically available to later restarts.
         const auto share=[&](std::uint64_t total) {
             const auto count=std::uint64_t(options.restarts),index=std::uint64_t(restart+1);
             return (total/count)*index+std::min(total%count,index);
         };
-        const Budget budget{share(options.maxContexts),1+share(options.maxFullEvaluations-1)};
-        std::vector<State> beam{initial};bool exhausted=false;
+        const Budget budget{contextStart+share(phaseContexts),legacy?1+share(options.maxFullEvaluations-1):options.maxFullEvaluations};
+        auto beam=starts;bool exhausted=false;
         for(std::size_t pass=0;pass<=options.refinementRounds && !exhausted;++pass) {
             auto order=nodeOrder;
             if((restart+pass)%2) std::reverse(order.begin(),order.end());
@@ -462,17 +576,34 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
                 std::vector<State> expanded=beam;std::size_t done=0;
                 for(const auto& state:beam) {
                     if(without(state.configuration,node).size()>=maxActive) {++done;continue;}
+                    if(local) {
+                        const auto others=without(state.configuration,node);
+                        bool possible=others.size()!=state.configuration.size() && allowed(others);
+                        for(int bit:candidateBits(state.configuration,node,options,true)) for(auto signal:signals) {
+                            auto candidate=others;candidate.push_back(attack(node,bit,signal,0,0));
+                            possible=possible || allowed(candidate);
+                        }
+                        if(!possible) {++result.stats.localCandidatesFiltered;++done;continue;}
+                    }
                     // Static DCT nodes repeat within and across transforms:
                     // their own current interval changes later monitored calls.
-                    const auto identity=std::to_string(node)+"|"+key(kind==Kind::Dct?state.configuration:without(state.configuration,node));
+                    auto identity=std::string(local?"local|":"global|")+std::to_string(node)+"|"+
+                        key(kind==Kind::Dct?state.configuration:without(state.configuration,node));
+                    // An existing out-of-list bit adds an interval-only group
+                    // to local expansion; that group is part of cache identity.
+                    if(local) for(int bit:candidateBits(state.configuration,node,options,true)) identity+="|"+std::to_string(bit);
                     auto found=cache.find(identity);
                     if(found!=cache.end()) {++result.stats.cacheHits;expanded.insert(expanded.end(),found->second.begin(),found->second.end());}
                     else {
-                        if(result.stats.contextsBuilt>=budget.contexts) {result.stats.contextBudgetExhausted=true;exhausted=true;break;}
+                        if(result.stats.contextsBuilt>=budget.contexts) {
+                            if(legacy || result.stats.contextsBuilt>=options.maxContexts) result.stats.contextBudgetExhausted=true;
+                            exhausted=true;break;
+                        }
                         if(kind==Kind::Dct && result.stats.fullEvaluations>=budget.full) {result.stats.fullBudgetExhausted=true;exhausted=true;break;}
                         const auto& currentSamples=trace(state.configuration);
-                        auto states=kind==Kind::Dct?expandDct(app,image,binary,reference,state.configuration,node,options,result.stats,budget,&currentSamples):
-                            expandPixels(app,image,binary,reference,state.configuration,node,options,result.stats,&currentSamples);
+                        auto states=kind==Kind::Dct?expandDct(app,image,binary,reference,state.configuration,node,options,result.stats,budget,&currentSamples,allowed):
+                            expandPixels(app,image,binary,reference,state.configuration,node,options,result.stats,&currentSamples,allowed);
+                        if(local) ++result.stats.localContexts;else ++result.stats.globalContexts;
                         // A partial DCT expansion is not reusable as a completed
                         // context under the next restart's larger budget.
                         if(kind!=Kind::Dct || result.stats.fullEvaluations<budget.full) cache.emplace(identity,states);
@@ -481,15 +612,19 @@ CircuitBitflipResult searchCircuitBitflips(const core::Application& app,const cv
                     if(progress) progress({restart,pass,std::size_t(node),++done,beam.size(),result.stats});
                 }
                 beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,maxActive);
-                for(const auto& state:beam) {
-                    if(!feasible(state.metrics,options.globalPsnrThreshold)) ++result.stats.retainedQualityFailures;
-                    if(state.configuration.size()>=2 && feasible(state.metrics,options.globalPsnrThreshold) &&
-                            state.metrics.roiMse>result.baseline.roiMse+1e-10) archive.push_back(state);
-                }
-                archive=retain(archive,options.candidatesPerCount,options.globalPsnrThreshold,maxActive);
+                remember(beam);
                 if(exhausted) break;
             }
         }
+      }
+    };
+    if(structureSeeds.empty()) phase(false,{initial},options.maxContexts,true);
+    else {
+        const auto global=std::min(options.globalExplorationContexts,options.maxContexts);
+        // Give the reserved baseline exploration first access to DCT's shared
+        // full-score budget as well; local work cannot consume that reserve.
+        phase(false,{initial},global,false);
+        phase(true,structureSeeds,options.maxContexts-global,false);
     }
     result.candidates=std::move(archive);
     std::stable_sort(result.candidates.begin(),result.candidates.end(),[](const auto& a,const auto& b) {
@@ -549,12 +684,7 @@ Config replaced(Config c,int node,int lo,int hi) {
     it->lower=lo;it->upper=hi;return c;
 }
 approximate::ApproxUnitId baselineUnit(const core::Application& app,int node) {
-    switch(kindOf(app)) {
-        case Kind::Conv:return dynamic_cast<const applications::ConvApplication&>(app).baselineConfig()[node].unit;
-        case Kind::Sobel:return dynamic_cast<const applications::SobelApplication&>(app).baselineConfig()[node].unit;
-        case Kind::Dct:return dynamic_cast<const applications::DctApplication&>(app).baselineConfig()[node].unit;
-    }
-    throw std::runtime_error("Unknown fixed circuit application.");
+    return applicationBaselineUnit(app,node);
 }
 std::optional<Config> dormant(const core::Application& app,const cv::Mat& image,const cv::Mat& mask,
     const FixedBitflipHardware& h,const cv::Mat& baseline,const std::vector<core::AddSample>& trace) {
@@ -701,12 +831,17 @@ CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Applica
     if(!options.beamWidth || !options.representativeCount || !options.restarts || !options.maxContexts ||
             !options.maxFullEvaluations || !options.fullCandidatesPerContext || !std::isfinite(options.globalPsnrThreshold))
         throw std::invalid_argument("Invalid fixed circuit interval search options.");
+    if(options.continuous && (!std::isfinite(options.convergenceTolerance) || options.convergenceTolerance<0 ||
+            options.refinementRounds==std::numeric_limits<std::size_t>::max() ||
+            options.restarts>std::numeric_limits<std::size_t>::max()/(options.refinementRounds+1)))
+        throw std::invalid_argument("Invalid continuous fixed circuit convergence options.");
     for(const auto& c:options.seeds) validateSeed(c,hardware,nodes);
     const auto binary=binaryMask(image,mask);
     if(kind!=Kind::Dct && (image.rows<3 || image.cols<3))
         throw std::invalid_argument("Fixed pixel circuit search requires an interior pixel.");
     CircuitFixedBitflipResult result;
     result.stats.contextsByNode.resize(nodes);auto& stats=result.stats;
+    stats.continuous=options.continuous;
     const auto referenceBegin=Clock::now();const auto reference=app.runExact(image);stats.referenceSeconds=seconds(referenceBegin);
     const auto initBegin=Clock::now();const auto baseline=app.runApprox(image,{});
     result.baseline=measureBitflipQuality(reference,baseline,binary);
@@ -823,6 +958,46 @@ CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Applica
     // The first phase gets half the common budgets, or enough for one visit
     // per H target when possible. Unused shares carry forward. A phase ceiling
     // is scheduling, while exhaustion flags describe the actual user limits.
+    if(options.continuous) {
+        // A single evolving beam, reference, trace/context/full-score caches,
+        // and best archives survive every sweep. Sweep zero retains the
+        // immutable seed-first traversal for installed-node coverage.
+        contextCeiling=options.maxContexts;fullCeiling=options.maxFullEvaluations;
+        const auto sweeps=std::max<std::size_t>(2,options.restarts*(options.refinementRounds+1));
+        std::optional<double> previousBest;
+        for(std::size_t sweep=0;sweep<sweeps;++sweep) {
+            bool complete=true;
+            if(!sweep) {
+                for(std::size_t i=0;i<seeds.size() && complete;++i) {
+                    auto traversal=order;if(i%2) std::reverse(traversal.begin(),traversal.end());
+                    for(const auto& target:traversal) {
+                        auto expanded=beam;
+                        if(!visit(seeds[i],target,0,0,i+1,seeds.size(),expanded)) {complete=false;break;}
+                        beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,hardware.size());
+                    }
+                }
+            } else {
+                auto traversal=order;if(sweep%2) std::reverse(traversal.begin(),traversal.end());
+                for(const auto& target:traversal) {
+                    auto expanded=beam;std::size_t done=0;
+                    for(const auto& s:beam) if(!visit(s,target,sweep,1,++done,beam.size(),expanded)) {complete=false;break;}
+                    beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,hardware.size());
+                    if(!complete) break;
+                }
+            }
+            // An interrupted traversal is never numeric convergence evidence.
+            if(!complete) break;
+            ++stats.completedSweeps;
+            std::optional<double> currentBest;
+            for(const auto& s:numeric.states())
+                if(!currentBest || s.metrics.roiMse>*currentBest) currentBest=s.metrics.roiMse;
+            if(stats.completedSweeps>=2 && previousBest && currentBest &&
+                    *currentBest-*previousBest<=options.convergenceTolerance*std::max(1.0,std::abs(*previousBest))) {
+                stats.stoppedForConvergence=true;break;
+            }
+            previousBest=currentBest;
+        }
+    } else {
     bool phaseLimited=false;
     for(std::size_t i=0;i<seeds.size() && !phaseLimited;++i) {
         auto traversal=order;if(i%2) std::reverse(traversal.begin(),traversal.end());
@@ -848,6 +1023,7 @@ CircuitFixedBitflipResult searchCircuitFixedBitflipIntervals(const core::Applica
                 beam=retain(expanded,options.beamWidth,options.globalPsnrThreshold,hardware.size());if(phaseLimited) break;
             }
         }
+    }
     }
     const auto replayBegin=Clock::now();std::map<std::string,State> finalists;
     for(const auto& s:legal.states()) finalists.emplace(key(s.configuration),s);

@@ -68,3 +68,5 @@ Conv、Sobel、DCT 三个电路的多节点位反转验证见 [跨电路位反�
 Conv、Sobel、DCT采用同一套多图固定硬件流程见 [三应用固定硬件与新图区间校准](docs/CIRCUIT_BITFLIP_HARDWARE.md)：复用1～10训练结果，在11～20筛选各应用H*，最后31～40仅搜索区间。支持并行筛选、原生8/11/32节点和每图三张关键图片。
 
 整体效率版见 [共享训练、渐进筛选与任务复用](docs/BITFLIP_WORKFLOW_SPEED.md)：默认 balanced 使用敏感性优先级、跨训练图共享候选、有排名上界的提前停止和分档区间投入；可用 `--workflow reference` 对照原搜索策略，或 `--adaptive-intervals off` 先独立验证筛选收益。提供只读 `--resume-from`，报告实际任务数及所有尝试成本。新增代码与测试由用户在终端运行验证。
+
+针对上一轮耗时较长的 Sobel，新增可选 [连续细化与局部硬件搜索试点](docs/SOBEL_CONTINUATION_TRIAL.md)：使用 `--applications sobel --workflow continuation`，先校准已有结构再做局部修改，同时保留全局探索预算；区间搜索只启动一次并保留状态。原 balanced/reference 模式保留，实际效率及效果由用户运行比较。

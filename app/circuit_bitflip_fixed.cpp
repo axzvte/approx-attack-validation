@@ -298,7 +298,8 @@ int main(int argc, char** argv) {
             "Usage: circuit_bitflip_fixed conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR --hardware H.csv "
             "[--seeds seeds.csv] [--image 1..40] [--beam 4] [--refinement 1] [--restarts 2] "
             "[--boundary-budget 24] [--context-budget 128] [--max-full-evals 256] "
-            "[--full-candidates 8] [--global-psnr 30] [--image-mode compact|none|full]");
+            "[--full-candidates 8] [--global-psnr 30] [--image-mode compact|none|full] "
+            "[--continuous] [--convergence-tolerance 0.001]");
         const std::string application = argv[1];
         std::unique_ptr<core::Application> app;
         // Preserve native baseline units, graph widths and exact/reference behavior.
@@ -309,12 +310,18 @@ int main(int argc, char** argv) {
         const auto nativeCount = app->addNodes().size();
         const std::set<std::string> allowed{"--hardware", "--seeds", "--image", "--beam", "--refinement",
             "--restarts", "--boundary-budget", "--context-budget", "--max-full-evals", "--full-candidates",
-            "--global-psnr", "--image-mode"};
+            "--global-psnr", "--image-mode", "--convergence-tolerance"};
         std::map<std::string, std::string> flags;
-        for (int i = 4; i < argc; i += 2) {
+        for (int i = 4; i < argc;) {
             const std::string flag = argv[i];
+            if (flag == "--continuous") {
+                if (!flags.emplace(flag, "1").second) throw std::runtime_error("Duplicate --continuous.");
+                ++i;
+                continue;
+            }
             if (!allowed.count(flag) || i + 1 >= argc || !flags.emplace(flag, argv[i + 1]).second)
                 throw std::runtime_error("Invalid, duplicate or incomplete option: " + flag);
+            i += 2;
         }
         if (!flags.count("--hardware")) throw std::runtime_error("Supply --hardware.");
         const auto option = [&](const std::string& flag, int fallback, int lower, int upper) {
@@ -324,6 +331,14 @@ int main(int argc, char** argv) {
         };
         const int index = option("--image", 1, 1, 40);
         analysis::CircuitFixedBitflipOptions options;
+        options.continuous = flags.count("--continuous") != 0;
+        if (flags.count("--convergence-tolerance")) {
+            std::size_t used = 0;
+            options.convergenceTolerance = std::stod(flags.at("--convergence-tolerance"), &used);
+            if (used != flags.at("--convergence-tolerance").size()) throw std::runtime_error("Invalid convergence tolerance.");
+        }
+        if (!std::isfinite(options.convergenceTolerance) || options.convergenceTolerance < 0)
+            throw std::runtime_error("Invalid convergence tolerance.");
         options.beamWidth = option("--beam", 4, 1, 64);
         options.refinementRounds = option("--refinement", 1, 0, 10);
         options.restarts = option("--restarts", 2, 1, 8);
@@ -357,6 +372,7 @@ int main(int argc, char** argv) {
                 << "\ninput_bits=signed12\noutput_bits=signed13_non_sign_0..11\nreference=application_exact_output"
                 << "\nablations=disabled\nenable_parameter=absent\nbeam=" << options.beamWidth
                 << "\nrefinement=" << options.refinementRounds << "\nrestarts=" << options.restarts
+                << "\ncontinuous=" << options.continuous << "\nconvergence_tolerance=" << number(options.convergenceTolerance)
                 << "\nboundary_budget=" << options.boundaryBudget << "\ncontext_budget=" << options.maxContexts
                 << "\nmax_full_evaluations=" << options.maxFullEvaluations << "\nfull_candidates=" << options.fullCandidatesPerContext
                 << "\nglobal_psnr_threshold=" << number(options.globalPsnrThreshold) << "\nwarm_seeds=" << options.seeds.size()
@@ -472,8 +488,12 @@ int main(int argc, char** argv) {
             "context_budget_exhausted", "context_nodes", "max_contexts", "installed_nodes", "native_nodes", "calibration_seconds",
             "search_status", "reference_seconds", "initialization_seconds", "trace_seconds", "profile_seconds", "interval_seconds",
             "final_replay_seconds", "trace_builds", "trace_cache_hits", "full_evaluations", "final_replay_evaluations",
-            "full_budget_exhausted", "max_full_evaluations", "full_candidates", "full_evaluation_seconds", "context_node_count", "scoring"};
+            "full_budget_exhausted", "max_full_evaluations", "full_candidates", "full_evaluation_seconds", "context_node_count", "scoring",
+            "continuous", "convergence_tolerance", "stopped_for_convergence", "completed_sweeps"};
         Row statRow{{"application", application}, {"image", std::to_string(index)},
+            {"continuous", result.stats.continuous ? "1" : "0"}, {"convergence_tolerance", number(options.convergenceTolerance)},
+            {"stopped_for_convergence", result.stats.stoppedForConvergence ? "1" : "0"},
+            {"completed_sweeps", std::to_string(result.stats.completedSweeps)},
             {"contexts_built", std::to_string(result.stats.contextsBuilt)}, {"cache_hits", std::to_string(result.stats.cacheHits)},
             {"evaluated_intervals", std::to_string(result.stats.evaluatedIntervals)}, {"range_rejected_intervals", std::to_string(result.stats.rangeRejected)},
             {"retained_intermediate_quality_failures", std::to_string(result.stats.retainedQualityFailures)},
@@ -503,7 +523,9 @@ int main(int argc, char** argv) {
         statRow["context_nodes"] = covered.str(); statRow["context_node_count"] = std::to_string(coveredCount);
         Csv stats(output / "search_stats.csv", std::move(statFields)); stats.row(statRow); stats.close();
         auto run = open(output / "RUN.txt", std::ios::app);
-        run << "search_status=" << searchStatus << "\nselected_status=" << selectedStatus << "\ncompleted=1\n";
+        run << "search_status=" << searchStatus << "\nselected_status=" << selectedStatus
+            << "\nstopped_for_convergence=" << result.stats.stoppedForConvergence
+            << "\ncompleted_sweeps=" << result.stats.completedSweeps << "\ncompleted=1\n";
         run.close();
         return 0;
     } catch (const std::exception& error) {

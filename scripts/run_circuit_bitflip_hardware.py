@@ -25,7 +25,7 @@ def child_arguments(args,application,out,fixed,discovery):
         values.extend(["--"+key.replace("_","-"),str(getattr(args,key))])
     values.extend(["--build-dir",str(args.build_dir.resolve())])
     if args.training_report:values.extend(["--training-report",str(args.training_report.resolve())])
-    for key in ("workflow","screening","adaptive_intervals","adaptive_min_gain","pilot_images","shared_hardware","exploration_fraction"):
+    for key in ("workflow","screening","adaptive_intervals","adaptive_min_gain","pilot_images","shared_hardware","exploration_fraction","structure_radius","global_exploration_fraction"):
         values.extend(["--"+key.replace("_","-"),str(getattr(args,key))])
     if args.resume_from:values.extend(["--resume-from",str(args.resume_from.resolve()/application)])
     return values

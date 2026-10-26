@@ -18,6 +18,8 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 namespace {
 namespace fs=std::filesystem;
@@ -34,6 +36,58 @@ struct Csv {
     void close(){stream.close();}
 };
 int integer(const std::string& text){std::size_t n=0;int v=std::stoi(text,&n);if(n!=text.size())throw std::runtime_error("Expected complete integer argument.");return v;}
+std::vector<std::string> csvLine(const std::string& line){
+    std::vector<std::string> fields;std::string word;bool inQuote=false,ended=false;
+    for(std::size_t i=0;i<line.size();++i){const char c=line[i];
+        if(inQuote){if(c!='"')word+=c;else if(i+1<line.size()&&line[i+1]=='"'){word+='"';++i;}else{inQuote=false;ended=true;}}
+        else if(c==','){fields.push_back(word);word.clear();ended=false;}
+        else if(c=='"'){if(!word.empty()||ended)throw std::runtime_error("Malformed CSV quoting.");inQuote=true;}
+        else{if(ended)throw std::runtime_error("Unexpected text after CSV quote.");word+=c;}}
+    if(inQuote)throw std::runtime_error("Multiline or unclosed CSV field is unsupported.");
+    fields.push_back(word);return fields;
+}
+core::MonitorSignal monitor(const std::string& text){
+    if(text=="input1")return core::MonitorSignal::Input1;
+    if(text=="input2")return core::MonitorSignal::Input2;
+    if(text=="baseline_output")return core::MonitorSignal::BaselineOutput;
+    throw std::runtime_error("Unknown monitor: "+text);
+}
+approximate::ApproxUnitId baselineUnit(const core::Application& app,int node){
+    if(const auto* conv=dynamic_cast<const applications::ConvApplication*>(&app))return conv->baselineConfig().at(node).unit;
+    if(const auto* sobel=dynamic_cast<const applications::SobelApplication*>(&app))return sobel->baselineConfig().at(node).unit;
+    if(const auto* dct=dynamic_cast<const applications::DctApplication*>(&app))return dct->baselineConfig().at(node).unit;
+    throw std::runtime_error("Unsupported structure seed application.");
+}
+std::vector<Config> structureSeedFile(const fs::path& path,const core::Application& app){
+    std::ifstream stream(path);if(!stream)throw std::runtime_error("Cannot open "+path.string());
+    std::string line;if(!std::getline(stream,line))throw std::runtime_error("Empty CSV: "+path.string());
+    if(!line.empty()&&line.back()=='\r')line.pop_back();
+    if(line.rfind("\xEF\xBB\xBF",0)==0)line.erase(0,3);
+    const auto fields=csvLine(line);const std::set<std::string> names(fields.begin(),fields.end());
+    const std::set<std::string> required{"seed_id","node_id","monitor","bit","lower","upper"};
+    if(names!=required||names.size()!=fields.size())throw std::runtime_error("CSV has missing, duplicate or unknown columns: "+path.string());
+    std::map<std::string,Config> grouped;std::map<std::string,std::set<int>> seen;
+    while(std::getline(stream,line)){
+        if(!line.empty()&&line.back()=='\r')line.pop_back();if(line.empty())continue;
+        const auto values=csvLine(line);if(values.size()!=fields.size())throw std::runtime_error("CSV row width mismatch.");
+        Row row;for(std::size_t i=0;i<fields.size();++i)row.emplace(fields[i],values[i]);
+        const auto& id=row.at("seed_id");if(id.empty())throw std::runtime_error("Empty structure seed identity.");
+        const int node=integer(row.at("node_id")),bit=integer(row.at("bit"));
+        if(node<0||static_cast<std::size_t>(node)>=app.addNodes().size()||bit<0||bit>11||!seen[id].insert(node).second)
+            throw std::runtime_error("Invalid or duplicate structure seed node/bit.");
+        const auto signal=monitor(row.at("monitor"));const int lower=integer(row.at("lower")),upper=integer(row.at("upper"));
+        const bool output=signal==core::MonitorSignal::BaselineOutput;
+        if(lower>upper||lower<(output?-4096:-2048)||upper>(output?4095:2047))
+            throw std::runtime_error("Structure seed interval is outside the physical monitor register domain.");
+        grouped[id].push_back({node,baselineUnit(app,node),signal,lower,upper,core::AttackPayload::BitFlip,bit});
+    }
+    if(stream.bad())throw std::runtime_error("CSV read failed.");
+    std::vector<Config> result;for(auto& item:grouped){
+        if(item.second.size()<2)throw std::runtime_error("Structure seed must contain at least two native nodes.");
+        std::sort(item.second.begin(),item.second.end(),[](const auto& a,const auto& b){return a.nodeId<b.nodeId;});
+        result.push_back(std::move(item.second));}
+    return result;
+}
 void quality(Row& r,const Quality& q){r["global_psnr"]=number(q.globalPsnr());r["roi_psnr"]=number(q.roiPsnr());r["non_roi_psnr"]=number(q.nonRoiPsnr());r["global_mse"]=number(q.globalMse);r["roi_mse"]=number(q.roiMse);r["non_roi_mse"]=number(q.nonRoiMse);}
 void equalQuality(const Quality& a,const Quality& b){if(std::abs(a.globalMse-b.globalMse)>1e-7||std::abs(a.roiMse-b.roiMse)>1e-7||std::abs(a.nonRoiMse-b.nonRoiMse)>1e-7)throw std::runtime_error("Search score disagrees with original application replay.");}
 std::string identity(Config c){std::sort(c.begin(),c.end(),[](const auto& a,const auto& b){return a.nodeId<b.nodeId;});std::ostringstream s;for(const auto& v:c)s<<v.nodeId<<':'<<v.bitIndex<<':'<<int(v.monitorInput)<<':'<<v.lower<<':'<<v.upper<<';';return s.str();}
@@ -67,10 +121,10 @@ struct Verified {Config config;Quality metrics;cv::Mat image;std::vector<Hits> h
 }
 
 int main(int argc,char** argv){try{
-    if(argc<4)throw std::runtime_error("Usage: circuit_bitflip_joint conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR [--image 1] [--beam 4] [--refinement 1] [--boundary-budget 24] [--top-per-count 2] [--restarts 2] [--global-psnr 30] [--max-active 0] [--max-contexts 256] [--max-full-evals 4096] [--dct-full-candidates 16] [--bits 0,1,...,11] [--image-mode compact|full|none] [--sensitivity-order]");
+    if(argc<4)throw std::runtime_error("Usage: circuit_bitflip_joint conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR [--image 1] [--beam 4] [--refinement 1] [--boundary-budget 24] [--top-per-count 2] [--restarts 2] [--global-psnr 30] [--max-active 0] [--max-contexts 256] [--max-full-evals 4096] [--dct-full-candidates 16] [--bits 0,1,...,11] [--image-mode compact|full|none] [--sensitivity-order] [--structure-seeds FILE] [--structure-radius 1] [--exploration-contexts 16]");
     const std::string application=argv[1];std::unique_ptr<core::Application> app;
     if(application=="conv")app=std::make_unique<applications::ConvApplication>();else if(application=="sobel")app=std::make_unique<applications::SobelApplication>();else if(application=="dct")app=std::make_unique<applications::DctApplication>();else throw std::runtime_error("Unknown circuit.");
-    std::map<std::string,std::string> flags;const std::set<std::string> allowed{"--image","--beam","--refinement","--boundary-budget","--top-per-count","--restarts","--global-psnr","--max-active","--max-contexts","--max-full-evals","--dct-full-candidates","--bits","--image-mode"};
+    std::map<std::string,std::string> flags;const std::set<std::string> allowed{"--image","--beam","--refinement","--boundary-budget","--top-per-count","--restarts","--global-psnr","--max-active","--max-contexts","--max-full-evals","--dct-full-candidates","--bits","--image-mode","--structure-seeds","--structure-radius","--exploration-contexts"};
     for(int i=4;i<argc;){const std::string flag=argv[i];
         if(flag=="--sensitivity-order") {if(!flags.emplace(flag,"1").second)throw std::runtime_error("Duplicate --sensitivity-order");++i;continue;}
         if(!allowed.count(flag)||i+1>=argc||!flags.emplace(flag,argv[i+1]).second)throw std::runtime_error("Unknown, duplicate or incomplete option: "+flag);
@@ -84,12 +138,17 @@ int main(int argc,char** argv){try{
     if(options.boundaryBudget==1)throw std::runtime_error("Boundary budget must be0 or>=2.");
     options.restarts=value("--restarts",2,1,8);options.maxActiveNodes=value("--max-active",0,0,nodes);if(options.maxActiveNodes==1)throw std::runtime_error("Multi-node search needs max-active0 or>=2.");
     options.maxContexts=value("--max-contexts",256,1,1000000);options.maxFullEvaluations=value("--max-full-evals",4096,1,10000000);options.dctFullCandidates=value("--dct-full-candidates",16,1,1024);options.candidatesPerCount=std::max(8,top*4);
+    options.structureRadius=value("--structure-radius",1,0,nodes);
+    options.globalExplorationContexts=value("--exploration-contexts",0,0,1000000);
+    const std::string structureSeedPath=flags.count("--structure-seeds")?fs::absolute(flags.at("--structure-seeds")).string():"";
+    if(!structureSeedPath.empty())options.structureSeeds=structureSeedFile(structureSeedPath,*app);
     if(flags.count("--global-psnr")){std::size_t n=0;options.globalPsnrThreshold=std::stod(flags.at("--global-psnr"),&n);if(n!=flags.at("--global-psnr").size())throw std::runtime_error("Invalid PSNR argument.");}
     if(!std::isfinite(options.globalPsnrThreshold)||options.globalPsnrThreshold<0||options.globalPsnrThreshold>1000)throw std::runtime_error("Invalid PSNR threshold.");
     if(flags.count("--bits")){options.bits.clear();std::istringstream list(flags.at("--bits"));std::string bit;std::set<int> seen;if(flags.at("--bits").empty()||flags.at("--bits").back()==',')throw std::runtime_error("Invalid bits list.");while(std::getline(list,bit,',')){const int b=integer(bit);if(b<0||b>11||!seen.insert(b).second)throw std::runtime_error("Bits must be distinct and in0..11.");options.bits.push_back(b);}}
     const std::string imageMode=flags.count("--image-mode")?flags.at("--image-mode"):"compact";if(imageMode!="compact"&&imageMode!="full"&&imageMode!="none")throw std::runtime_error("Invalid image mode.");
     const fs::path data=fs::absolute(argv[2]);fs::path output=fs::absolute(argv[3]);while(output.has_relative_path()&&(output.filename().empty()||output.filename()=="."))output=output.parent_path();fs::create_directories(output.parent_path());if(!fs::create_directory(output))throw std::runtime_error("Output already exists; use a new directory.");
     {auto run=open(output/"RUN.txt");run<<"completed=0\napplication="<<application<<"\nimage="<<image<<"\nimage_mode="<<imageMode<<"\nbaseline=original_application_default\nmask_threshold=128\noutput_bits=signed13_non_sign_0..11\nreference=application_exact_output\nablations=disabled\n"
+        <<"structure_seeds="<<structureSeedPath<<"\nstructure_seed_count="<<options.structureSeeds.size()<<"\nstructure_radius="<<options.structureRadius<<"\nexploration_contexts="<<options.globalExplorationContexts<<'\n'
         <<"sensitivity_order="<<options.sensitivityOrder<<"\nsensitivity_basis=baseline_stratified_signal_separation_and_relative_raw_disturbance_priority_only\n"<<"beam="<<options.beamWidth<<"\nrefinement="<<options.refinementRounds<<"\nboundary_budget="<<options.boundaryBudget<<"\nrestarts="<<options.restarts<<"\ntop_per_count="<<top<<"\nmax_active="<<options.maxActiveNodes<<"\nmax_contexts="<<options.maxContexts<<"\nmax_full_evaluations="<<options.maxFullEvaluations<<"\ndct_full_candidates="<<options.dctFullCandidates<<"\nglobal_psnr_threshold="<<number(options.globalPsnrThreshold)<<"\nbits=";for(std::size_t i=0;i<options.bits.size();++i)run<<(i?",":"")<<options.bits[i];run<<"\nroi="<<(data/"mask/roi_mask.jpg").string()<<"\nvisual_status=pending_user_review\nPer-image exploratory joint search; no frozen-hardware/generalization/optimality claim.\nComparisons: exact / baseline / joint. DCT uses complete reconstructed-image metrics.\n";run.close();}
     const auto input=image_io::loadGrayImage(image_io::resolveStagedImagePath(data.string(),image));
     const auto mask=region_mask::resizeMaskToImage(image_io::loadGrayImage((data/"mask/roi_mask.jpg").string()),input);
@@ -99,7 +158,10 @@ int main(int argc,char** argv){try{
     equalQuality(result.baseline,baselineQuality);
     const std::string searchStatus=(result.stats.contextBudgetExhausted||result.stats.fullBudgetExhausted)?"budget_exhausted":"completed";
     std::vector<std::vector<Verified>> buckets(nodes+1);std::set<std::string> seen;std::size_t inactive=0;
-    for(const auto& state:result.candidates){const auto full=app->runApprox(input,state.configuration);equalQuality(analysis::measureBitflipQuality(exact,full,mask),state.metrics);const auto counts=triggers(*app,input,mask,state.configuration);Config active;for(const auto& c:state.configuration)if(counts.at(c.nodeId).total)active.push_back(c);if(active.size()!=state.configuration.size())++inactive;
+    for(const auto& state:result.candidates){const auto full=app->runApprox(input,state.configuration);equalQuality(analysis::measureBitflipQuality(exact,full,mask),state.metrics);const auto counts=triggers(*app,input,mask,state.configuration);
+        // Warm structures describe installed hardware. Preserve dormant nodes so export
+        // cannot silently create extra removals beyond the engine's structural radius.
+        Config active;for(const auto& c:state.configuration)if(!options.structureSeeds.empty()||counts.at(c.nodeId).total)active.push_back(c);if(active.size()!=state.configuration.size())++inactive;
         if(active.size()<2||!seen.insert(identity(active)).second)continue;std::sort(active.begin(),active.end(),[](const auto& a,const auto& b){return a.nodeId<b.nodeId;});const auto cleaned=app->runApprox(input,active);if(cv::countNonZero(cleaned!=full))throw std::runtime_error("Zero-trigger cleanup changed output.");const auto q=analysis::measureBitflipQuality(exact,cleaned,mask);if(q.globalPsnr()+1e-10<options.globalPsnrThreshold||q.roiMse<=baselineQuality.roiMse+1e-10)throw std::runtime_error("Final candidate violates constraints.");buckets.at(active.size()).push_back({active,q,cleaned,counts});}
     int bestCount=0;const int limit=options.maxActiveNodes?static_cast<int>(options.maxActiveNodes):nodes;
     for(int n=2;n<=limit;++n){auto& list=buckets[n];std::stable_sort(list.begin(),list.end(),[](const auto& a,const auto& b){return a.metrics.roiMse!=b.metrics.roiMse?a.metrics.roiMse>b.metrics.roiMse:a.metrics.globalMse<b.metrics.globalMse;});if(!list.empty()&&(!bestCount||list[0].metrics.roiMse>buckets[bestCount][0].metrics.roiMse||(list[0].metrics.roiMse==buckets[bestCount][0].metrics.roiMse&&list[0].metrics.globalMse<buckets[bestCount][0].metrics.globalMse)))bestCount=n;}
@@ -116,7 +178,12 @@ int main(int argc,char** argv){try{
     summary.close();configs.close();manifest.close();
     std::ostringstream visited;for(auto n:contextNodes)visited<<(visited.tellp()>0?";":"")<<n;
     std::ostringstream priorityOrder;for(int n:result.stats.sensitivityOrder)priorityOrder<<(priorityOrder.tellp()>0?";":"")<<n;
-    Csv stats(output/"search_stats.csv",{"contexts_built","cache_hits","evaluated_intervals","range_rejected_intervals","range_rejection_basis","retained_intermediate_quality_failures","full_evaluations","proposals_retained","inactive_collapses","context_budget_exhausted","full_budget_exhausted","search_status","max_contexts","max_full_evaluations","max_active","native_nodes","context_node_count","context_nodes","scoring","sensitivity_enabled","sensitivity_samples","sensitivity_seconds","sensitivity_node_order","trace_builds","trace_cache_hits"});
-    stats.row({{"contexts_built",std::to_string(result.stats.contextsBuilt)},{"cache_hits",std::to_string(result.stats.cacheHits)},{"evaluated_intervals",std::to_string(result.stats.evaluatedIntervals)},{"range_rejected_intervals",std::to_string(result.stats.rangeRejected)},{"range_rejection_basis",application=="dct"?"full_configuration_evaluations":"conditional_interval_evaluations"},{"retained_intermediate_quality_failures",std::to_string(result.stats.retainedQualityFailures)},{"full_evaluations",std::to_string(result.stats.fullEvaluations)},{"proposals_retained",std::to_string(result.stats.proposalsRetained)},{"inactive_collapses",std::to_string(inactive)},{"context_budget_exhausted",result.stats.contextBudgetExhausted?"1":"0"},{"full_budget_exhausted",result.stats.fullBudgetExhausted?"1":"0"},{"search_status",searchStatus},{"max_contexts",std::to_string(options.maxContexts)},{"max_full_evaluations",std::to_string(options.maxFullEvaluations)},{"max_active",std::to_string(limit)},{"native_nodes",std::to_string(nodes)},{"context_node_count",std::to_string(contextNodes.size())},{"context_nodes",visited.str()},{"scoring",application=="dct"?"full_joint_image_reconstruction":"exact_conditional_pixel_replay"},{"sensitivity_enabled",options.sensitivityOrder?"1":"0"},{"sensitivity_samples",std::to_string(result.stats.sensitivitySamples)},{"sensitivity_seconds",number(result.stats.sensitivitySeconds)},{"sensitivity_node_order",priorityOrder.str()},{"trace_builds",std::to_string(result.stats.traceBuilds)},{"trace_cache_hits",std::to_string(result.stats.traceCacheHits)}});stats.close();
-    auto notes=open(output/"RUN.txt",std::ios::app);notes<<"search_status="<<searchStatus<<"\nbest_numeric_candidate="<<(bestCount?"n"+std::to_string(bestCount)+"_rank1":"none")<<"\ncompleted=1\n";notes.close();return 0;
+    Csv stats(output/"search_stats.csv",{"contexts_built","cache_hits","evaluated_intervals","range_rejected_intervals","range_rejection_basis","retained_intermediate_quality_failures","full_evaluations","proposals_retained","inactive_collapses","context_budget_exhausted","full_budget_exhausted","search_status","max_contexts","max_full_evaluations","max_active","native_nodes","context_node_count","context_nodes","scoring","sensitivity_enabled","sensitivity_samples","sensitivity_seconds","sensitivity_node_order","trace_builds","trace_cache_hits","structure_seeds","structure_seed_count","structure_radius","exploration_contexts","accepted_structure_seeds","rejected_structure_seeds","local_contexts","global_contexts","local_candidates_filtered"});
+    stats.row({{"contexts_built",std::to_string(result.stats.contextsBuilt)},{"cache_hits",std::to_string(result.stats.cacheHits)},{"evaluated_intervals",std::to_string(result.stats.evaluatedIntervals)},{"range_rejected_intervals",std::to_string(result.stats.rangeRejected)},{"range_rejection_basis",application=="dct"?"full_configuration_evaluations":"conditional_interval_evaluations"},{"retained_intermediate_quality_failures",std::to_string(result.stats.retainedQualityFailures)},{"full_evaluations",std::to_string(result.stats.fullEvaluations)},{"proposals_retained",std::to_string(result.stats.proposalsRetained)},{"inactive_collapses",std::to_string(inactive)},{"context_budget_exhausted",result.stats.contextBudgetExhausted?"1":"0"},{"full_budget_exhausted",result.stats.fullBudgetExhausted?"1":"0"},{"search_status",searchStatus},{"max_contexts",std::to_string(options.maxContexts)},{"max_full_evaluations",std::to_string(options.maxFullEvaluations)},{"max_active",std::to_string(limit)},{"native_nodes",std::to_string(nodes)},{"context_node_count",std::to_string(contextNodes.size())},{"context_nodes",visited.str()},{"scoring",application=="dct"?"full_joint_image_reconstruction":"exact_conditional_pixel_replay"},{"sensitivity_enabled",options.sensitivityOrder?"1":"0"},{"sensitivity_samples",std::to_string(result.stats.sensitivitySamples)},{"sensitivity_seconds",number(result.stats.sensitivitySeconds)},{"sensitivity_node_order",priorityOrder.str()},{"trace_builds",std::to_string(result.stats.traceBuilds)},{"trace_cache_hits",std::to_string(result.stats.traceCacheHits)},
+        {"structure_seeds",structureSeedPath},{"structure_seed_count",std::to_string(options.structureSeeds.size())},{"structure_radius",std::to_string(options.structureRadius)},{"exploration_contexts",std::to_string(options.globalExplorationContexts)},
+        {"accepted_structure_seeds",std::to_string(result.stats.acceptedStructureSeeds)},{"rejected_structure_seeds",std::to_string(result.stats.rejectedStructureSeeds)},{"local_contexts",std::to_string(result.stats.localContexts)},{"global_contexts",std::to_string(result.stats.globalContexts)},{"local_candidates_filtered",std::to_string(result.stats.localCandidatesFiltered)}});stats.close();
+    auto notes=open(output/"RUN.txt",std::ios::app);notes<<"search_status="<<searchStatus<<"\nbest_numeric_candidate="<<(bestCount?"n"+std::to_string(bestCount)+"_rank1":"none")
+        <<"\naccepted_structure_seeds="<<result.stats.acceptedStructureSeeds<<"\nrejected_structure_seeds="<<result.stats.rejectedStructureSeeds
+        <<"\nlocal_contexts="<<result.stats.localContexts<<"\nglobal_contexts="<<result.stats.globalContexts
+        <<"\nlocal_candidates_filtered="<<result.stats.localCandidatesFiltered<<"\ncompleted=1\n";notes.close();return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

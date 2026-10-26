@@ -243,13 +243,15 @@ def protocol_parser(root,application="sharpen"):
     p.add_argument("--build-dir",type=Path,default=root/"build-bitflip");p.add_argument("--jobs",type=int,default=4)
     p.add_argument("--screen-workers",type=int,default=min(4,os.cpu_count() or 1),help="Concurrent screening subprocesses; 1 is serial. --jobs controls compilation only.")
     p.add_argument("--skip-build",action="store_true");p.add_argument("--fixed-exe",type=Path);p.add_argument("--discovery-exe",type=Path)
-    p.add_argument("--workflow",choices=("balanced","reference"),default="balanced",help="Balanced changes training/interval effort; reference preserves the previous search policy.")
+    p.add_argument("--workflow",choices=("balanced","reference","continuation"),default="balanced",help="Continuation pilots local seeded training and one native interval invocation; balanced/reference remain available.")
     p.add_argument("--screening",choices=("progressive","exhaustive"),default=None,help="Defaults to progressive for balanced, exhaustive for reference.")
     p.add_argument("--adaptive-intervals",choices=("auto","on","off"),default="auto")
     p.add_argument("--adaptive-min-gain",type=float,default=.001,help="Relative ROI-drop stagnation tolerance after at least two efforts.")
     p.add_argument("--pilot-images",type=int,default=2)
     p.add_argument("--shared-hardware",type=int,default=2,help="Prior training structures refined on each later training image.")
     p.add_argument("--exploration-fraction",type=float,default=.25)
+    p.add_argument("--structure-radius",type=int,default=1)
+    p.add_argument("--global-exploration-fraction",type=float,default=.25,help="Share of later TRAIN discovery contexts reserved for baseline-start exploration.")
     p.add_argument("--resume-from",type=Path,help="Read-only previous output; copy complete hash-matched tasks into this fresh output.")
     if application!="sharpen":
         p.add_argument("--max-full-evals",type=int,default=256);p.add_argument("--full-candidates",type=int,default=8)
@@ -269,9 +271,12 @@ def protocol_splits(args):
     if (args.fixed_exe or args.discovery_exe) and not args.skip_build:raise ValueError("External executables require --skip-build")
     if not (1<=args.pilot_images<=40 and 0<=args.shared_hardware<=64 and
             math.isfinite(args.exploration_fraction) and 0<args.exploration_fraction<=1 and
-            math.isfinite(args.adaptive_min_gain) and 0<=args.adaptive_min_gain<=1):
+            math.isfinite(args.adaptive_min_gain) and 0<=args.adaptive_min_gain<=1 and
+            1<=args.structure_radius<=32 and math.isfinite(args.global_exploration_fraction) and 0<args.global_exploration_fraction<1):
         raise ValueError("Invalid whole-workflow effort options")
-    if args.screening is None:args.screening="progressive" if args.workflow=="balanced" else "exhaustive"
+    if args.workflow=="continuation" and args.adaptive_intervals!="auto":
+        raise ValueError("Continuation owns native convergence; use --adaptive-intervals auto")
+    if args.screening is None:args.screening="exhaustive" if args.workflow=="reference" else "progressive"
     return train,screen,test
 
 def main(argv=None,application="sharpen"):
@@ -279,6 +284,7 @@ def main(argv=None,application="sharpen"):
     args=protocol_parser(root,application).parse_args(argv);owned=False;meta=None;whole_begin=time.monotonic()
     try:
         train,screen,test=protocol_splits(args)
+        if args.workflow=="continuation" and application=="sharpen":raise ValueError("Continuation trial currently uses native circuit executables; Sharpen mode is not implemented")
         data=args.data.resolve();out=args.output.resolve();build=args.build_dir.resolve()
         resume=args.resume_from.resolve() if args.resume_from else None
         references=[data]+([args.training_report.resolve()] if args.training_report else [])+([resume] if resume else [])
@@ -313,6 +319,11 @@ def main(argv=None,application="sharpen"):
                     training_policy="shared structures plus bounded independent exploration" if args.workflow=="balanced" else "independent full discovery",
                     prepare_seconds=time.monotonic()-whole_begin,training_wall_seconds=0,report_seconds=0,total_wall_seconds=0,
                     screen_planned_task_count=0,screen_bound_skipped_tasks=0,cache_hits=0)
+        if args.workflow=="continuation":
+            meta.update(effort_policy="one native invocation; carried beam/cache and convergence after complete sweeps",
+                        training_policy="current-train-image shared calibration before local seeded structure search; common global reserve",
+                        convergence_metric="relative improvement of best eligible ROI MSE after complete sweeps",
+                        structure_radius=args.structure_radius,global_exploration_fraction=args.global_exploration_fraction)
         meta.update(screen_workers=args.screen_workers,screen_wall_seconds=0,screen_task_seconds=0,screen_task_count=0,
                     test_wall_seconds=0,test_task_seconds=0,profiling="fixed monitor only; per-image reference and single-trace reuse" if application=="sharpen" else "native exact conditional pixel scores or full reconstructed-image scores; fixed monitor and bit")
         statuses=[];screen_results=[];test_results=[];attempts=[];tables={name:[] for name in TABLES}
@@ -360,17 +371,44 @@ def main(argv=None,application="sharpen"):
         if not args.training_report:
             if not discovery.is_file():raise ValueError("Missing discovery executable")
             source.mkdir();ss=[];cs=[]
+            def calibrate_shared(prior_pool,prior_order,image,train_position):
+                prior_by_key={h["key"]:h for h in prior_pool};warm=[]
+                for shared_index,key in enumerate(prior_order[:args.shared_hardware],1):
+                    original=prior_by_key[key]
+                    shared=dict(key=key,hardware_id=f"shared_{train_position:02d}_{shared_index:02d}")
+                    folder=out/"training_shared_hardware"/shared["hardware_id"];folder.mkdir(parents=True)
+                    hardware_path=folder/"hardware.csv";seeds_path=folder/"seeds.csv"
+                    atomic_csv(hardware_path,[dict(node_id=n,monitor=m,bit=b) for n,m,b in key],["node_id","monitor","bit"])
+                    seeds=[]
+                    for seed_index,evidence in enumerate(sorted(original["sources"],key=lambda r:(-r["roi_drop_score"],r["image"],r["candidate_id"]))[:args.seed_limit]):
+                        seeds.extend(dict(seed_id=f"train_{evidence['image']:02d}_{seed_index}",**row) for row in evidence["intervals"])
+                    atomic_csv(seeds_path,seeds,["seed_id","node_id","monitor","bit","lower","upper"])
+                    result=evaluate("train_shared",shared,image,"none",hardware_path,seeds_path);selected=collect(result)
+                    if selected["status"]=="numeric_eligible":
+                        candidate_id=f"shared_{shared_index:02d}"
+                        ss.append({**selected,"candidate_id":candidate_id,"application":application,"image":image})
+                        cs.extend({**row,"candidate_id":candidate_id,"application":application,"image":image} for row in result[2]["configurations_all.csv"])
+                    if selected["status"] in ("numeric_eligible","quality_not_met"):
+                        warm.extend({**{field:row[field] for field in ("node_id","monitor","bit","lower","upper")},
+                                     "seed_id":f"train_{image:02d}_current_{shared_index:02d}"}
+                                    for row in result[2]["configurations_all.csv"])
+                    flush()
+                    if selected["status"]=="run_failed" and args.workflow=="continuation":
+                        raise RuntimeError("Shared training calibration failed; local discovery and freeze blocked")
+                return warm
             for train_position,image in enumerate(train):
                 prior_pool=[];prior_order=[]
-                if args.workflow=="balanced" and train_position>=args.pilot_images and args.shared_hardware:
+                if args.workflow in ("balanced","continuation") and train_position>=args.pilot_images and args.shared_hardware:
                     # Only already completed TRAIN images can propose a shared H.
                     atomic_csv(source/"summary_all.csv",ss,["image","candidate_id","status","global_mse","roi_mse"])
                     atomic_csv(source/"configurations_all.csv",cs,["image","candidate_id","node_id","monitor","bit","lower","upper"])
                     prior_pool,prior_order=training_pool(source,train[:train_position],args.global_psnr,application,native_nodes)
+                warm=[]
+                if args.workflow=="continuation":warm=calibrate_shared(prior_pool,prior_order,image,train_position)
                 report=source/f"image_{image:02d}";log=f"logs/train_image_{image:02d}.log"
                 status=dict(phase="train",hardware_id="",image=image,status="running",returncode="",elapsed_seconds="",log=log,detail="",cache_hit=0);statuses.append(status);begin=time.monotonic()
                 try:
-                    reduced=args.workflow=="balanced" and train_position>=args.pilot_images
+                    reduced=args.workflow in ("balanced","continuation") and train_position>=args.pilot_images
                     fraction=args.exploration_fraction if reduced else 1.
                     contexts=min(args.training_context_budget,max(native_nodes,math.ceil(args.training_context_budget*fraction)))
                     refinement=0 if reduced else args.refinement;restarts=1 if reduced else args.restarts
@@ -380,10 +418,19 @@ def main(argv=None,application="sharpen"):
                                  "--boundary-budget",args.boundary_budget,"--top-per-count",args.training_top,"--restarts",restarts,
                                  "--global-psnr",args.global_psnr,"--max-contexts",contexts,
                                  "--max-full-evals",min(args.training_max_full_evals,max(native_nodes,math.ceil(args.training_max_full_evals*fraction))),"--dct-full-candidates",args.training_full_candidates,"--image-mode","none"]
-                    if args.workflow=="balanced":command.append("--sensitivity-order")
+                    if args.workflow in ("balanced","continuation"):command.append("--sensitivity-order")
+                    warm_path=None
+                    if args.workflow=="continuation" and warm:
+                        warm_path=source/f"image_{image:02d}_structure_seeds.csv"
+                        atomic_csv(warm_path,warm,["seed_id","node_id","monitor","bit","lower","upper"])
+                        reserve=max(1,min(contexts-1,math.floor(contexts*args.global_exploration_fraction)))
+                        command.extend(["--structure-seeds",warm_path,"--structure-radius",args.structure_radius,"--exploration-contexts",reserve])
+                    signature_arguments=[str(x) for x in command[3 if application=="sharpen" else 4:]]
+                    if warm_path:
+                        signature_arguments[signature_arguments.index("--structure-seeds")+1]="sha256:"+digest(warm_path)
                     signature=dict(schema=1,kind="discovery",application=application,image=image,input_sha256=digest(resolve_staged_image_path(data,image)),
                                    mask_sha256=mask_hash,source_sha256=source_hash,executable_sha256=digest(discovery),
-                                   arguments=[str(x) for x in command[3 if application=="sharpen" else 4:]])
+                                   arguments=signature_arguments)
                     # The first sliced argument is image/--image, never an output path.
                     relative=report.relative_to(out).as_posix()
                     reused=cache.restore(relative,signature);status["cache_hit"]=int(reused)
@@ -407,24 +454,8 @@ def main(argv=None,application="sharpen"):
                 status["elapsed_seconds"]=time.monotonic()-begin;flush()
                 # Refine a few prior structures on this new TRAIN image. New
                 # intervals become training evidence; screening/test never do.
-                if status["status"]=="completed":
-                    prior_by_key={h["key"]:h for h in prior_pool}
-                    for shared_index,key in enumerate(prior_order[:args.shared_hardware],1):
-                        original=prior_by_key[key]
-                        shared=dict(key=key,hardware_id=f"shared_{train_position:02d}_{shared_index:02d}")
-                        folder=out/"training_shared_hardware"/shared["hardware_id"];folder.mkdir(parents=True)
-                        hardware_path=folder/"hardware.csv";seeds_path=folder/"seeds.csv"
-                        atomic_csv(hardware_path,[dict(node_id=n,monitor=m,bit=b) for n,m,b in key],["node_id","monitor","bit"])
-                        seeds=[]
-                        for seed_index,evidence in enumerate(sorted(original["sources"],key=lambda r:(-r["roi_drop_score"],r["image"],r["candidate_id"]))[:args.seed_limit]):
-                            seeds.extend(dict(seed_id=f"train_{evidence['image']:02d}_{seed_index}",**row) for row in evidence["intervals"])
-                        atomic_csv(seeds_path,seeds,["seed_id","node_id","monitor","bit","lower","upper"])
-                        result=evaluate("train_shared",shared,image,"none",hardware_path,seeds_path);selected=collect(result)
-                        if selected["status"]=="numeric_eligible":
-                            candidate_id=f"shared_{shared_index:02d}"
-                            ss.append({**selected,"candidate_id":candidate_id,"application":application,"image":image})
-                            cs.extend({**row,"candidate_id":candidate_id,"application":application,"image":image} for row in result[2]["configurations_all.csv"])
-                        flush()
+                if status["status"]=="completed" and args.workflow=="balanced":
+                    calibrate_shared(prior_pool,prior_order,image,train_position)
             atomic_csv(source/"summary_all.csv",ss,["image","candidate_id","status","global_mse","roi_mse"])
             atomic_csv(source/"configurations_all.csv",cs,["image","candidate_id","node_id","monitor","bit","lower","upper"])
             if meta["failed_tasks"]:raise RuntimeError("Training failures recorded; screening not started")
