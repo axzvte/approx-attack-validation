@@ -1,4 +1,5 @@
 #include "analysis/circuit_bitflip_fixed.hpp"
+#include "analysis/circuit_bitflip_joint.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
