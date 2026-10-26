@@ -31,6 +31,8 @@ def parser(root):
     p.add_argument('--max-candidates',type=int,default=24);p.add_argument('--initial-candidates',type=int,default=3)
     p.add_argument('--proposals-per-round',type=int,default=3);p.add_argument('--max-rounds',type=int,default=6)
     p.add_argument('--patience',type=int,default=2);p.add_argument('--workers',type=int,default=4)
+    p.add_argument('--scheduling',choices=('interleaved','sequential'),default='interleaved')
+    p.add_argument('--initial-batch',type=int,default=4);p.add_argument('--completion-reserve',type=int,default=20)
     p.add_argument('--train-context-budget',type=int,default=64);p.add_argument('--context-budget',type=int,default=128)
     p.add_argument('--beam',type=int,default=4);p.add_argument('--refinement',type=int,default=1)
     p.add_argument('--restarts',type=int,default=2);p.add_argument('--boundary-budget',type=int,default=24)
@@ -55,6 +57,7 @@ def main(argv=None):
         if not (len(train)<=args.max_train_evaluations<=100000 and 1<=args.max_candidates<=10000 and
                 1<=args.initial_candidates<=args.max_candidates and 1<=args.proposals_per_round<=1000 and
                 1<=args.max_rounds<=1000 and 1<=args.patience<=1000 and 1<=args.workers<=64 and
+                1<=args.initial_batch<=10 and 0<=args.completion_reserve<=10000000 and
                 1<=args.train_context_budget<=1000000 and 1<=args.context_budget<=1000000 and
                 1<=args.beam<=64 and 0<=args.refinement<=10 and 1<=args.restarts<=8 and
                 (args.boundary_budget==0 or 2<=args.boundary_budget<=8192) and 1<=args.max_full_evals<=10000000 and
@@ -82,7 +85,8 @@ def main(argv=None):
         cache=TaskCache(out,resume);source_hash=source_fingerprint(root);mask_hash=protocol.digest(mask)
         input_hashes={str(i):protocol.digest(paths[i]) for i in train}
         meta=dict(application=args.application,applications=[args.application],completed=False,all_succeeded=False,
-                  workflow='ten_train',selection_status='not_selected',test_executed=False,
+                  workflow='ten_train',training_scheduling=args.scheduling,initial_batch=args.initial_batch,
+                  completion_reserve=args.completion_reserve,selection_status='not_selected',test_executed=False,
                   splits=dict(train=train,test=test),screening_disabled=True,screen_wall_seconds=0,screen_task_count=0,
                   data=str(data),source_fingerprint=source_hash,training_input_hashes=input_hashes,roi_sha256=mask_hash,
                   options={k:v for k,v in vars(args).items() if isinstance(v,(str,int,float,bool))},
@@ -103,6 +107,10 @@ def main(argv=None):
                      training_wall_seconds=meta['training_wall_seconds'],hardware_selection_wall_seconds=meta['hardware_selection_wall_seconds'],
                      screen_wall_seconds=0,test_wall_seconds=meta['test_wall_seconds'],numeric_test_successes=sum(r['status']=='numeric_eligible' for r in best),
                      test_images=len(test),actual_train_evaluations=meta.get('actual_train_evaluations',''),cache_hits=meta['cache_hits'])
+            for field in ('training_scheduling','initial_batch','completion_reserve','effective_completion_reserve','reference_evaluations',
+                          'exploration_evaluations','completion_evaluations','completion_candidates'):
+                app[field]=meta.get(field,'')
+            app['evaluation_image_order']=','.join(map(str,meta.get('evaluation_image_order',[])))
             atomic_csv(out/'applications.csv',[app],list(app))
             meta['total_wall_seconds']=time.monotonic()-begin;atomic_json(out/'RUN.json',meta)
         flush()
@@ -113,11 +121,12 @@ def main(argv=None):
         if not train_exe.is_file() or not fixed.is_file():raise ValueError('Missing ten-image or fixed-H executable')
         controls=dict(train=args.train,max_evaluations=args.max_train_evaluations,max_candidates=args.max_candidates,
                       initial_candidates=args.initial_candidates,proposals_per_round=args.proposals_per_round,max_rounds=args.max_rounds,
+                      scheduling=args.scheduling,initial_batch=args.initial_batch,completion_reserve=args.completion_reserve,
                       patience=args.patience,workers=args.workers,context_budget=args.train_context_budget,beam=args.beam,
                       refinement=args.refinement,restarts=args.restarts,boundary_budget=args.boundary_budget,
                       max_full_evals=args.max_full_evals,full_candidates=args.full_candidates,global_psnr=args.global_psnr,
                       convergence_tolerance=args.convergence_tolerance,seed_limit=args.seed_limit)
-        signature=dict(schema=1,kind='ten_image_training',application=args.application,inputs=input_hashes,
+        signature=dict(schema=2,kind='ten_image_training',application=args.application,inputs=input_hashes,
                        roi=mask_hash,source=source_hash,executable=protocol.digest(train_exe),controls=controls)
         status=dict(application=args.application,phase='train_joint',hardware_id='',image='',status='running',returncode='',
                     elapsed_seconds='',log='logs/train.log',detail='',cache_hit=0)
@@ -130,11 +139,19 @@ def main(argv=None):
             if status['returncode']:raise RuntimeError('Joint ten-image training executable failed')
             report=validate_training_report(out/'train',args.application,train,args.global_psnr,args.max_train_evaluations,args.max_candidates)
             if int(report['notes'].get('reference_builds','-1'))!=len(train):raise ValueError('Native prepared references do not match the ten train images')
+            notes=report['notes']
+            if (notes.get('scheduling')!=args.scheduling or notes.get('initial_batch')!=str(args.initial_batch) or
+                    notes.get('completion_reserve')!=str(args.completion_reserve)):
+                raise ValueError('Training executable/report does not match the requested scheduling; rebuild the executable')
             if not reused:cache.record('train',signature)
             status.update(status='completed',log='' if reused else status['log'])
             meta.update(training_cache_hit=reused,cache_hits=int(reused),actual_train_evaluations=int(report['notes']['actual_evaluations']),
                         native_preparation_seconds=report['notes'].get('preparation_seconds'),native_search_seconds=report['notes'].get('search_seconds'),
                         search_stop_reason=report['notes'].get('stop_reason'),reference_builds=len(train))
+            for field in ('effective_completion_reserve','reference_evaluations','exploration_evaluations',
+                          'completion_evaluations','completion_candidates'):
+                meta[field]=int(notes[field])
+            meta['evaluation_image_order']=[int(value) for value in notes['evaluation_image_order'].split(',')]
         except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
             status.update(status='failed',detail=str(exc));meta['failed_tasks'].append(dict(phase='train_joint'))
             raise

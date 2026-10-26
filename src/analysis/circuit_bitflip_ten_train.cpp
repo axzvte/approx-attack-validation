@@ -1,4 +1,5 @@
 #include "analysis/circuit_bitflip_ten_train.hpp"
+#include "analysis/detail/ten_train_schedule.hpp"
 #include "analysis/bitflip_sensitivity.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
@@ -43,10 +44,11 @@ double score(const TenTrainEvaluation& e) {
     return e.numericEligible?std::max(0.0,cappedPsnr(e.baseline.roiMse)-cappedPsnr(e.selected.metrics.roiMse)):0;
 }
 void summarize(TenTrainCandidate& c,std::size_t totalImages) {
+    std::sort(c.evaluations.begin(),c.evaluations.end(),[](const auto& a,const auto& b){return a.imageId<b.imageId;});
     c.numericSuccesses=0;c.worstRoiDrop=0;c.meanRoiDrop=0;
     if(c.evaluations.empty()) return;
     c.worstRoiDrop=100;
-    // Evaluations always arrive in ascending image ID order, independently of
+    // Sort retained evaluations before summing, independently of scheduling,
     // future completion order and caller image order.
     for(const auto& e:c.evaluations) {
         c.numericSuccesses+=e.numericEligible;const auto s=score(e);
@@ -160,12 +162,10 @@ Snapshot warmSnapshot(const core::Application& app,const FixedBitflipHardware& h
     return out;
 }
 bool eliminate(const TenTrainCandidate& c,const TenTrainCandidate& incumbent,std::size_t total) {
-    const auto upper=c.numericSuccesses+total-c.evaluations.size();
-    if(upper<incumbent.numericSuccesses) return true;
     // Minimum observed drop is an upper bound on final worst drop. Equality
     // cannot prune: mean, node count and canonical H may still win. Pair calls
     // here used exactly the same full interval budgets as the incumbent.
-    return upper==incumbent.numericSuccesses && !c.evaluations.empty() && c.worstRoiDrop<incumbent.worstRoiDrop;
+    return detail::strictlyEliminated(c,incumbent,total);
 }
 }
 
@@ -182,14 +182,15 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
         const TenTrainOptions& options,const std::function<void(const TenTrainProgress&)>& progress) {
     if(input.size()!=10) throw std::invalid_argument("Ten-image training requires exactly images 1..10.");
     if(!options.maxEvaluations || !options.maxCandidates || !options.initialCandidates ||
-            !options.proposalsPerRound || !options.workers || !options.patience || !options.intervals.seeds.empty())
+            !options.proposalsPerRound || !options.workers || !options.patience || !options.initialBatch ||
+            (options.scheduling!="interleaved" && options.scheduling!="sequential") || !options.intervals.seeds.empty())
         throw std::invalid_argument("Invalid ten-image budgets or external interval seeds.");
     const auto nodes=app.addNodes().size();if(nodes<2) throw std::invalid_argument("Training needs at least two native nodes.");
     (void)baselineUnit(app,0);
     auto images=input;std::sort(images.begin(),images.end(),[](const auto& a,const auto& b){return a.imageId<b.imageId;});
     for(std::size_t i=0;i<images.size();++i) if(images[i].imageId!=int(i+1))
         throw std::invalid_argument("Ten-image training requires exactly images 1..10 without duplicates.");
-    TenTrainResult result;const auto prepBegin=Clock::now();
+    TenTrainResult result;result.scheduling=options.scheduling;const auto prepBegin=Clock::now();
     std::vector<std::shared_ptr<const CircuitFixedPreparedImage>> prepared;
     Priority priority;priority.nodes.resize(nodes);std::iota(priority.nodes.begin(),priority.nodes.end(),0);
     priority.nodeScores.resize(nodes);priority.signalScores.resize(nodes);
@@ -204,6 +205,20 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
         accumulate(priority,trace,images.size());
     }
     std::stable_sort(priority.nodes.begin(),priority.nodes.end(),[&](int a,int b){return priority.nodeScores[a]>priority.nodeScores[b];});
+    std::vector<std::size_t> imageOrder(images.size());std::iota(imageOrder.begin(),imageOrder.end(),0);
+    if(options.scheduling=="interleaved") {
+        std::stable_sort(imageOrder.begin(),imageOrder.end(),[&](auto a,auto b) {
+            // PSNR is monotone decreasing in MSE. Comparing MSE avoids the
+            // reporting score's 100 dB cap and handles exact baselines (MSE=0).
+            return result.baselines[a].roiMse>result.baselines[b].roiMse;
+        });
+        const auto difficulty=imageOrder;const std::array<std::size_t,10> positions{0,9,4,2,7,1,8,3,6,5};
+        for(std::size_t i=0;i<positions.size();++i) imageOrder[i]=difficulty[positions[i]];
+        const auto remaining=options.maxEvaluations-std::min(options.maxEvaluations,images.size());
+        result.effectiveCompletionReserve=std::min(options.completionReserve,
+            remaining>options.initialBatch?remaining-options.initialBatch:std::size_t(0));
+    }
+    for(const auto i:imageOrder) result.evaluationImageOrder.push_back(images[i].imageId);
     result.preparationSeconds=seconds(prepBegin);const auto searchBegin=Clock::now();
     std::set<HardwareKey> seen;std::vector<Snapshot> snapshots;
     const auto add=[&](FixedBitflipHardware h,std::size_t generation,const TenTrainCandidate* parent)->bool {
@@ -215,21 +230,26 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
         c.hardware=std::move(h);c.generation=generation;c.status="budget_incomplete";
         c.reason="not_evaluated";result.candidates.push_back(std::move(c));snapshots.push_back(std::move(snapshot));return true;
     };
-    const auto evaluate=[&](std::size_t index) {
-        auto& candidate=result.candidates[index];std::size_t next=0;
-        while(next<images.size() && result.actualEvaluations<options.maxEvaluations) {
-            const auto count=std::min({options.workers,images.size()-next,
-                options.maxEvaluations-std::size_t(result.actualEvaluations)});
+    const auto evaluate=[&](std::size_t index,std::size_t limit,std::size_t allowance,const std::string& phase) {
+        auto& candidate=result.candidates[index];std::size_t used=0;
+        while(candidate.evaluations.size()<images.size() && result.actualEvaluations<limit && used<allowance) {
+            std::vector<std::size_t> pending;
+            for(const auto i:imageOrder) if(std::none_of(candidate.evaluations.begin(),candidate.evaluations.end(),
+                    [&](const auto& e){return e.imageId==images[i].imageId;})) pending.push_back(i);
+            const auto count=std::min({options.workers,pending.size(),limit-std::size_t(result.actualEvaluations),allowance-used});
             std::vector<std::future<TenTrainEvaluation>> tasks;tasks.reserve(count);
             // Reserve the entire batch before any worker can start a call.
             result.actualEvaluations+=count;
+            if(index==0) result.referenceEvaluations+=count;
+            else if(phase=="completion") result.completionEvaluations+=count;
+            else result.explorationEvaluations+=count;
             for(std::size_t j=0;j<count;++j) {
-                const auto i=next+j;auto intervalOptions=options.intervals;intervalOptions.seeds=snapshots[index][i];
+                const auto i=pending[j];auto intervalOptions=options.intervals;intervalOptions.seeds=snapshots[index][i];
                 tasks.push_back(std::async(std::launch::async,[&,i,intervalOptions] {
                     const auto begin=Clock::now();const auto& image=images[i];
                     const auto found=searchCircuitFixedBitflipIntervals(app,image.image,image.mask,candidate.hardware,
                         intervalOptions,{},prepared[i].get());
-                    TenTrainEvaluation e;e.imageId=image.imageId;e.baseline=found.baseline;e.stats=found.stats;
+                    TenTrainEvaluation e;e.phase=phase;e.imageId=image.imageId;e.baseline=found.baseline;e.stats=found.stats;
                     if(!found.candidates.empty()) {e.selected=found.candidates.front();e.legal=true;e.numericEligible=true;}
                     else if(found.bestLegal) {e.selected=*found.bestLegal;e.legal=true;}
                     e.elapsedSeconds=seconds(begin);return e;
@@ -240,20 +260,72 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
                 if(progress) progress({result.candidates.size(),std::size_t(result.actualEvaluations),
                     candidate.hardwareId,candidate.evaluations.back().imageId});
             }
-            next+=count;summarize(candidate,images.size());
-            if(next<images.size() && result.bestIndex && eliminate(candidate,result.candidates[*result.bestIndex],images.size())) {
+            used+=count;summarize(candidate,images.size());
+            if(candidate.evaluations.size()<images.size() && result.bestIndex && eliminate(candidate,result.candidates[*result.bestIndex],images.size())) {
                 candidate.status="bound_eliminated";candidate.reason="strict_full_pair_success_or_worst_bound";return;
             }
         }
         if(candidate.evaluations.size()==images.size()) {
+            if(phase=="completion") ++result.completionCandidates;
             candidate.status="complete";candidate.reason="all_training_images_evaluated";
             if(!result.bestIndex || betterTenTrainCandidate(candidate,result.candidates[*result.bestIndex])) result.bestIndex=index;
-        } else {candidate.status="budget_incomplete";candidate.reason="pair_evaluation_budget_exhausted";}
+        } else {candidate.status="budget_incomplete";candidate.reason=result.actualEvaluations>=options.maxEvaluations?
+            "pair_evaluation_budget_exhausted":"suspended_for_completion";}
     };
     std::size_t globalSerial=0,localSerial=0;
+    if(options.scheduling=="interleaved") {
+        add(globalProposal(priority,globalSerial++),0,nullptr);
+        evaluate(0,options.maxEvaluations,images.size(),"reference");
+        const auto explorationLimit=options.maxEvaluations-result.effectiveCompletionReserve;
+        const auto prunePending=[&] {
+            if(!result.bestIndex) return;
+            for(auto& c:result.candidates) if(c.status=="budget_incomplete" &&
+                    detail::strictlyEliminated(c,result.candidates[*result.bestIndex],images.size())) {
+                c.status="bound_eliminated";c.reason="strict_full_pair_success_or_worst_bound";
+            }
+        };
+        const auto wave=[&](std::size_t count,std::size_t generation,const TenTrainCandidate* parent) {
+            std::vector<std::size_t> added;
+            // Freeze all proposals and seeds for this wave before any pair runs.
+            for(std::size_t p=0;p<count && result.candidates.size()<options.maxCandidates &&
+                    result.actualEvaluations<explorationLimit;++p) {
+                const bool global=generation==0 || p==0 || !parent;
+                auto h=global?globalProposal(priority,globalSerial++):localProposal(*parent,priority,localSerial++);
+                if(add(std::move(h),generation,global?nullptr:parent)) added.push_back(result.candidates.size()-1);
+            }
+            // Every wave member gets its initial batch before any promotion.
+            for(const auto i:added) {
+                if(result.actualEvaluations>=explorationLimit) break;
+                evaluate(i,explorationLimit,options.initialBatch,"exploration");
+            }
+            prunePending();
+            if(result.actualEvaluations<explorationLimit) {
+                const auto next=detail::completionChoice(result.candidates,result.bestIndex,images.size());
+                if(next) evaluate(*next,explorationLimit,images.size(),"exploration");
+                prunePending();
+            }
+        };
+        if(result.actualEvaluations<explorationLimit)
+            wave(options.initialCandidates-1,0,nullptr);
+        std::size_t stale=0;
+        for(std::size_t round=1;round<=options.maxRounds && result.actualEvaluations<explorationLimit &&
+                result.candidates.size()<options.maxCandidates;++round) {
+            const auto before=result.bestIndex;
+            const auto parent=before?std::optional<TenTrainCandidate>(result.candidates[*before]):std::nullopt;
+            wave(options.proposalsPerRound,round,parent?&*parent:nullptr);
+            if(result.bestIndex==before) ++stale;else stale=0;
+            if(stale>=options.patience) {result.stopReason="patience_exhausted";break;}
+        }
+        prunePending();
+        while(result.actualEvaluations<options.maxEvaluations) {
+            const auto next=detail::completionChoice(result.candidates,result.bestIndex,images.size());
+            if(!next) break;
+            evaluate(*next,options.maxEvaluations,images.size(),"completion");prunePending();
+        }
+    } else {
     for(std::size_t i=0;i<options.initialCandidates && result.candidates.size()<options.maxCandidates &&
             result.actualEvaluations<options.maxEvaluations;++i) {
-        if(add(globalProposal(priority,globalSerial++),0,nullptr)) evaluate(result.candidates.size()-1);
+        if(add(globalProposal(priority,globalSerial++),0,nullptr)) evaluate(result.candidates.size()-1,options.maxEvaluations,images.size(),"sequential");
     }
     std::size_t stale=0;
     for(std::size_t round=1;round<=options.maxRounds && result.actualEvaluations<options.maxEvaluations &&
@@ -269,16 +341,20 @@ TenTrainResult searchCircuitTenTrain(const core::Application& app,const std::vec
             // pair budget cannot spend the entire round on local mutations.
             const bool global=p==0 || !parent;
             auto h=global?globalProposal(priority,globalSerial++):localProposal(*parent,priority,localSerial++);
-            if(add(std::move(h),round,global?nullptr:&*parent)) evaluate(result.candidates.size()-1);
+            if(add(std::move(h),round,global?nullptr:&*parent)) evaluate(result.candidates.size()-1,options.maxEvaluations,images.size(),"sequential");
         }
         if(result.bestIndex==before) ++stale;else stale=0;
         if(stale>=options.patience) {result.stopReason="patience_exhausted";break;}
     }
-    if(result.stopReason.empty()) {
-        if(result.actualEvaluations>=options.maxEvaluations) result.stopReason="evaluation_budget_exhausted";
-        else if(result.candidates.size()>=options.maxCandidates) result.stopReason="candidate_budget_exhausted";
+    }
+    if(result.actualEvaluations>=options.maxEvaluations) result.stopReason="evaluation_budget_exhausted";
+    else if(result.stopReason.empty()) {
+        if(result.candidates.size()>=options.maxCandidates) result.stopReason="candidate_budget_exhausted";
         else result.stopReason="round_budget_exhausted";
     }
+    for(auto& c:result.candidates) if(c.status=="budget_incomplete")
+        c.reason=result.actualEvaluations>=options.maxEvaluations?
+            "pair_evaluation_budget_exhausted":"search_terminated_before_completion";
     result.searchSeconds=seconds(searchBegin);return result;
 }
 }

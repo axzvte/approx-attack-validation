@@ -152,11 +152,29 @@ Row configRow(const core::AttackConfig& node) {
             {"bit", std::to_string(node.bitIndex)}, {"lower", std::to_string(node.lower)},
             {"upper", std::to_string(node.upper)}};
 }
+Row scheduleRow(const analysis::TenTrainResult& result, const analysis::TenTrainOptions& options) {
+    std::ostringstream order;
+    for (std::size_t i = 0; i < result.evaluationImageOrder.size(); ++i)
+        order << (i ? "," : "") << result.evaluationImageOrder[i];
+    return {{"scheduling", result.scheduling}, {"initial_batch", std::to_string(options.initialBatch)},
+        {"completion_reserve", std::to_string(options.completionReserve)},
+        {"effective_completion_reserve", std::to_string(result.effectiveCompletionReserve)},
+        {"reference_evaluations", std::to_string(result.referenceEvaluations)},
+        {"exploration_evaluations", std::to_string(result.explorationEvaluations)},
+        {"completion_evaluations", std::to_string(result.completionEvaluations)},
+        {"completion_candidates", std::to_string(result.completionCandidates)},
+        {"evaluation_image_order", order.str()}};
+}
 void validateResult(const analysis::TenTrainResult& result, std::size_t nativeCount,
                     const analysis::TenTrainOptions& options) {
     if (result.baselines.size() != 10 || result.actualEvaluations > options.maxEvaluations ||
         result.candidates.size() > options.maxCandidates)
         throw std::runtime_error("Solver violated the training image or search budget contract.");
+    auto imageOrder = result.evaluationImageOrder;
+    std::sort(imageOrder.begin(), imageOrder.end());
+    if (result.scheduling != options.scheduling || imageOrder != std::vector<int>({1,2,3,4,5,6,7,8,9,10}) ||
+        result.referenceEvaluations + result.explorationEvaluations + result.completionEvaluations != result.actualEvaluations)
+        throw std::runtime_error("Solver returned inconsistent scheduling diagnostics.");
     if (result.referenceBuilds != 10 || !std::isfinite(result.preparationSeconds) || result.preparationSeconds < 0 ||
         !std::isfinite(result.searchSeconds) || result.searchSeconds < 0 || result.stopReason.empty())
         throw std::runtime_error("Solver returned invalid preparation or search statistics.");
@@ -177,6 +195,10 @@ void validateResult(const analysis::TenTrainResult& result, std::size_t nativeCo
         std::size_t successes = 0;
         for (const auto& evaluation : candidate.evaluations) {
             ++evaluated;
+            if ((options.scheduling == "sequential" && evaluation.phase != "sequential") ||
+                (options.scheduling == "interleaved" && evaluation.phase != "reference" &&
+                 evaluation.phase != "exploration" && evaluation.phase != "completion"))
+                throw std::runtime_error("Solver returned an invalid evaluation phase.");
             if (evaluation.imageId < 1 || evaluation.imageId > 10 || !images.insert(evaluation.imageId).second)
                 throw std::runtime_error("Solver returned an unexpected or duplicate training image.");
             if (!std::isfinite(evaluation.elapsedSeconds) || evaluation.elapsedSeconds < 0)
@@ -235,6 +257,7 @@ int main(int argc, char** argv) {
             "Usage: circuit_bitflip_ten_train sobel|conv|dct DATA NEW_OUTPUT [--train 1:10] "
             "[--max-evaluations 80] [--max-candidates 24] [--initial-candidates 3] "
             "[--proposals-per-round 3] [--max-rounds 6] [--patience 2] [--workers 4] "
+            "[--scheduling interleaved|sequential] [--initial-batch 4] [--completion-reserve 20] "
             "[--context-budget 64] [--beam 4] [--refinement 1] [--restarts 2] "
             "[--boundary-budget 24] [--max-full-evals 256] [--full-candidates 8] "
             "[--global-psnr 30] [--convergence-tolerance 0.001] [--seed-limit 2]");
@@ -248,7 +271,7 @@ int main(int argc, char** argv) {
         const std::set<std::string> allowed{"--train", "--max-evaluations", "--max-candidates", "--initial-candidates",
             "--proposals-per-round", "--max-rounds", "--patience", "--workers", "--context-budget", "--beam",
             "--refinement", "--restarts", "--boundary-budget", "--max-full-evals", "--full-candidates",
-            "--global-psnr", "--convergence-tolerance", "--seed-limit"};
+            "--global-psnr", "--convergence-tolerance", "--seed-limit", "--scheduling", "--initial-batch", "--completion-reserve"};
         std::map<std::string, std::string> flags;
         for (int i = 4; i < argc; i += 2) {
             const std::string flag = argv[i];
@@ -268,6 +291,11 @@ int main(int argc, char** argv) {
         options.maxRounds = option("--max-rounds", 6, 0, 1000000);
         options.patience = option("--patience", 2, 1, 1000000);
         options.workers = option("--workers", 4, 1, 256);
+        if (flags.count("--scheduling")) options.scheduling = flags.at("--scheduling");
+        if (options.scheduling != "interleaved" && options.scheduling != "sequential")
+            throw std::runtime_error("Scheduling must be interleaved or sequential.");
+        options.initialBatch = option("--initial-batch", 4, 1, 10);
+        options.completionReserve = option("--completion-reserve", 20, 0, 10000000);
         options.intervals.maxContexts = option("--context-budget", 64, 1, 1000000);
         options.intervals.beamWidth = option("--beam", 4, 1, 64);
         options.intervals.refinementRounds = option("--refinement", 1, 0, 10);
@@ -329,9 +357,9 @@ int main(int argc, char** argv) {
         Csv baselines(output / "training_baselines.csv", {"application", "image", "global_mse", "roi_mse", "non_roi_mse", "global_psnr", "roi_psnr", "non_roi_psnr"});
         Csv hardware(output / "candidate_hardware.csv", {"hardware_id", "node_id", "monitor", "bit"});
         Csv ranks(output / "training_ranking.csv", {"hardware_id", "rank", "status", "complete", "evaluated_images", "train_images", "numeric_successes", "worst_roi_drop_score", "mean_roi_drop_score", "installed_nodes", "reason"});
-        Csv evaluations(output / "training_evaluations.csv", {"application", "hardware_id", "image", "status", "global_mse", "roi_mse", "non_roi_mse", "baseline_roi_mse", "global_psnr", "roi_psnr", "non_roi_psnr", "roi_drop_score", "elapsed_seconds", "contexts_built", "full_evaluations", "completed_sweeps", "stopped_for_convergence", "reference_cache_hit", "baseline_cache_hit"});
+        Csv evaluations(output / "training_evaluations.csv", {"application", "hardware_id", "image", "status", "global_mse", "roi_mse", "non_roi_mse", "baseline_roi_mse", "global_psnr", "roi_psnr", "non_roi_psnr", "roi_drop_score", "elapsed_seconds", "contexts_built", "full_evaluations", "completed_sweeps", "stopped_for_convergence", "reference_cache_hit", "baseline_cache_hit", "phase"});
         Csv configurations(output / "training_configurations.csv", {"hardware_id", "image", "node_id", "monitor", "bit", "lower", "upper"});
-        Csv stats(output / "search_stats.csv", {"actual_evaluations", "duplicate_structures_skipped", "reference_builds", "preparation_seconds", "search_seconds", "stop_reason"});
+        Csv stats(output / "search_stats.csv", {"actual_evaluations", "duplicate_structures_skipped", "reference_builds", "preparation_seconds", "search_seconds", "stop_reason", "scheduling", "initial_batch", "completion_reserve", "effective_completion_reserve", "reference_evaluations", "exploration_evaluations", "completion_evaluations", "completion_candidates", "evaluation_image_order"});
         for (std::size_t i = 0; i < images.size(); ++i) {
             Row row{{"application", application}, {"image", std::to_string(images[i].imageId)}};
             quality(row, result.baselines[i]);
@@ -361,7 +389,7 @@ int main(int argc, char** argv) {
                     {"full_evaluations", std::to_string(e.stats.fullEvaluations)}, {"completed_sweeps", std::to_string(e.stats.completedSweeps)},
                     {"stopped_for_convergence", e.stats.stoppedForConvergence ? "1" : "0"},
                     {"reference_cache_hit", e.stats.referenceCacheHit ? "1" : "0"},
-                    {"baseline_cache_hit", e.stats.baselineCacheHit ? "1" : "0"}};
+                    {"baseline_cache_hit", e.stats.baselineCacheHit ? "1" : "0"}, {"phase", e.phase}};
                 if (e.legal) {
                     quality(row, e.selected.metrics);
                     row["baseline_roi_mse"] = number(e.baseline.roiMse);
@@ -376,10 +404,13 @@ int main(int argc, char** argv) {
                 evaluations.row(row);
             }
         }
-        stats.row({{"actual_evaluations", std::to_string(result.actualEvaluations)},
+        Row statistics{{"actual_evaluations", std::to_string(result.actualEvaluations)},
             {"duplicate_structures_skipped", std::to_string(result.duplicateStructuresSkipped)},
             {"reference_builds", std::to_string(result.referenceBuilds)}, {"preparation_seconds", number(result.preparationSeconds)},
-            {"search_seconds", number(result.searchSeconds)}, {"stop_reason", result.stopReason}});
+            {"search_seconds", number(result.searchSeconds)}, {"stop_reason", result.stopReason}};
+        const auto scheduling = scheduleRow(result, options);
+        statistics.insert(scheduling.begin(), scheduling.end());
+        stats.row(statistics);
         baselines.close(); hardware.close(); ranks.close(); evaluations.close(); configurations.close(); stats.close();
         if (selected) {
             Csv frozenHardware(output / "frozen_hardware.csv", {"node_id", "monitor", "bit"});
@@ -418,6 +449,7 @@ int main(int argc, char** argv) {
             << "\nactual_evaluations=" << result.actualEvaluations << "\nstop_reason=" << result.stopReason
             << "\nreference_builds=" << result.referenceBuilds << "\npreparation_seconds=" << number(result.preparationSeconds)
             << "\nsearch_seconds=" << number(result.searchSeconds) << '\n';
+        for (const auto& field : scheduling) run << field.first << '=' << field.second << '\n';
         run.close();
         return 0;
     } catch (const std::exception& error) {

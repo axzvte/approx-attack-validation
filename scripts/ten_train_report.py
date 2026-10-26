@@ -19,6 +19,9 @@ QUALITY_FIELDS = ("global_mse", "roi_mse", "non_roi_mse", "global_psnr", "roi_ps
 CONFIG_FIELDS = ("node_id", "monitor", "bit", "lower", "upper")
 STAT_FIELDS = ("actual_evaluations", "duplicate_structures_skipped", "reference_builds",
                "preparation_seconds", "search_seconds", "stop_reason")
+SCHEDULE_FIELDS = ("scheduling", "initial_batch", "completion_reserve", "effective_completion_reserve",
+                   "reference_evaluations", "exploration_evaluations", "completion_evaluations",
+                   "completion_candidates", "evaluation_image_order")
 
 
 def _integer(value, label, minimum=0):
@@ -70,6 +73,70 @@ def _notes(path):
             raise ValueError("Duplicate or empty RUN.txt key")
         result[key] = value
     return result
+
+
+def _schedule(notes, stat, evaluations, train, max_evaluations, baseline_roi):
+    # Old reports remain readable. Any new scheduling evidence requires the
+    # entire schema; the runner separately requires it from the new executable.
+    if not (any(field in notes or field in stat for field in SCHEDULE_FIELDS) or
+            any("phase" in row for row in evaluations)):
+        return
+    for field in SCHEDULE_FIELDS:
+        if field not in notes or field not in stat or notes[field] != stat[field]:
+            raise ValueError(f"Missing or mismatched scheduling field: {field}")
+    mode = notes["scheduling"]
+    if mode not in ("interleaved", "sequential"):
+        raise ValueError("Unknown training scheduling mode")
+    batch = _integer(notes["initial_batch"], "initial_batch", 1)
+    if batch > 10:
+        raise ValueError("Initial batch exceeds the ten-image set")
+    requested = _integer(notes["completion_reserve"], "completion_reserve")
+    effective = _integer(notes["effective_completion_reserve"], "effective_completion_reserve")
+    # Keep room for an alternative's initial batch when the total is small.
+    expected = min(requested, max(0, max_evaluations - min(len(train), max_evaluations) - batch)) if mode == "interleaved" else 0
+    if effective != expected:
+        raise ValueError("Effective completion reserve disagrees with the budget")
+    order = [int(value) for value in notes["evaluation_image_order"].split(",")]
+    if sorted(order) != sorted(train) or (mode == "sequential" and order != sorted(train)):
+        raise ValueError("Evaluation order is not a valid training-only permutation")
+    if mode == "interleaved":
+        difficulty = sorted(train, key=lambda image: (-baseline_roi[image], image))
+        # The native entry requires ten images. Smaller pure report fixtures
+        # keep sorted difficulty order intentionally; no native split is added.
+        expected_order = ([difficulty[i] for i in (0,9,4,2,7,1,8,3,6,5)]
+                          if len(train) == 10 else difficulty)
+        if order != expected_order:
+            raise ValueError("Interleaved order disagrees with original baseline ROI difficulty")
+    for hid in {row["hardware_id"] for row in evaluations}:
+        observed = {int(row["image"]) for row in evaluations if row["hardware_id"] == hid}
+        if observed != set(order[:len(observed)]):
+            raise ValueError("Candidate evaluations are not a prefix of the reported image order")
+    counts = {phase: _integer(notes[phase + "_evaluations"], phase + "_evaluations")
+              for phase in ("reference", "exploration", "completion")}
+    if sum(counts.values()) != len(evaluations) or counts["reference"] != min(len(train), len(evaluations)):
+        raise ValueError("Scheduling phase counts do not account for every pair")
+    completed = _integer(notes["completion_candidates"], "completion_candidates")
+    if mode == "sequential":
+        if counts["completion"] or completed or any(row.get("phase") != "sequential" for row in evaluations):
+            raise ValueError("Sequential scheduling falsely reports completion work")
+        return
+    for phase, count in counts.items():
+        if sum(row.get("phase") == phase for row in evaluations) != count:
+            raise ValueError("Per-pair phase labels disagree with scheduling counts")
+    if any(row.get("phase") not in counts for row in evaluations):
+        raise ValueError("Invalid per-pair scheduling phase")
+    if counts["exploration"] > max_evaluations - effective - counts["reference"]:
+        raise ValueError("Exploration consumed reserved completion budget")
+    reference = {row["hardware_id"] for row in evaluations if row["phase"] == "reference"}
+    if len(reference) != (1 if evaluations else 0):
+        raise ValueError("First reference work must belong to one hardware candidate")
+    if any(row["hardware_id"] in reference and row["phase"] != "reference" for row in evaluations):
+        raise ValueError("Reference candidate was not evaluated as a complete first step")
+    finishing = {row["hardware_id"] for row in evaluations if row["phase"] == "completion"}
+    actual_completed = sum(sum(row["hardware_id"] == hid for row in evaluations) == len(train)
+                           for hid in finishing)
+    if completed != actual_completed:
+        raise ValueError("Completion candidate count disagrees with actual pairs")
 
 
 def validate_training_report(report: Path, application: str, train: list[int],
@@ -192,6 +259,7 @@ def _validate(report, application, train, floor, max_evaluations, max_candidates
         _same(_number(stat[field], field), _number(notes[field], field), field)
     if not notes["stop_reason"] or stat["stop_reason"] != notes["stop_reason"]:
         raise ValueError("Search stop reason mismatch")
+    _schedule(notes, stat, evaluations, train, max_evaluations, baseline_roi)
 
     config_groups = {}
     for row in configurations:

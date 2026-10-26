@@ -1,4 +1,5 @@
 #include "analysis/circuit_bitflip_ten_train.hpp"
+#include "analysis/detail/ten_train_schedule.hpp"
 #include "applications/conv.hpp"
 #include "applications/sobel.hpp"
 #include "applications/dct.hpp"
@@ -161,6 +162,8 @@ void priorityMaskThreshold() {
     }
 }
 void validationAndDefaults() {
+    const analysis::TenTrainOptions scheduling;
+    require(scheduling.scheduling=="interleaved" && scheduling.initialBatch==4 && scheduling.completionReserve==20,"Completion scheduling defaults drifted");
     const analysis::TenTrainOptions defaults;require(defaults.intervals.continuous && defaults.intervals.maxContexts==64,"Training must default to bounded continuous intervals");
     applications::SobelApplication app;auto data=images();data.back().imageId=9;bool rejected=false;
     try {analysis::searchCircuitTenTrain(app,data,small());}catch(const std::invalid_argument&) {rejected=true;}
@@ -168,6 +171,83 @@ void validationAndDefaults() {
     data=images();data.back().imageId=31;rejected=false;
     try {analysis::searchCircuitTenTrain(app,data,small());}catch(const std::invalid_argument&) {rejected=true;}
     require(rejected,"Held-out image entered hardware selection");
+}
+// Authored before scheduler implementation; intentionally not executed locally.
+void schedulingBudgets() {
+    applications::ConvApplication app;
+    for(const std::size_t cap:{3,10,23}) {
+        auto o=small();o.maxEvaluations=cap;
+        const auto r=analysis::searchCircuitTenTrain(app,images(),o);
+        require(r.actualEvaluations<=cap,"Completion exceeded hard cap");
+        if(r.actualEvaluations==cap) require(r.stopReason=="evaluation_budget_exhausted","Creation stop reason masked terminal pair cap");
+        require(r.referenceEvaluations==std::min<std::size_t>(10,cap),"Reference was not attempted in full");
+        require(r.referenceEvaluations+r.explorationEvaluations+r.completionEvaluations==r.actualEvaluations,"Phase accounting drifted");
+        const auto remaining=cap-std::min<std::size_t>(10,cap);
+        require(r.effectiveCompletionReserve==std::min<std::size_t>(20,remaining>o.initialBatch?remaining-o.initialBatch:0),"Reserve clamp drifted");
+        require(bool(r.bestIndex)==(cap>=10),"Partial reference froze a winner");
+        std::vector<int> difficult{1,2,3,4,5,6,7,8,9,10};
+        std::stable_sort(difficult.begin(),difficult.end(),[&](int a,int b) {
+            return r.baselines[std::size_t(a-1)].roiMse>r.baselines[std::size_t(b-1)].roiMse;
+        });
+        const std::vector<std::size_t> positions{0,9,4,2,7,1,8,3,6,5};
+        for(std::size_t i=0;i<10;++i) require(r.evaluationImageOrder[i]==difficult[positions[i]],"Difficulty order changed");
+        for(const auto& c:r.candidates) {
+            if(c.status=="budget_incomplete") require(c.reason==
+                (r.actualEvaluations==cap?"pair_evaluation_budget_exhausted":"search_terminated_before_completion"),
+                "Returned partial candidate retained a temporary suspension reason");
+            int previous=0;for(const auto& e:c.evaluations) {
+                require(e.imageId>previous,"Reported pair order is not canonical");previous=e.imageId;
+                require(e.phase=="reference" || e.phase=="exploration" || e.phase=="completion","Missing phase");
+            }
+        }
+    }
+    auto o=small();o.scheduling="sequential";
+    std::vector<std::pair<std::string,int>> trajectory;
+    const auto r=analysis::searchCircuitTenTrain(app,images(),o,[&](const auto& p) {
+        trajectory.emplace_back(p.hardwareId,p.imageId);
+    });
+    require(r.effectiveCompletionReserve==0 && r.completionEvaluations==0 && r.completionCandidates==0,"Legacy mode reserved completion work");
+    require(r.evaluationImageOrder==std::vector<int>({1,2,3,4,5,6,7,8,9,10}),"Legacy image order changed");
+    for(const auto& c:r.candidates) for(const auto& e:c.evaluations) require(e.phase=="sequential","Legacy phase changed");
+    std::set<std::string> finished;std::string current;int previous=0;
+    for(const auto& step:trajectory) {
+        if(step.first!=current) {if(!current.empty()) finished.insert(current);current=step.first;previous=0;}
+        require(!finished.count(current) && step.second==previous+1,"Sequential control resumed/interleaved a candidate");previous=step.second;
+    }
+    require(trajectory.size()>=10 && trajectory[9]==std::make_pair(std::string("ten_h1"),10),"Legacy reference trajectory changed");
+}
+void adversarialCompletion() {
+    // A promising 8/10 challenger must finish before a weaker 4/10 row.
+    analysis::TenTrainCandidate incumbent,challenger,other;
+    incumbent.status="complete";incumbent.numericSuccesses=10;incumbent.worstRoiDrop=5;
+    challenger.status=other.status="budget_incomplete";
+    challenger.evaluations.resize(8);challenger.numericSuccesses=8;challenger.worstRoiDrop=7;
+    other.evaluations.resize(4);other.numericSuccesses=4;other.worstRoiDrop=6;
+    std::vector<analysis::TenTrainCandidate> rows{incumbent,challenger,other};
+    std::size_t calls=78;const std::size_t cap=80;
+    while(calls<cap) {
+        const auto next=analysis::detail::completionChoice(rows,0,10);
+        require(next && *next==1,"Promising near-complete row was stranded");
+        auto& c=rows[*next];c.evaluations.emplace_back();++c.numericSuccesses;++calls;
+        if(c.evaluations.size()==10) c.status="complete";
+    }
+    require(rows[1].status=="complete" && calls==cap,"Adversarial completion missed cap");
+    challenger.numericSuccesses=7;
+    require(analysis::detail::strictlyEliminated(challenger,incumbent,10),"Impossible success bound survived");
+    challenger.numericSuccesses=8;challenger.worstRoiDrop=4;
+    require(analysis::detail::strictlyEliminated(challenger,incumbent,10),"Strict worst bound survived");
+    challenger.worstRoiDrop=5;challenger.meanRoiDrop=0;
+    require(!analysis::detail::strictlyEliminated(challenger,incumbent,10),"Equality or partial mean incorrectly pruned");
+    incumbent.numericSuccesses=9;challenger.worstRoiDrop=0;
+    require(!analysis::detail::strictlyEliminated(challenger,incumbent,10),"Worst bound overrode larger success upper bound");
+    // Timing is never priority evidence; deterministic contexts break ties.
+    challenger.worstRoiDrop=other.worstRoiDrop=6;
+    other.evaluations.resize(8);other.numericSuccesses=8;
+    challenger.evaluations.front().stats.contextsBuilt=10;
+    other.evaluations.front().stats.contextsBuilt=2;
+    other.evaluations.front().elapsedSeconds=100000;
+    rows={incumbent,challenger,other};
+    require(analysis::detail::completionChoice(rows,0,10)==std::optional<std::size_t>(2),"Timing displaced deterministic context estimate");
 }
 void rankingContract() {
     analysis::TenTrainCandidate a,b;a.status=b.status="complete";
@@ -186,7 +266,7 @@ void rankingContract() {
 }
 }
 int main() {
-    try {preparedIdentity();validationAndDefaults();rankingContract();preparedBuildCounts();priorityMaskThreshold();budgetAndOracle(applications::ConvApplication{});
+    try {preparedIdentity();validationAndDefaults();schedulingBudgets();adversarialCompletion();rankingContract();preparedBuildCounts();priorityMaskThreshold();budgetAndOracle(applications::ConvApplication{});
         budgetAndOracle(applications::SobelApplication{});budgetAndOracle(applications::DctApplication{});
         std::cout<<"Ten-image native contracts passed\n";return 0;
     }catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}

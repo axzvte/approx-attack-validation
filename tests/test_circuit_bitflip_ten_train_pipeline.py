@@ -37,6 +37,10 @@ h=[dict(hardware_id='h0001',node_id=n,monitor='input1',bit=1) for n in (0,10)]
 es=[dict(application=app,hardware_id='h0001',image=i,status='numeric_eligible',global_mse=60,roi_mse=200,non_roi_mse=40,baseline_roi_mse=20,roi_drop_score=10,elapsed_seconds=.1,contexts_built=2,full_evaluations=0,completed_sweeps=2,stopped_for_convergence=1,reference_cache_hit=1,baseline_cache_hit=1) for i in images]
 for row in base+es:
  for region in ('global','roi','non_roi'):row[region+'_psnr']=10*math.log10(65025/row[region+'_mse'])
+schedule=opts['--scheduling'];reserve=int(opts['--completion-reserve'])
+order=[images[i] for i in (0,9,4,2,7,1,8,3,6,5)] if schedule=='interleaved' else images
+diag=dict(scheduling=schedule,initial_batch=opts['--initial-batch'],completion_reserve=reserve,effective_completion_reserve=min(reserve,max(0,int(opts['--max-evaluations'])-len(images)-int(opts['--initial-batch']))) if schedule=='interleaved' else 0,reference_evaluations=len(images),exploration_evaluations=0,completion_evaluations=0,completion_candidates=0,evaluation_image_order=','.join(map(str,order)))
+for row in es:row['phase']='reference' if schedule=='interleaved' else 'sequential'
 cs=[dict(hardware_id='h0001',image=i,node_id=n,monitor='input1',bit=1,lower=i,upper=i+1) for i in images for n in (0,10)]
 partial=(Path(__file__).parent/'partial').exists()
 no_numeric=(Path(__file__).parent/'no_numeric').exists()
@@ -52,8 +56,11 @@ if not no_numeric:table('frozen_hardware.csv',['node_id','monitor','bit'],[{k:v 
 sid='train_31_ten' if (Path(__file__).parent/'leak_seed').exists() else 'train_%02d_ten'%images[0]
 seeds=[dict(seed_id=sid,**{k:v for k,v in r.items() if k not in ('hardware_id','image')}) for r in cs if r['image']==images[0]]
 if not no_numeric:table('frozen_seeds.csv',list(seeds[0]),seeds)
-table('search_stats.csv',['actual_evaluations','duplicate_structures_skipped','reference_builds','preparation_seconds','search_seconds','stop_reason'],[dict(actual_evaluations=len(images),duplicate_structures_skipped=0,reference_builds=len(images),preparation_seconds=.1,search_seconds=1,stop_reason='budget')])
+stat=dict(actual_evaluations=len(images),duplicate_structures_skipped=0,reference_builds=len(images),preparation_seconds=.1,search_seconds=1,stop_reason='budget',**diag)
+table('search_stats.csv',list(stat),[stat])
 (out/'RUN.txt').write_text('completed=1\\napplication='+app+'\\ntrain_images='+','.join(map(str,images))+'\\nselection_status='+('no_numeric_hardware' if no_numeric else 'selected')+'\\nselected_hardware_id='+('' if no_numeric else 'h0001')+'\\nactual_evaluations='+str(len(images))+'\\nreference_builds='+str(len(images))+'\\nstop_reason=budget\\npreparation_seconds=.1\\nsearch_seconds=1\\n')
+with (out/'RUN.txt').open('a') as stream:
+ for key,value in diag.items():stream.write(str(key)+'='+str(value)+'\\n')
 ''',encoding='utf-8');train.chmod(0o755)
         return data,fixed,train
 
@@ -68,6 +75,11 @@ table('search_stats.csv',['actual_evaluations','duplicate_structures_skipped','r
             meta=json.loads((out/'RUN.json').read_text());self.assertTrue(meta['all_succeeded'])
             self.assertTrue(meta['screening_disabled']);self.assertEqual(meta['splits']['train'],list(range(1,11)))
             self.assertNotIn('screen',meta['splits']);self.assertEqual(meta['screen_wall_seconds'],0)
+            self.assertEqual(meta['training_scheduling'],'interleaved')
+            self.assertEqual(meta['reference_evaluations'],10)
+            self.assertEqual(meta['effective_completion_reserve'],20)
+            self.assertEqual(fixtures.read(out/'applications.csv')[0]['evaluation_image_order'],
+                             ','.join(map(str,meta['evaluation_image_order'])))
             self.assertEqual(len(fixtures.read(out/'best_per_image.csv')),10)
             self.assertEqual(len(fixtures.read(out/'images_all.csv')),30)
             self.assertEqual(len(fixtures.read(out/'interval_attempts.csv')),10)
@@ -76,6 +88,37 @@ table('search_stats.csv',['actual_evaluations','duplicate_structures_skipped','r
             repeated=json.loads((repeat/'RUN.json').read_text());self.assertTrue(repeated['training_cache_hit'])
             self.assertEqual(repeated['cache_hits'],11)
             self.assertEqual((out/'RUN.json').read_bytes(),before)
+
+    def test_schedule_options_change_training_cache_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,fixed,train=self.fixture(root);out=root/'first'
+            self.assertEqual(runner.main(self.args(data,fixed,train,out)),0)
+            changed=root/'changed'
+            self.assertEqual(runner.main(self.args(data,fixed,train,changed)+['--resume-from',str(out),
+                             '--scheduling','sequential','--initial-batch','2','--completion-reserve','0']),0)
+            meta=json.loads((changed/'RUN.json').read_text())
+            self.assertFalse(meta['training_cache_hit']);self.assertEqual(meta['training_scheduling'],'sequential')
+            self.assertEqual(meta['effective_completion_reserve'],0)
+
+    def test_missing_schedule_metadata_and_invalid_options_stop_before_test(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,fixed,train=self.fixture(root)
+            train.write_text(train.read_text().replace("for key,value in diag.items():stream.write", "for key,value in {}.items():stream.write"))
+            out=root/'stale'
+            self.assertEqual(runner.main(self.args(data,fixed,train,out)),1)
+            self.assertFalse((out/'frozen_hardware.csv').exists())
+            for name,value in (('--initial-batch','0'),('--initial-batch','11'),('--completion-reserve','-1')):
+                target=root/('invalid_'+value)
+                self.assertEqual(runner.main(self.args(data,fixed,train,target)+[name,value]),1)
+                self.assertFalse(target.exists())
+
+    def test_wrong_training_only_permutation_stops_before_freeze(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data,fixed,train=self.fixture(root)
+            train.write_text(train.read_text().replace("order=[images[i] for i in (0,9,4,2,7,1,8,3,6,5)] if schedule=='interleaved' else images", "order=images"))
+            out=root/'wrong_order'
+            self.assertEqual(runner.main(self.args(data,fixed,train,out)),1)
+            self.assertFalse((out/'frozen_hardware.csv').exists())
 
     def test_partial_or_out_of_train_seed_never_freezes(self):
         for marker in ('partial','leak_seed'):

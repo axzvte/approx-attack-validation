@@ -78,6 +78,47 @@ class TrainingReportTests(unittest.TestCase):
         self.assertEqual(len(result["configurations"]), 4)
         self.assertEqual({r["seed_id"] for r in result["seed_rows"]}, {"train_01_ten"})
 
+    def scheduled_fixture(self, scheduling="interleaved"):
+        notes, tables = self.fixture()
+        diagnostics = dict(scheduling=scheduling, initial_batch="2", completion_reserve="5",
+                           effective_completion_reserve="3" if scheduling == "interleaved" else "0",
+                           reference_evaluations="3", exploration_evaluations="0",
+                           completion_evaluations="0", completion_candidates="0",
+                           evaluation_image_order="1,2,3")
+        notes.update(diagnostics); tables["search_stats.csv"][0].update(diagnostics)
+        for row in tables["training_evaluations.csv"]:
+            row["phase"] = "reference" if scheduling == "interleaved" else "sequential"
+        return notes, tables
+
+    def test_schedule_evidence_and_legacy_reports_are_supported(self):
+        for scheduling in ("interleaved", "sequential"):
+            self.assertIsNotNone(self.validate(*self.scheduled_fixture(scheduling))["selected"])
+        self.assertIsNotNone(self.validate(*self.fixture())["selected"])
+
+    def test_false_or_incomplete_schedule_evidence_is_rejected(self):
+        for fault in ("missing", "stats", "counts", "reserve", "order", "permutation", "phase", "completion"):
+            with self.subTest(fault=fault):
+                notes, tables = self.scheduled_fixture()
+                if fault == "missing": del notes["initial_batch"]
+                elif fault == "stats": tables["search_stats.csv"][0]["scheduling"] = "sequential"
+                elif fault == "counts":
+                    notes["exploration_evaluations"] = "1"
+                    tables["search_stats.csv"][0]["exploration_evaluations"] = "1"
+                elif fault == "reserve":
+                    notes["effective_completion_reserve"] = "6"
+                    tables["search_stats.csv"][0]["effective_completion_reserve"] = "6"
+                elif fault == "order":
+                    notes["evaluation_image_order"] = "1,2,2"
+                    tables["search_stats.csv"][0]["evaluation_image_order"] = "1,2,2"
+                elif fault == "permutation":
+                    notes["evaluation_image_order"] = "1,3,2"
+                    tables["search_stats.csv"][0]["evaluation_image_order"] = "1,3,2"
+                elif fault == "phase": tables["training_evaluations.csv"][0]["phase"] = "completion"
+                else:
+                    notes["completion_candidates"] = "1"
+                    tables["search_stats.csv"][0]["completion_candidates"] = "1"
+                with self.assertRaises(ValueError): self.validate(notes, tables)
+
     def test_hardware_identity_cannot_escape_report_output_paths(self):
         for identity in ('../outside','x/y','C:target','h1\\outside','sources'):
             notes,tables=self.fixture()

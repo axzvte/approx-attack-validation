@@ -17,9 +17,9 @@ FIELDS = {
     "training_baselines.csv": "application,image,global_mse,roi_mse,non_roi_mse,global_psnr,roi_psnr,non_roi_psnr",
     "candidate_hardware.csv": "hardware_id,node_id,monitor,bit",
     "training_ranking.csv": "hardware_id,rank,status,complete,evaluated_images,train_images,numeric_successes,worst_roi_drop_score,mean_roi_drop_score,installed_nodes,reason",
-    "training_evaluations.csv": "application,hardware_id,image,status,global_mse,roi_mse,non_roi_mse,baseline_roi_mse,global_psnr,roi_psnr,non_roi_psnr,roi_drop_score,elapsed_seconds,contexts_built,full_evaluations,completed_sweeps,stopped_for_convergence,reference_cache_hit,baseline_cache_hit",
+    "training_evaluations.csv": "application,hardware_id,image,status,global_mse,roi_mse,non_roi_mse,baseline_roi_mse,global_psnr,roi_psnr,non_roi_psnr,roi_drop_score,elapsed_seconds,contexts_built,full_evaluations,completed_sweeps,stopped_for_convergence,reference_cache_hit,baseline_cache_hit,phase",
     "training_configurations.csv": "hardware_id,image,node_id,monitor,bit,lower,upper",
-    "search_stats.csv": "actual_evaluations,duplicate_structures_skipped,reference_builds,preparation_seconds,search_seconds,stop_reason",
+    "search_stats.csv": "actual_evaluations,duplicate_structures_skipped,reference_builds,preparation_seconds,search_seconds,stop_reason,scheduling,initial_batch,completion_reserve,effective_completion_reserve,reference_evaluations,exploration_evaluations,completion_evaluations,completion_candidates,evaluation_image_order",
     "frozen_hardware.csv": "node_id,monitor,bit",
     "frozen_seeds.csv": "seed_id,node_id,monitor,bit,lower,upper",
 }
@@ -66,6 +66,16 @@ def inspect(output, application, native, budget, seed_limit=2):
         assert all(0 <= int(node[0]) < native and 0 <= int(node[2]) <= 11 for node in nodes)
     evaluations = tables["training_evaluations.csv"]
     assert len(evaluations) == int(run["actual_evaluations"]) <= budget
+    assert run['scheduling'] in ('interleaved','sequential')
+    assert sorted(map(int,run['evaluation_image_order'].split(','))) == list(range(1,11))
+    assert sum(int(run[k]) for k in ('reference_evaluations','exploration_evaluations','completion_evaluations')) == len(evaluations)
+    if run['scheduling']=='interleaved':
+        assert all(row['phase'] in ('reference','exploration','completion') for row in evaluations)
+        for phase in ('reference','exploration','completion'):
+            assert int(run[phase+'_evaluations']) == sum(row['phase']==phase for row in evaluations)
+    else:
+        assert all(row['phase']=='sequential' for row in evaluations)
+        assert int(run['effective_completion_reserve']) == int(run['completion_evaluations']) == 0
     assert len({(row["hardware_id"], row["image"]) for row in evaluations}) == len(evaluations)
     configurations = tables["training_configurations.csv"]
     for row in evaluations:
@@ -178,6 +188,10 @@ with tempfile.TemporaryDirectory() as temporary:
     invoke("sobel", data, ordered, *multiple, "--max-evaluations", 23, "--seed-limit", 1)
     many = inspect(ordered, "sobel", 11, 23, seed_limit=1)
     assert len(many["training_ranking.csv"]) >= 2
+    legacy = root / 'sobel_sequential'
+    invoke('sobel',data,legacy,*multiple,'--max-evaluations',23,'--scheduling','sequential')
+    inspect(legacy,'sobel',11,23)
+    assert metadata(legacy)['evaluation_image_order']=='1,2,3,4,5,6,7,8,9,10'
     # Also exercise the original resolver's flat stage1 fallback, still only
     # using the authorized training IDs.
     nested = data / "stage1/input/image_10.jpg"
@@ -190,7 +204,8 @@ with tempfile.TemporaryDirectory() as temporary:
     for serial, options in enumerate((["--train", "1:9"], ["--train", "1:11"], ["--train", "31:40"],
                                      ["--image", 31], ["--screen", "11:20"], ["--workers", 0],
                                      ["--max-evaluations", -1], ["--seed-limit", 0], ["--seed-limit", 1, "--seed-limit", 2],
-                                     ["--global-psnr", "nan"], ["--convergence-tolerance", "inf"], ["--boundary-budget", 1])):
+                                     ["--global-psnr", "nan"], ["--convergence-tolerance", "inf"], ["--boundary-budget", 1],
+                                     ['--scheduling','random'],['--initial-batch',0],['--initial-batch',11],['--completion-reserve',-1])):
         invoke("sobel", data, root / f"bad_{serial}", *options, ok=False)
     invoke("unknown", data, root / "unknown", ok=False)
     invoke("sobel", data, data / "new_output", ok=False)
