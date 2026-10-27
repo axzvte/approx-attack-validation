@@ -104,3 +104,27 @@ python3 scripts/run_circuit_bitflip_ten_train_batch.py \
 要比较调度带来的时间变化，可在另一新目录运行相同命令并追加`--scheduling sequential`，两轮均不用resume，保持预算、图片和线程一致。以前多阶段流程与本入口的候选和任务数不同，应将其作为完整流程的历史对照。不同电路单次校准成本不同，有限预算搜索可能用不满80次；实际加速、ROI破坏和背景视觉均以用户运行结果为准。
 
 批量复用可加`--resume-from OLD_BATCH`，只读访问其对应应用子目录，输出必须为新目录。比较算法耗时请关闭复用。回传批量根目录的RUN.json、applications.csv、training_ranking_all.csv、training_evaluations_all.csv、best_per_image.csv、training_search_stats_all.csv及代表性图片即可。
+
+## 补齐Conv四节点候选
+
+对已完成的`other_apps_ten_train_scheduled_20261026/conv`报告，`ten_h2`只评价了训练图3、4、7、9。专用补充入口复用这4条结果，仅补图1、2、5、6、8、10；按原评价顺序安排任务。固定原四个节点、监控信号及翻转位，沿用训练的64条件、beam4、refinement1、restarts2、boundary24等全部单图预算。
+
+该候选属于初始全局提案，原本没有继承区间起点；补跑也不传入任何训练或测试起点库。已有的4张不重算，剩余6张全部评价，不做提前淘汰。默认使用原4个工作线程。精确参考与基准由独立固定硬件程序准备，因此补充耗时包含额外的进程、参考构建和报告开销，和原进程内缓存后的单任务计时分别标识。
+
+补充入口不构建程序，会核对原训练任务的报告哈希、程序二进制指纹、训练图1–10与原ROI指纹；固定程序的身份来自原任务签名元数据，不读取31–40像素或测试分数。请保留运行原实验时的两个程序；若二进制已更换，入口会停止，不能直接混用旧4条证据。可用`--train-exe`和`--fixed-exe`指定保存的原程序。
+
+```bash
+git pull --ff-only origin feature/sharpen-bitflip &&
+cmake -S . -B build-bitflip -DCMAKE_BUILD_TYPE=Release &&
+ctest --test-dir build-bitflip -R '^conv_ten_train_completion$' --output-on-failure &&
+python3 scripts/complete_conv_ten_train.py \
+  data \
+  results/bitflip/other_apps_ten_train_scheduled_20261026/conv \
+  results/bitflip/conv_ten_h2_completed_20261027
+```
+
+这里只重新配置CMake以注册新Python测试，不需要重新编译实验程序。原80次搜索报告只读保留；新增6次单独记账，合计86次。这是预算之外的补充验证，不应当作为原80次算法的结果或耗时。发生程序错误时，失败任务保持可见，缺少有效结果的候选不会被标记完整。
+
+新目录的`completed_candidate_evaluations.csv`保留10条候选评价及original/supplementary来源；`completed_candidate_configurations.csv`保留合法区间。`ranking_completed.csv`基于补充后的训练证据更新排名，`comparison.csv`直接对照该候选与原5节点优胜者，包含具体PSNR均值、达标张数、完整性与排名分数。`RUN.json`记录原调用数、补充调用数、版本核对和耗时，`run_status.csv`与`search_stats_all.csv`记录新增任务。
+
+此入口不生成新图测试或PNG，不修改原冻结硬件；补齐后先看完整训练结果，再决定是否将该四节点配置用于31–40。回传新目录的`RUN.json`、`comparison.csv`、`ranking_completed.csv`、`completed_candidate_evaluations.csv`、`run_status.csv`即可。
