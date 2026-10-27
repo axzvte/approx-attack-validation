@@ -1,0 +1,58 @@
+{
+  "stage1_free_budget24": {
+    "images": 10,
+    "successes": 10,
+    "baseline_roi_psnr_mean": 34.24687075215,
+    "attack_roi_psnr_mean": 23.418487212560002,
+    "attack_roi_psnr_min": 19.1197998221,
+    "attack_roi_psnr_max": 28.1194364888,
+    "global_psnr_min": 30.0009804196,
+    "global_psnr_mean": 30.4363022516,
+    "delta_non_roi_mse_mean": 18.337437622714
+  },
+  "stage2_free_diagnostic_budget24": {
+    "images": 10,
+    "successes": 10,
+    "baseline_roi_psnr_mean": 34.32370116299,
+    "attack_roi_psnr_mean": 24.001836402640002,
+    "attack_roi_psnr_min": 19.5948468112,
+    "attack_roi_psnr_max": 31.8313819675,
+    "global_psnr_min": 30.0079512773,
+    "global_psnr_mean": 30.39193937807,
+    "delta_non_roi_mse_mean": 15.954072930322699
+  },
+  "stage3_frozen_budget24": {
+    "images": 10,
+    "successes": 9,
+    "baseline_roi_psnr_mean": 35.23208787861,
+    "attack_roi_psnr_mean": 28.7590241828,
+    "attack_roi_psnr_min": 21.9940788978,
+    "attack_roi_psnr_max": 38.1412314989,
+    "global_psnr_min": 30.0965263621,
+    "global_psnr_mean": 31.79415981156,
+    "delta_non_roi_mse_mean": 18.0527792763247
+  },
+  "stage3_same_frozen_all_endpoints": {
+    "images": 10,
+    "successes": 9,
+    "baseline_roi_psnr_mean": 35.23208787861,
+    "attack_roi_psnr_mean": 26.48437459299,
+    "attack_roi_psnr_min": 20.4083925003,
+    "attack_roi_psnr_max": 38.1412314989,
+    "global_psnr_min": 30.0204303329,
+    "global_psnr_mean": 30.7204704756,
+    "delta_non_roi_mse_mean": 27.688998987894085
+  },
+  "fixed_hardware": {
+    "node_id": "1",
+    "node_name": "A2",
+    "monitor": "input2",
+    "bit": "8",
+    "baseline": "all_5RP",
+    "global_psnr_threshold": "30",
+    "boundary_budget": "24"
+  },
+  "candidate_rows": 2890,
+  "infeasible_candidate_rows": 180,
+  "evaluation": "Existing development images reused; adaptive intervals per image; no hardware synthesis."
+}

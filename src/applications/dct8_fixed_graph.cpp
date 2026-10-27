@@ -1,6 +1,7 @@
 #include "applications/dct8_fixed_graph.hpp"
 
 #include "approximate/evoapprox_adapter.hpp"
+#include "core/bitflip_payload.hpp"
 
 #include <array>
 #include <iomanip>
@@ -358,12 +359,9 @@ Dct8FixedGraph::addApprox(
             // BaselineOutput -> comparator -> MUX select
             //
             // 即两个算术分支可并行存在，比较器只决定最终 MUX。
-            output =
-                approximate::addSigned12(
-                    input1,
-                    input2,
-                    config.unit
-                );
+            output = config.payload == core::AttackPayload::BitFlip
+                ? core::flipNonSignOutputBit(baselineOutput, config.bitIndex)
+                : approximate::addSigned12(input1, input2, config.unit);
         }
 
 
@@ -658,6 +656,8 @@ Dct8FixedGraph::runApprox(
     // 先检查配置是否合法
     for (const auto& config : configs)
     {
+        core::validateOutputPayload(config);
+
         if (
             config.nodeId < 0
             ||

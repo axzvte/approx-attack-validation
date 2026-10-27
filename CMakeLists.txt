@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 find_package(OpenCV REQUIRED)
+find_package(Threads REQUIRED)
 
 
 # =========================================================
@@ -50,6 +51,12 @@ add_library(
     src/approximate/evoapprox_adapter.cpp
 
     src/analysis/add_sample_collector.cpp
+    src/analysis/sharpen_bitflip_search.cpp
+    src/analysis/sharpen_bitflip_diagnostics.cpp
+    src/analysis/sharpen_bitflip_joint.cpp
+    src/analysis/sharpen_bitflip_fixed.cpp
+    src/analysis/circuit_bitflip_joint.cpp
+    src/analysis/circuit_bitflip_ten_train.cpp
     src/analysis/brute_force_search.cpp
     src/analysis/two_stage_search.cpp
     src/analysis/stage1_screening.cpp
@@ -84,6 +91,7 @@ target_link_libraries(
     approx_framework
     PUBLIC
         evoapprox_units
+        Threads::Threads
         ${OpenCV_LIBS}
 )
 
@@ -93,6 +101,129 @@ target_link_libraries(
 # =========================================================
 
 enable_testing()
+
+add_executable(sharpen_bitflip_fixed app/sharpen_bitflip_fixed.cpp)
+target_link_libraries(sharpen_bitflip_fixed PRIVATE approx_framework)
+add_executable(test_sharpen_bitflip_fixed tests/test_sharpen_bitflip_fixed.cpp)
+target_link_libraries(test_sharpen_bitflip_fixed PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_fixed COMMAND test_sharpen_bitflip_fixed)
+add_executable(test_sharpen_bitflip_coverage tests/test_sharpen_bitflip_coverage.cpp)
+target_link_libraries(test_sharpen_bitflip_coverage PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_coverage COMMAND test_sharpen_bitflip_coverage)
+
+add_executable(circuit_bitflip_joint app/circuit_bitflip_joint.cpp)
+target_link_libraries(circuit_bitflip_joint PRIVATE approx_framework)
+add_executable(circuit_bitflip_fixed app/circuit_bitflip_fixed.cpp)
+target_link_libraries(circuit_bitflip_fixed PRIVATE approx_framework)
+add_executable(test_circuit_bitflip_fixed tests/test_circuit_bitflip_fixed.cpp)
+target_link_libraries(test_circuit_bitflip_fixed PRIVATE approx_framework)
+add_test(NAME circuit_bitflip_fixed COMMAND test_circuit_bitflip_fixed)
+add_executable(test_circuit_bitflip tests/test_circuit_bitflip.cpp)
+target_link_libraries(test_circuit_bitflip PRIVATE approx_framework)
+add_test(NAME circuit_bitflip COMMAND test_circuit_bitflip)
+add_executable(test_circuit_bitflip_joint tests/test_circuit_bitflip_joint.cpp)
+target_link_libraries(test_circuit_bitflip_joint PRIVATE approx_framework)
+add_test(NAME circuit_bitflip_joint COMMAND test_circuit_bitflip_joint)
+add_executable(test_bitflip_sensitivity tests/test_bitflip_sensitivity.cpp)
+target_link_libraries(test_bitflip_sensitivity PRIVATE approx_framework)
+add_test(NAME bitflip_sensitivity COMMAND test_bitflip_sensitivity)
+add_executable(test_circuit_bitflip_continuation tests/test_circuit_bitflip_continuation.cpp)
+target_link_libraries(test_circuit_bitflip_continuation PRIVATE approx_framework)
+add_test(NAME circuit_bitflip_continuation COMMAND test_circuit_bitflip_continuation)
+add_executable(circuit_bitflip_ten_train app/circuit_bitflip_ten_train.cpp)
+target_link_libraries(circuit_bitflip_ten_train PRIVATE approx_framework Threads::Threads)
+add_executable(test_circuit_bitflip_ten_train tests/test_circuit_bitflip_ten_train.cpp)
+target_link_libraries(test_circuit_bitflip_ten_train PRIVATE approx_framework Threads::Threads)
+add_test(NAME circuit_bitflip_ten_train COMMAND test_circuit_bitflip_ten_train)
+
+add_executable(sharpen_bitflip_joint app/sharpen_bitflip_joint.cpp)
+target_link_libraries(sharpen_bitflip_joint PRIVATE approx_framework)
+add_executable(test_sharpen_bitflip_joint tests/test_sharpen_bitflip_joint.cpp)
+target_link_libraries(test_sharpen_bitflip_joint PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_joint COMMAND test_sharpen_bitflip_joint)
+
+add_executable(test_sharpen_bitflip_diagnostics tests/test_sharpen_bitflip_diagnostics.cpp)
+target_link_libraries(test_sharpen_bitflip_diagnostics PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_diagnostics COMMAND test_sharpen_bitflip_diagnostics)
+
+add_executable(sharpen_bitflip_diagnostics app/sharpen_bitflip_diagnostics.cpp)
+target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
+if(UNIX)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME circuit_bitflip_fixed_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_fixed_cli.py
+            $<TARGET_FILE:circuit_bitflip_fixed>)
+        add_test(NAME circuit_bitflip_hardware_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_hardware_pipeline.py)
+        add_test(NAME sharpen_bitflip_hardware_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_hardware_cli.py
+            $<TARGET_FILE:sharpen_bitflip_fixed>)
+        add_test(NAME sharpen_bitflip_hardware_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_hardware_pipeline.py)
+        add_test(NAME bitflip_workflow
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_workflow.py)
+        add_test(NAME bitflip_workflow_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_workflow_pipeline.py)
+        add_test(NAME sobel_continuation_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sobel_continuation_pipeline.py)
+        add_test(NAME ten_train_report
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_ten_train_report.py)
+        add_test(NAME circuit_bitflip_ten_train_pipeline
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_pipeline.py)
+        add_test(NAME circuit_bitflip_ten_train_batch
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_batch.py)
+        add_test(NAME conv_ten_train_completion
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_conv_ten_train_completion.py)
+        add_test(NAME circuit_bitflip_frozen_retest
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_frozen_retest.py)
+        add_test(NAME circuit_bitflip_ten_train_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_cli.py
+            $<TARGET_FILE:circuit_bitflip_ten_train>)
+        add_test(NAME circuit_bitflip_continuation_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_continuation_cli.py
+            $<TARGET_FILE:circuit_bitflip_joint> $<TARGET_FILE:circuit_bitflip_fixed>)
+        add_test(NAME sharpen_bitflip_coverage_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_coverage_cli.py
+            $<TARGET_FILE:sharpen_bitflip_joint>)
+        add_test(NAME circuit_bitflip_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_cli.py
+            $<TARGET_FILE:circuit_bitflip_joint>)
+        add_test(NAME circuit_bitflip_batch
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_batch.py)
+        add_test(NAME sharpen_bitflip_batch
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_batch.py)
+        add_test(NAME sharpen_bitflip_joint_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_joint_cli.py
+            $<TARGET_FILE:sharpen_bitflip_joint>)
+        add_test(NAME bitflip_trigger_intervals
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_bitflip_trigger_intervals.py)
+        add_test(NAME sharpen_bitflip_diagnostics_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_diagnostics_cli.py
+            $<TARGET_FILE:sharpen_bitflip_diagnostics>)
+    endif()
+endif()
+
+add_executable(test_sharpen_bitflip tests/test_sharpen_bitflip.cpp)
+target_link_libraries(test_sharpen_bitflip PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip COMMAND test_sharpen_bitflip)
+
+add_executable(test_sharpen_bitflip_search tests/test_sharpen_bitflip_search.cpp)
+target_link_libraries(test_sharpen_bitflip_search PRIVATE approx_framework)
+add_test(NAME sharpen_bitflip_search COMMAND test_sharpen_bitflip_search)
+
+add_executable(sharpen_bitflip_validation app/sharpen_bitflip_validation.cpp)
+target_link_libraries(sharpen_bitflip_validation PRIVATE approx_framework)
+if(UNIX AND EXISTS "/dev/full")
+    add_test(NAME sharpen_bitflip_report_failure
+        COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_report_failure.sh
+        $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
+endif()
+if(UNIX)
+    add_test(NAME sharpen_bitflip_fixed_cli
+        COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_fixed_cli.sh
+        $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
+endif()
 
 
 add_executable(
