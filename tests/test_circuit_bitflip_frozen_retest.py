@@ -148,6 +148,10 @@ class FrozenRetestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             argv = self.run_fixture(root)
+            # Regression: sharing the evaluator's parent is safe. Protect the
+            # executable file itself, not every sibling output directory.
+            self.assertEqual(self.fixed.parent, Path(argv[1]).parent)
+            self.assertFalse(retest.overlap(Path(argv[1]), self.fixed))
             before = {p: p.read_bytes() for p in root.glob('source_*/**/*') if p.is_file()}
             with patch.object(retest, 'process', side_effect=self.fake_process):
                 self.assertEqual(retest.main(argv), 0)
@@ -237,7 +241,8 @@ class FrozenRetestTests(unittest.TestCase):
             self.assertTrue(any(r['status'] == 'interrupted' for r in rows(root / 'out/run_status.csv')))
 
     def test_invalid_source_roi_duplicate_name_and_overlap_rejected_before_calls(self):
-        for case in ('hardware', 'mask', 'duplicate', 'overlap', 'source_key', 'options'):
+        for case in ('hardware', 'mask', 'duplicate', 'overlap', 'evaluator_overlap',
+                     'source_overlap', 'protected_sources', 'source_key', 'options'):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 argv = self.run_fixture(root, ('conv',))
@@ -250,6 +255,12 @@ class FrozenRetestTests(unittest.TestCase):
                     (self.data / 'stage5/1.png').write_bytes(b'duplicate')
                 elif case == 'overlap':
                     argv[1] = str(self.data / 'out')
+                elif case == 'evaluator_overlap':
+                    argv[1] = str(self.fixed / 'out')
+                elif case == 'source_overlap':
+                    argv[1] = str(source / 'out')
+                elif case == 'protected_sources':
+                    argv[1] = str(root / 'sources/out')
                 else:
                     path = source / 'frozen_protocol.json'
                     metadata = json.loads(path.read_text())

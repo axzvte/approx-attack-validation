@@ -218,9 +218,11 @@ def main(argv=None):
             other = reports / 'other_apps_ten_train_scheduled_20261026'
             supplied = {'sharpen': other / 'sharpen', 'conv': other / 'conv',
                         'sobel': reports / 'sobel_ten_train_scheduled_20261026', 'dct': other / 'dct'}
-        for reference in (data, test_dir, fixed.parent, *supplied.values()):
+        # Only the evaluator file is read-only. Its parent may also contain a
+        # separate fresh output directory, e.g. an external executable in /tmp.
+        for reference in (data, test_dir, fixed, *supplied.values()):
             if overlap(out, reference.resolve()):
-                raise ValueError('Output must not overlap input data, earlier reports or the evaluator directory')
+                raise ValueError('Output must not overlap input data, earlier reports or the evaluator file')
         paths = image_files(test_dir)
         # Resolve symlinks before any output creation so output cannot contain
         # an input target or overwrite it through a different directory name.
