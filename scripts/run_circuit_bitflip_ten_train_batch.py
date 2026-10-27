@@ -35,7 +35,7 @@ CONTROLS=('train','test','max_train_evaluations','max_candidates','initial_candi
           'proposals_per_round','max_rounds','patience','workers','scheduling','initial_batch',
           'completion_reserve','train_context_budget','context_budget','beam','refinement',
           'restarts','boundary_budget','max_full_evals','full_candidates','global_psnr',
-          'convergence_tolerance','seed_limit','image_mode','jobs')
+          'convergence_tolerance','seed_limit','image_mode','jobs','roi_mode')
 APP_FIELDS=('application','status','returncode','detail','selection_status','selected_hardware_id',
             'training_wall_seconds','hardware_selection_wall_seconds','test_wall_seconds','elapsed_seconds',
             'actual_train_evaluations','training_scheduling','initial_batch','completion_reserve',
@@ -50,6 +50,7 @@ def child_arguments(args,application,output,train,fixed):
     values=[str(args.data.resolve()),str(output),'--application',application,'--skip-build',
             '--train-exe',str(train),'--fixed-exe',str(fixed),'--build-dir',str(args.build_dir.resolve())]
     for name in CONTROLS:values.extend(['--'+name.replace('_','-'),str(getattr(args,name))])
+    if args.roi_dir:values.extend(['--roi-dir',str(args.roi_dir.resolve())])
     if args.resume_from:values.extend(['--resume-from',str(args.resume_from.resolve()/application)])
     return values
 
@@ -146,13 +147,16 @@ def main(argv=None):
         for writable in [out]+([] if args.skip_build else [build]):
             if any(part.casefold()=='sources' for part in writable.parts):
                 raise ValueError('Synced sources are read-only; choose another output/build directory')
-        for reference in [data]+([resume] if resume else []):
+        roi_dir=(args.roi_dir or data/'roi').resolve() if args.roi_mode=='per-image' else None
+        for reference in [data]+([roi_dir] if roi_dir else [])+([resume] if resume else []):
             if single.overlap(out,reference):raise ValueError('Output must not overlap reference data/reports')
             if not args.skip_build and single.overlap(build,reference):raise ValueError('Build must not overlap reference data/reports')
         if not args.skip_build and single.overlap(out,build):raise ValueError('Build and output directories must not overlap')
         if resume and (not resume.is_dir() or any(not (resume/app).is_dir() for app in applications)):
             raise ValueError('Resume directory must contain each selected application')
-        if not (data/'mask/roi_mask.jpg').is_file():raise ValueError('Missing original ROI mask')
+        if roi_dir is None and not (data/'mask/roi_mask.jpg').is_file():raise ValueError('Missing original ROI mask')
+        if roi_dir:
+            for image in train_images+test_images:single.resolve_roi_path(roi_dir,image)
         # Test filenames only; each child freezes H before hashing test pixels.
         for image in train_images+test_images:single.protocol.resolve_staged_image_path(data,image)
         train=args.train_exe.resolve() if args.train_exe else build/'circuit_bitflip_ten_train'

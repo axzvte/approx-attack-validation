@@ -102,6 +102,10 @@ target_link_libraries(
 
 enable_testing()
 
+add_executable(test_image_roi tests/test_image_roi.cpp)
+target_link_libraries(test_image_roi PRIVATE approx_framework)
+add_test(NAME image_roi COMMAND test_image_roi ${CMAKE_CURRENT_BINARY_DIR}/roi-test-fixture)
+
 add_executable(sharpen_bitflip_fixed app/sharpen_bitflip_fixed.cpp)
 target_link_libraries(sharpen_bitflip_fixed PRIVATE approx_framework)
 add_executable(test_sharpen_bitflip_fixed tests/test_sharpen_bitflip_fixed.cpp)
@@ -151,6 +155,17 @@ target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        execute_process(COMMAND ${Python3_EXECUTABLE} -c "import PIL" RESULT_VARIABLE ROI_PIL_RESULT OUTPUT_QUIET ERROR_QUIET)
+        if(ROI_PIL_RESULT EQUAL 0)
+            add_test(NAME image_roi_python COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_image_roi.py)
+            add_test(NAME u2net_roi_pipeline COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_pipeline.py)
+            add_test(NAME u2net_roi_orientation COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_orientation.py $<TARGET_FILE:circuit_bitflip_fixed>)
+        else()
+            message(STATUS "Pillow unavailable: install requirements-roi.txt to enable Python ROI validation tests")
+        endif()
+        add_test(NAME u2net_roi_cli
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_cli.py
+                $<TARGET_FILE:circuit_bitflip_ten_train> $<TARGET_FILE:circuit_bitflip_fixed> $<TARGET_FILE:sharpen_bitflip_fixed>)
         add_test(NAME circuit_bitflip_fixed_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_fixed_cli.py
             $<TARGET_FILE:circuit_bitflip_fixed>)
@@ -219,10 +234,10 @@ if(UNIX AND EXISTS "/dev/full")
         COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_report_failure.sh
         $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
 endif()
-if(UNIX)
+if(UNIX AND Python3_Interpreter_FOUND)
     add_test(NAME sharpen_bitflip_fixed_cli
-        COMMAND bash ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_fixed_cli.sh
-        $<TARGET_FILE:sharpen_bitflip_validation> ${PROJECT_SOURCE_DIR}/data)
+        COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_sharpen_bitflip_fixed_cli_fixture.py
+        $<TARGET_FILE:sharpen_bitflip_validation>)
 endif()
 
 

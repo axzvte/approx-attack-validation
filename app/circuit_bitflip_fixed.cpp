@@ -317,7 +317,7 @@ int main(int argc, char** argv) {
         const auto nativeCount = app->addNodes().size();
         const std::set<std::string> allowed{"--hardware", "--seeds", "--image", "--input-image", "--beam", "--refinement",
             "--restarts", "--boundary-budget", "--context-budget", "--max-full-evals", "--full-candidates",
-            "--global-psnr", "--image-mode", "--convergence-tolerance"};
+            "--global-psnr", "--image-mode", "--convergence-tolerance", "--roi-dir", "--roi-mask"};
         std::map<std::string, std::string> flags;
         for (int i = 4; i < argc;) {
             const std::string flag = argv[i];
@@ -331,6 +331,7 @@ int main(int argc, char** argv) {
             i += 2;
         }
         if (!flags.count("--hardware")) throw std::runtime_error("Supply --hardware.");
+        if (flags.count("--roi-dir") && flags.count("--roi-mask")) throw std::runtime_error("Use either --roi-dir or --roi-mask.");
         const auto option = [&](const std::string& flag, int fallback, int lower, int upper) {
             const int value = flags.count(flag) ? integer(flags.at(flag)) : fallback;
             if (value < lower || value > upper) throw std::runtime_error("Invalid " + flag);
@@ -370,6 +371,9 @@ int main(int argc, char** argv) {
         if (mode != "compact" && mode != "none" && mode != "full" && mode != "comparisons")
             throw std::runtime_error("Invalid image mode.");
         const fs::path data = fs::absolute(argv[2]);
+        const bool perImageRoi = flags.count("--roi-dir") || flags.count("--roi-mask");
+        const fs::path roiPath = flags.count("--roi-mask") ? fs::absolute(flags.at("--roi-mask")) : flags.count("--roi-dir") ?
+            fs::path(image_io::resolveRoiMaskPath(fs::absolute(flags.at("--roi-dir")).string(),index)) : data / "mask/roi_mask.jpg";
         fs::path output = fs::absolute(argv[3]);
         while (output.has_relative_path() && (output.filename().empty() || output.filename() == ".")) output = output.parent_path();
         fs::create_directories(output.parent_path());
@@ -386,10 +390,10 @@ int main(int argc, char** argv) {
                 << "\nboundary_budget=" << options.boundaryBudget << "\ncontext_budget=" << options.maxContexts
                 << "\nmax_full_evaluations=" << options.maxFullEvaluations << "\nfull_candidates=" << options.fullCandidatesPerContext
                 << "\nglobal_psnr_threshold=" << number(options.globalPsnrThreshold) << "\nwarm_seeds=" << options.seeds.size()
-                << "\nroi=" << (data / "mask/roi_mask.jpg").string()
+                << "\nroi=" << roiPath.string() << "\nroi_mode=" << (perImageRoi ? "per_image" : "legacy_fixed")
                 << "\ntrigger_region_basis=" << (application == "dct" ? "block_roi_weight" : "pixel_roi")
                 << "\nOnly interval endpoints change. Installed nodes, monitors and bits are invariant."
-                << "\nOffline per-image interval calibration uses exact reference and original ROI."
+                << "\nOffline per-image interval calibration uses exact reference and the selected image ROI."
                 << "\nNo background hard threshold; visual approval remains manual."
                 << "\nDCT quality uses complete reconstructed pixels; block ROI weights describe triggers only."
                 << "\nSearch full-evaluation budget excludes required reference/dormant checks and final oracle replays.\n";
@@ -403,8 +407,9 @@ int main(int argc, char** argv) {
             run << "input_image=" << inputPath.string() << '\n';
             run.close();
         }
-        const auto input = image_io::loadGrayImage(inputPath.string());
-        const auto mask = region_mask::resizeMaskToImage(image_io::loadGrayImage((data / "mask/roi_mask.jpg").string()), input);
+        const auto input = image_io::loadGrayImage(inputPath.string(),perImageRoi);
+        const auto mask = perImageRoi ? image_io::loadBinaryRoiMask(roiPath.string(),input) :
+            region_mask::resizeMaskToImage(image_io::loadGrayImage(roiPath.string()), input);
         const auto exact = app->runExact(input), baseline = app->runApprox(input, {});
         const auto baselineQuality = analysis::measureBitflipQuality(exact, baseline, mask);
         const double cliReferenceSeconds = elapsed(referenceStart);

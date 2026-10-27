@@ -72,7 +72,7 @@ with (out/'RUN.txt').open('a') as stream:
         return data,fixed,train
 
     def args(self,data,fixed,train,out):
-        return [str(data),str(out),'--application','sobel','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
+        return [str(data),str(out),'--application','sobel','--roi-mode','legacy-fixed','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
 
     def test_remaining_applications_use_generic_fixed_entry_and_same_protocol(self):
         for app,last in (('sharpen',3),('conv',7),('dct',31)):

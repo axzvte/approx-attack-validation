@@ -23,7 +23,7 @@ import run_circuit_bitflip_ten_train_batch as batch
 class TenTrainBatchTests(unittest.TestCase):
     def setup_run(self,root):
         data,fixed,train=ten_fixture.TenTrainPipelineTests().fixture(root)
-        argv=[str(data),str(root/'all'),'--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
+        argv=[str(data),str(root/'all'),'--roi-mode','legacy-fixed','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
         return data,fixed,train,argv
 
     def test_summary_denominator_and_root_paths_preserve_missing_results(self):
@@ -117,7 +117,7 @@ class TenTrainBatchTests(unittest.TestCase):
             # Fixture executables look beside themselves for marker files only.
             with patch.object(batch,'process',return_value=0) as build_step:
                 self.assertEqual(batch.main([str(data),str(root/'control'),'--build-dir',str(build),
-                                           '--applications','sobel','--scheduling','sequential']),0)
+                                           '--applications','sobel','--scheduling','sequential','--roi-mode','legacy-fixed']),0)
                 self.assertEqual(build_step.call_count,2)
             row=fixtures.read(root/'control'/'applications.csv')[0]
             self.assertEqual(row['application'],'sobel');self.assertEqual(row['training_scheduling'],'sequential')

@@ -1,4 +1,4 @@
-// UNRUN locally: AGENTS.md requires user-run builds, tests and experiments.
+// Offline fixed-hardware selection; per-image ROI is validated at the I/O boundary.
 #include "analysis/circuit_bitflip_ten_train.hpp"
 #include "applications/conv.hpp"
 #include "applications/dct.hpp"
@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
         const std::set<std::string> allowed{"--train", "--max-evaluations", "--max-candidates", "--initial-candidates",
             "--proposals-per-round", "--max-rounds", "--patience", "--workers", "--context-budget", "--beam",
             "--refinement", "--restarts", "--boundary-budget", "--max-full-evals", "--full-candidates",
-            "--global-psnr", "--convergence-tolerance", "--seed-limit", "--scheduling", "--initial-batch", "--completion-reserve"};
+            "--global-psnr", "--convergence-tolerance", "--seed-limit", "--scheduling", "--initial-batch", "--completion-reserve", "--roi-dir"};
         std::map<std::string, std::string> flags;
         for (int i = 4; i < argc; i += 2) {
             const std::string flag = argv[i];
@@ -316,6 +316,10 @@ int main(int argc, char** argv) {
         const auto data = fs::weakly_canonical(fs::absolute(argv[2]));
         const auto output = fs::weakly_canonical(fs::absolute(argv[3]));
         outputPath(data, output);
+        const bool perImageRoi = flags.count("--roi-dir") != 0;
+        const auto roiDir = perImageRoi ? fs::weakly_canonical(fs::absolute(flags.at("--roi-dir"))) : data / "mask";
+        if(perImageRoi && (contains(roiDir,output) || contains(output,roiDir)))
+            throw std::runtime_error("Output must not overlap the per-image ROI directory.");
         fs::create_directories(output.parent_path());
         if (!fs::create_directory(output)) throw std::runtime_error("Output exists; use a new directory.");
         const std::string trainImages = "1,2,3,4,5,6,7,8,9,10";
@@ -326,13 +330,21 @@ int main(int argc, char** argv) {
         }
         // The resolver is called only for the fixed training IDs. No held-out
         // path is constructed, inspected or decoded by this training entry.
-        const auto originalMask = image_io::loadGrayImage((data / "mask/roi_mask.jpg").string());
+        const auto originalMask = perImageRoi ? cv::Mat{} : image_io::loadGrayImage((data / "mask/roi_mask.jpg").string());
+        Csv roiInputs(output / "roi_inputs.csv", {"image","input_path","roi_path","width","height","roi_pixels"});
         std::vector<analysis::TenTrainImage> images;
         for (int id = 1; id <= 10; ++id) {
-            auto image = image_io::loadGrayImage(image_io::resolveStagedImagePath(data.string(), id));
-            auto mask = region_mask::resizeMaskToImage(originalMask, image);
+            const auto inputPath = image_io::resolveStagedImagePath(data.string(), id);
+            const auto roiPath = perImageRoi ? image_io::resolveRoiMaskPath(roiDir.string(),id) : (data / "mask/roi_mask.jpg").string();
+            auto image = image_io::loadGrayImage(inputPath,perImageRoi);
+            auto mask = perImageRoi ? image_io::loadBinaryRoiMask(roiPath,image) : region_mask::resizeMaskToImage(originalMask, image);
+            cv::Mat binary; cv::compare(mask,cv::Scalar(128),binary,cv::CMP_GE);
+            roiInputs.row({{"image",std::to_string(id)},{"input_path",inputPath},{"roi_path",roiPath},
+                {"width",std::to_string(image.cols)},{"height",std::to_string(image.rows)},
+                {"roi_pixels",std::to_string(cv::countNonZero(binary))}});
             images.push_back({id, std::move(image), std::move(mask)});
         }
+        roiInputs.close();
         const auto result = analysis::searchCircuitTenTrain(*app, images, options, [&](const analysis::TenTrainProgress& progress) {
             std::cout << application << " training candidates=" << progress.candidates << " evaluations="
                       << progress.evaluations << " hardware=" << progress.hardwareId << " image=" << progress.imageId << std::endl;
@@ -446,6 +458,7 @@ int main(int argc, char** argv) {
         // Successful completion is committed only after every report closes.
         auto run = open(output / "RUN.txt");
         run << "completed=1\napplication=" << application << "\ntrain_images=" << trainImages
+            << "\nroi_mode=" << (perImageRoi ? "per_image" : "legacy_fixed") << "\nroi_dir=" << roiDir.string()
             << "\nselection_status=" << (selected ? "selected" : "no_numeric_hardware")
             << "\nselected_hardware_id=" << (selected ? selected->hardwareId : "")
             << "\nactual_evaluations=" << result.actualEvaluations << "\nstop_reason=" << result.stopReason

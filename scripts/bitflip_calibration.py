@@ -1,7 +1,7 @@
 """Bounded per-image effort and validated, read-only task reuse.
 
 This module orchestrates existing native executables; it never estimates final
-image quality from independent node effects. The author must not execute it.
+image quality from independent node effects.
 """
 import csv
 import hashlib
@@ -36,7 +36,7 @@ def result_key(row):
     return (0,0.,0.)
 
 def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_path,seeds_path,
-                      args,phase,cache,source_hash,image_path,mask_hash,report_reader,circuit_entry=False):
+                      args,phase,cache,source_hash,image_path,mask_hash,report_reader,circuit_entry=False,roi_mask_path=None):
     """Return (status,row,staged,attempt_diagnostics); caller alone writes globals."""
     relative=f"{phase}/{h['hardware_id']}/image_{image:02d}"
     report=out/relative;report.parent.mkdir(parents=True,exist_ok=True)
@@ -54,7 +54,17 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
                    global_psnr=args.global_psnr,image_mode=mode,effort_levels=levels,
                    adaptive_min_gain=args.adaptive_min_gain,native_continuation=continuous,
                    entry_style='circuit' if generic_entry else 'legacy_sharpen')
+    signature['roi_mode']='per_image' if roi_mask_path is not None else 'legacy_fixed'
+    if roi_mask_path is not None:signature['roi_path']=str(Path(roi_mask_path).resolve())
+    def check_pair():
+        if roi_mask_path is not None and (digest(roi_mask_path)!=mask_hash or digest(image_path)!=signature['input_sha256']):
+            raise RuntimeError('Image or per-image ROI changed during interval calibration')
     def read(path):
+        if roi_mask_path is not None:
+            notes=dict(line.split('=',1) for line in (path/'RUN.txt').read_text().splitlines() if '=' in line)
+            if notes.get('roi_mode')!='per_image' or Path(notes.get('roi','')).resolve()!=Path(roi_mask_path).resolve():
+                raise ValueError('Fixed executable did not confirm the requested per-image ROI; rebuild it')
+            check_pair()
         return report_reader(path,image,h['key'],mode,relative,args.global_psnr,native_nodes,
                              application if generic_entry else None)
     try:
@@ -79,6 +89,7 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
                          '--global-psnr',args.global_psnr,'--image-mode',mode]
                 if generic_entry:
                     command.extend(['--max-full-evals',level['max_full_evals'],'--full-candidates',level['full_candidates']])
+                if roi_mask_path is not None:command.extend(['--roi-mask',roi_mask_path])
                 if continuous:command.extend(['--continuous','--convergence-tolerance',args.adaptive_min_gain])
                 started=time.monotonic()
                 effort=dict(phase=phase,hardware_id=h['hardware_id'],image=image,attempt=index+1,**level,
@@ -120,8 +131,10 @@ def run_interval_task(*,root,out,data,fixed,application,h,image,mode,hardware_pa
             # This folder was created by this call, below the fresh output root.
             # Only the selected report/images survive; logs retain every attempt.
             shutil.rmtree(attempt_root)
+            check_pair()
             cache.record(relative,signature)
             status.update(status='completed',search_status=row['search_status'])
+        check_pair()
         row.update(phase=phase,hardware_id=h['hardware_id'])
     except (OSError,ValueError,RuntimeError,KeyError,csv.Error) as exc:
         status.update(status='failed',detail=str(exc))

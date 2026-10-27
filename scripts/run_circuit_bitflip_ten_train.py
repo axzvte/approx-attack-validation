@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """User-run: select one H jointly on images1–10, then calibrate frozen H on new images.
 
-No independent11–20 screening and no author-side execution. Original native
+No independent11–20 screening. U2-Net ROI is generated offline. Original native
 oracles remain authoritative; feature priorities are proposals, not scores.
 """
 import argparse
 import csv
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -18,6 +19,7 @@ from run_sharpen_bitflip_batch import atomic_csv,atomic_json,process,read_csv
 from bitflip_calibration import run_interval_task
 from bitflip_workflow import TaskCache,source_fingerprint
 from ten_train_report import validate_training_report
+from image_roi import resolve_roi_path,validate_pair
 
 TRAIN_FILES=('training_baselines.csv','candidate_hardware.csv','training_ranking.csv',
              'training_evaluations.csv','training_configurations.csv','search_stats.csv')
@@ -41,12 +43,17 @@ def parser(root,*,include_application=True):
     p.add_argument('--seed-limit',type=int,default=2);p.add_argument('--image-mode',choices=('compact','none','full'),default='compact')
     p.add_argument('--build-dir',type=Path,default=root/'build-bitflip');p.add_argument('--jobs',type=int,default=4)
     p.add_argument('--skip-build',action='store_true');p.add_argument('--train-exe',type=Path);p.add_argument('--fixed-exe',type=Path)
+    p.add_argument('--roi-mode',choices=('per-image','legacy-fixed'),default='per-image',
+                   help='Default: offline per-image U2-Net ROI; legacy-fixed is for historical reproduction only')
+    p.add_argument('--roi-dir',type=Path,help='image_NN_mask.png directory; default DATA/roi; no shared fallback')
     p.add_argument('--resume-from',type=Path,help='Read-only complete train-task and matching per-test artifact reuse; fresh output required.')
     return p
 
 def overlap(a,b):return a==b or a in b.parents or b in a.parents
 
 def validate_search_options(args):
+    if args.roi_mode=='legacy-fixed' and args.roi_dir is not None:
+        raise ValueError('--roi-dir requires --roi-mode per-image')
     train=protocol.split_range(args.train);test=protocol.split_range(args.test)
     if train!=list(range(1,11)):raise ValueError('This workflow selects H using exactly images1–10; use --train 1:10')
     if set(train)&set(test):raise ValueError('Test images overlap the ten hardware-selection images')
@@ -76,24 +83,35 @@ def main(argv=None):
         for writable in [out]+([] if args.skip_build else [build]):
             if any(part.casefold()=='sources' for part in writable.parts):
                 raise ValueError('Synced sources are read-only; choose another output/build directory')
-        for reference in [data]+([resume] if resume else []):
+        roi_dir=(args.roi_dir or data/'roi').resolve() if args.roi_mode=='per-image' else None
+        args.roi_dir=roi_dir
+        for reference in [data]+([roi_dir] if roi_dir else [])+([resume] if resume else []):
             if overlap(out,reference):raise ValueError('Output must not overlap input data or previous reports')
             if not args.skip_build and overlap(build,reference):raise ValueError('Build must not overlap reference data/reports')
         if resume and not resume.is_dir():raise ValueError('Missing read-only resume directory')
         mask=data/'mask/roi_mask.jpg'
-        if not mask.is_file():raise ValueError('Missing original ROI mask')
+        if roi_dir is None and not mask.is_file():raise ValueError('Missing original ROI mask')
         # Existence only for test images: never hash/read their pixels before H freezes.
         paths={i:protocol.resolve_staged_image_path(data,i) for i in train+test}
+        roi_paths={i:resolve_roi_path(roi_dir,i) for i in train+test} if roi_dir else {}
+        # Held-out paths above are existence checks only. Only training pairs are decoded here.
+        training_pairs={str(i):validate_pair(paths[i],roi_paths[i]) for i in train} if roi_dir else {}
+        training_roi_hashes={i:r['mask_sha256'] for i,r in training_pairs.items()}
         train_exe=args.train_exe.resolve() if args.train_exe else build/'circuit_bitflip_ten_train'
         fixed=args.fixed_exe.resolve() if args.fixed_exe else build/'circuit_bitflip_fixed'
         out.mkdir(parents=True,exist_ok=False);owned=True;(out/'logs').mkdir()
-        cache=TaskCache(out,resume);source_hash=source_fingerprint(root);mask_hash=protocol.digest(mask)
+        cache=TaskCache(out,resume);source_hash=source_fingerprint(root)
+        mask_hash=(hashlib.sha256(json.dumps(training_roi_hashes,sort_keys=True).encode()).hexdigest()
+                   if roi_dir else protocol.digest(mask))
         input_hashes={str(i):protocol.digest(paths[i]) for i in train}
         meta=dict(application=args.application,applications=[args.application],completed=False,all_succeeded=False,
                   workflow='ten_train',training_scheduling=args.scheduling,initial_batch=args.initial_batch,
                   completion_reserve=args.completion_reserve,selection_status='not_selected',test_executed=False,
                   splits=dict(train=train,test=test),screening_disabled=True,screen_wall_seconds=0,screen_task_count=0,
                   data=str(data),source_fingerprint=source_hash,training_input_hashes=input_hashes,roi_sha256=mask_hash,
+                  roi_mode=args.roi_mode,roi_dir=str(roi_dir) if roi_dir else None,roi_source='offline_u2net' if roi_dir else 'legacy_fixed',
+                  training_roi_hashes=training_roi_hashes,training_roi_pairs=training_pairs,test_roi_hashes={},test_roi_pairs={},
+                  u2net_runtime_hardware=False,
                   options={k:v for k,v in vars(args).items() if isinstance(v,(str,int,float,bool))},
                   hardware_fixed_fields=['node_id','monitor','bit'],adaptive_fields=['lower','upper'],
                   seed_policy='train-only frozen bank; reset independently for every test image',
@@ -133,21 +151,32 @@ def main(argv=None):
                       convergence_tolerance=args.convergence_tolerance,seed_limit=args.seed_limit)
         signature=dict(schema=2,kind='ten_image_training',application=args.application,inputs=input_hashes,
                        roi=mask_hash,source=source_hash,executable=protocol.digest(train_exe),controls=controls)
+        signature.update(roi_mode=args.roi_mode,training_roi_hashes=training_roi_hashes,
+                         roi_dir=str(roi_dir) if roi_dir else None)
         status=dict(application=args.application,phase='train_joint',hardware_id='',image='',status='running',returncode='',
                     elapsed_seconds='',log='logs/train.log',detail='',cache_hit=0)
         statuses.append(status);started=time.monotonic()
+        def check_training_inputs():
+            if (any(protocol.digest(paths[i])!=input_hashes[str(i)] for i in train) or
+                    (any(protocol.digest(roi_paths[i])!=training_roi_hashes[str(i)] for i in train) if roi_dir else protocol.digest(mask)!=mask_hash)):
+                raise RuntimeError('Training input or ROI changed during hardware selection')
         try:
+            check_training_inputs()
             reused=cache.restore('train',signature);status['cache_hit']=int(reused)
             command=[train_exe,args.application,data,out/'train']
+            if roi_dir:command.extend(['--roi-dir',roi_dir])
             for name,value in controls.items():command.extend(['--'+name.replace('_','-'),value])
             status['returncode']=0 if reused else process(command,out/'logs/train.log',root)
             if status['returncode']:raise RuntimeError('Joint ten-image training executable failed')
             report=validate_training_report(out/'train',args.application,train,args.global_psnr,args.max_train_evaluations,args.max_candidates)
             if int(report['notes'].get('reference_builds','-1'))!=len(train):raise ValueError('Native prepared references do not match the ten train images')
             notes=report['notes']
+            if roi_dir and (notes.get('roi_mode')!='per_image' or Path(notes.get('roi_dir','')).resolve()!=roi_dir):
+                raise ValueError('Training executable did not confirm the requested per-image ROI; rebuild it')
             if (notes.get('scheduling')!=args.scheduling or notes.get('initial_batch')!=str(args.initial_batch) or
                     notes.get('completion_reserve')!=str(args.completion_reserve)):
                 raise ValueError('Training executable/report does not match the requested scheduling; rebuild the executable')
+            check_training_inputs()
             if not reused:cache.record('train',signature)
             status.update(status='completed',log='' if reused else status['log'])
             meta.update(training_cache_hit=reused,cache_hits=int(reused),actual_train_evaluations=int(report['notes']['actual_evaluations']),
@@ -164,8 +193,7 @@ def main(argv=None):
             status['elapsed_seconds']=time.monotonic()-started;meta['training_wall_seconds']=status['elapsed_seconds']
             meta['hardware_selection_wall_seconds']=status['elapsed_seconds'];flush()
         for name in TRAIN_FILES:shutil.copyfile(out/'train'/name,out/name)
-        if any(protocol.digest(paths[i])!=input_hashes[str(i)] for i in train) or protocol.digest(mask)!=mask_hash:
-            raise RuntimeError('Training input or original ROI changed during hardware selection')
+        check_training_inputs()
         selected=report['selected']
         if selected is None:
             meta.update(completed=True,all_succeeded=True,selection_status='no_numeric_eligible_hardware');flush()
@@ -176,7 +204,8 @@ def main(argv=None):
         meta.update(selection_status='selected',selected_hardware_id=hid,frozen_hashes=frozen,test_executed=True)
         atomic_json(out/'frozen_protocol.json',dict(schema='ten_train_v1',application=args.application,hardware_id=hid,
                     hardware_key=hardware,splits=meta['splits'],options=meta['options'],frozen_hashes=frozen,
-                    training_input_hashes=input_hashes,roi_sha256=mask_hash,screening_disabled=True))
+                    training_input_hashes=input_hashes,roi_sha256=mask_hash,screening_disabled=True,
+                    roi_mode=args.roi_mode,training_roi_hashes=training_roi_hashes,u2net_runtime_hardware=False))
         flush()  # H and bank freeze before any test pixels are read/hashed.
         fixed_args=argparse.Namespace(**{**vars(args),'workflow':'continuation','adaptive_intervals':'auto',
                                         'adaptive_min_gain':args.convergence_tolerance})
@@ -184,10 +213,22 @@ def main(argv=None):
         try:
             for image in test:
                 if any(protocol.digest(out/name)!=value for name,value in frozen.items()):raise RuntimeError('Frozen hardware/seed bank changed before test')
+                image_mask_hash=mask_hash
+                if roi_dir:
+                    try:
+                        pair=validate_pair(paths[image],roi_paths[image])
+                        meta['test_roi_pairs'][str(image)]=pair
+                        image_mask_hash=meta['test_roi_hashes'][str(image)]=pair['mask_sha256']
+                    except (OSError,ValueError) as exc:
+                        statuses.append(dict(application=args.application,phase='test',hardware_id=hid,image=image,
+                                             status='failed',returncode='',elapsed_seconds=0,log='',detail=str(exc)))
+                        best.append(dict(application=args.application,image=image,status='run_failed',visual_status='not_available'))
+                        meta['failed_tasks'].append(dict(phase='test',image=image,detail=str(exc)));flush();continue
                 result=run_interval_task(root=root,out=out,data=data,fixed=fixed,application=args.application,
                     h=dict(hardware_id=hid,key=hardware),image=image,mode=args.image_mode,
                     hardware_path=out/'frozen_hardware.csv',seeds_path=out/'frozen_seeds.csv',args=fixed_args,phase='test',
-                    cache=cache,source_hash=source_hash,image_path=paths[image],mask_hash=mask_hash,
+                    cache=cache,source_hash=source_hash,image_path=paths[image],mask_hash=image_mask_hash,
+                    roi_mask_path=roi_paths.get(image),
                     report_reader=protocol.fixed_report,circuit_entry=True)
                 state,row,staged,efforts=result;statuses.append(dict(application=args.application,**state))
                 row.update(application=args.application);best.append(row)

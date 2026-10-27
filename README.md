@@ -1,5 +1,7 @@
 # Approximate Attack Validation
 
+逐图 U²-Net ROI 第一阶段已接通十图固定硬件训练与单图区间搜索，详见 [VS Code/WSL 准备、校验和运行命令](docs/U2NET_ROI_STAGE1.md)。新十图流程默认逐图 ROI，U²-Net 仅离线运行。
+
 近似计算攻击验证工程，包含 Conv、Sharpening、DCT、Sobel、区间搜索和固定硬件配置验证，以及 Sharpening 位反转分析与多节点联合搜索。
 
 ## 目录
