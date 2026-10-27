@@ -175,6 +175,8 @@ if(UNIX)
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_batch.py)
         add_test(NAME conv_ten_train_completion
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_conv_ten_train_completion.py)
+        add_test(NAME circuit_bitflip_frozen_retest
+            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_frozen_retest.py)
         add_test(NAME circuit_bitflip_ten_train_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_ten_train_cli.py
             $<TARGET_FILE:circuit_bitflip_ten_train>)

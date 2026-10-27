@@ -178,6 +178,14 @@ def fixed_report(report,image,hardware,mode,prefix,floor,native_nodes=4,applicat
         expected=3 if row["status"]=="numeric_eligible" else 0
         if len(image_rows)!=expected or (expected and ({r["image_kind"] for r in image_rows}!={"output","roi_comparison","background_comparison"} or any(r["candidate_id"]!=row["candidate_id"] for r in image_rows))):
             raise ValueError("Compact images do not match selected candidate")
+    if mode=="comparisons":
+        expected=0 if row["status"]=="no_legal_interval_state" else 2
+        if (len(image_rows)!=expected or (expected and
+                ({r["image_kind"] for r in image_rows}!={"comparison","roi_comparison"} or
+                 any(r["candidate_id"]!=row["candidate_id"] for r in image_rows)))):
+            raise ValueError("Expected exactly whole-image and ROI comparisons for the selected state")
+        if row.get("images_exported")!=str(int(expected>0)):
+            raise ValueError("Comparison export status disagrees with image manifest")
     paths={}
     for r in image_rows:
         relative=Path(r["path"])
@@ -190,6 +198,7 @@ def fixed_report(report,image,hardware,mode,prefix,floor,native_nodes=4,applicat
         if r["candidate_id"]==row["candidate_id"]:paths[r["image_kind"]]=r["path"]
     result={**row,"image":image,"baseline_roi_mse":baseline_roi,"roi_drop_score":score}
     for kind in ("output","roi_comparison","background_comparison"):result[kind+"_path"]=paths.get(kind,"")
+    if mode=="comparisons":result["comparison_path"]=paths.get("comparison","")
     return staged,result
 
 def rank_hardware(candidates,results,screen,eliminated=None):

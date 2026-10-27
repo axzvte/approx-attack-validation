@@ -249,7 +249,7 @@ void save(const fs::path& path, const cv::Mat& image) {
     if (!cv::imwrite(path.string(), image)) throw std::runtime_error("Image write failed: " + path.string());
 }
 void images(const fs::path& output, const cv::Mat& exact, const cv::Mat& baseline,
-            const cv::Mat& selected, const cv::Mat& mask, Csv& manifest, bool full) {
+            const cv::Mat& selected, const cv::Mat& mask, Csv& manifest, const std::string& mode) {
     const auto write = [&](const std::string& kind, const cv::Mat& image) {
         const std::string file = "selected_" + kind + ".png";
         save(output / file, image);
@@ -258,14 +258,19 @@ void images(const fs::path& output, const cv::Mat& exact, const cv::Mat& baselin
     cv::Mat binary;
     cv::compare(mask, cv::Scalar(128), binary, cv::CMP_GE);
     const auto box = cv::boundingRect(binary);
-    write("output", selected);
     cv::Mat roi = panel({exact(box), baseline(box), selected(box)});
     cv::resize(roi, roi, cv::Size(), 2, 2, cv::INTER_NEAREST);
+    if (mode == "comparisons") {
+        write("comparison", panel({exact, baseline, selected}));
+        write("roi_comparison", roi);
+        return;
+    }
+    write("output", selected);
     write("roi_comparison", roi);
     std::array<cv::Mat, 3> background{exact.clone(), baseline.clone(), selected.clone()};
     for (auto& image : background) image.setTo(127, binary);
     write("background_comparison", panel(background));
-    if (full) {
+    if (mode == "full") {
         write("comparison", panel({exact, baseline, selected}));
         cv::Mat difference;
         cv::absdiff(baseline, selected, difference); difference.convertTo(difference, CV_8U, 4);
@@ -297,9 +302,9 @@ int main(int argc, char** argv) {
     try {
         if (argc < 4) throw std::runtime_error(
             "Usage: circuit_bitflip_fixed sharpen|conv|sobel|dct DATA_DIR NEW_OUTPUT_DIR --hardware H.csv "
-            "[--seeds seeds.csv] [--image 1..40] [--beam 4] [--refinement 1] [--restarts 2] "
+            "[--seeds seeds.csv] [--image 1..40] [--input-image FILE] [--beam 4] [--refinement 1] [--restarts 2] "
             "[--boundary-budget 24] [--context-budget 128] [--max-full-evals 256] "
-            "[--full-candidates 8] [--global-psnr 30] [--image-mode compact|none|full] "
+            "[--full-candidates 8] [--global-psnr 30] [--image-mode compact|none|full|comparisons] "
             "[--continuous] [--convergence-tolerance 0.001]");
         const std::string application = argv[1];
         std::unique_ptr<core::Application> app;
@@ -310,7 +315,7 @@ int main(int argc, char** argv) {
         else if (application == "dct") app = std::make_unique<applications::DctApplication>();
         else throw std::runtime_error("Unknown circuit: " + application);
         const auto nativeCount = app->addNodes().size();
-        const std::set<std::string> allowed{"--hardware", "--seeds", "--image", "--beam", "--refinement",
+        const std::set<std::string> allowed{"--hardware", "--seeds", "--image", "--input-image", "--beam", "--refinement",
             "--restarts", "--boundary-budget", "--context-budget", "--max-full-evals", "--full-candidates",
             "--global-psnr", "--image-mode", "--convergence-tolerance"};
         std::map<std::string, std::string> flags;
@@ -331,7 +336,9 @@ int main(int argc, char** argv) {
             if (value < lower || value > upper) throw std::runtime_error("Invalid " + flag);
             return value;
         };
-        const int index = option("--image", 1, 1, 40);
+        // With an explicit input path, --image is a diagnostic identity only.
+        // Legacy indexed inputs retain their original1..40 routing contract.
+        const int index = option("--image", 1, 1, flags.count("--input-image") ? 1000000 : 40);
         analysis::CircuitFixedBitflipOptions options;
         options.continuous = flags.count("--continuous") != 0;
         if (flags.count("--convergence-tolerance")) {
@@ -360,7 +367,8 @@ int main(int argc, char** argv) {
         const auto fixedKey = hardwareKey(hardware);
         if (flags.count("--seeds")) options.seeds = seedFile(flags.at("--seeds"), hardware, nativeCount);
         const std::string mode = flags.count("--image-mode") ? flags.at("--image-mode") : "compact";
-        if (mode != "compact" && mode != "none" && mode != "full") throw std::runtime_error("Invalid image mode.");
+        if (mode != "compact" && mode != "none" && mode != "full" && mode != "comparisons")
+            throw std::runtime_error("Invalid image mode.");
         const fs::path data = fs::absolute(argv[2]);
         fs::path output = fs::absolute(argv[3]);
         while (output.has_relative_path() && (output.filename().empty() || output.filename() == ".")) output = output.parent_path();
@@ -388,7 +396,14 @@ int main(int argc, char** argv) {
             run.close();
         }
         const auto referenceStart = Clock::now();
-        const auto input = image_io::loadGrayImage(image_io::resolveStagedImagePath(data.string(), index));
+        const fs::path inputPath = flags.count("--input-image") ? fs::absolute(flags.at("--input-image")) :
+            fs::path(image_io::resolveStagedImagePath(data.string(), index));
+        {
+            auto run = open(output / "RUN.txt", std::ios::app);
+            run << "input_image=" << inputPath.string() << '\n';
+            run.close();
+        }
+        const auto input = image_io::loadGrayImage(inputPath.string());
         const auto mask = region_mask::resizeMaskToImage(image_io::loadGrayImage((data / "mask/roi_mask.jpg").string()), input);
         const auto exact = app->runExact(input), baseline = app->runApprox(input, {});
         const auto baselineQuality = analysis::measureBitflipQuality(exact, baseline, mask);
@@ -449,7 +464,7 @@ int main(int argc, char** argv) {
             for (const auto& node : hardware) triggeredNodes += counts.at(node.nodeId).total > 0;
             const bool numeric = eligible(selected->metrics, baselineQuality, options.globalPsnrThreshold);
             selectedStatus = numeric ? "numeric_eligible" : "quality_not_met";
-            const bool exported = mode == "full" || (mode == "compact" && numeric);
+            const bool exported = mode == "full" || mode == "comparisons" || (mode == "compact" && numeric);
             auto row = common;
             row.insert({{"candidate_id", "selected"}, {"status", selectedStatus}, {"installed_nodes", std::to_string(hardware.size())},
                 {"triggered_nodes", std::to_string(triggeredNodes)}, {"visual_status", numeric ? "pending_user_review" : "not_eligible"},
@@ -458,7 +473,7 @@ int main(int argc, char** argv) {
             row["delta_roi_mse"] = number(selected->metrics.roiMse - baselineQuality.roiMse);
             row["delta_non_roi_mse"] = number(selected->metrics.nonRoiMse - baselineQuality.nonRoiMse);
             spatial(row, exact, baseline, selected->image, mask); summary.row(row);
-            if (exported) images(output, exact, baseline, selected->image, mask, manifest, mode == "full");
+            if (exported) images(output, exact, baseline, selected->image, mask, manifest, mode);
             std::sort(selected->configuration.begin(), selected->configuration.end(), [](const auto& a, const auto& b) { return a.nodeId < b.nodeId; });
             for (const auto& node : selected->configuration) {
                 const auto& count = counts.at(node.nodeId);

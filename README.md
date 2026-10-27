@@ -76,3 +76,5 @@ Conv、Sobel、DCT采用同一套多图固定硬件流程见 [三应用固定硬
 其他应用使用同一流程：`scripts/run_circuit_bitflip_ten_train_batch.py`默认运行锐化、Conv、DCT，构建一次，每应用各80次训练上限；`applications.csv`汇总实际耗时、候选完成情况和具体PSNR。可用`--applications sharpen,conv,sobel,dct`运行四项，单应用入口也支持锐化。各应用使用相同预算和排名规则，保留各自原基准、ROI与完整图像评分。
 
 Conv四节点`ten_h2`可用`scripts/complete_conv_ten_train.py`补齐剩余6张训练图，复用原4条评价，保持原硬件与单图预算；原80次报告只读保留，新增6次单独计账。命令和版本校验要求见[10图硬件说明](docs/TEN_IMAGE_HARDWARE.md)。
+
+更换测试集而保持原硬件，见[stage5冻结硬件测试](docs/STAGE5_FROZEN_RETEST.md)：`scripts/retest_circuit_bitflip_frozen.py`默认读取`data/stage5`全部新图，复用四个应用原来的冻结配置和训练起点，只逐图搜索区间。每张合法输出仅保留整图、ROI两张“精确／基准／现有方案”对比图；不重新训练，也不输出消融图。

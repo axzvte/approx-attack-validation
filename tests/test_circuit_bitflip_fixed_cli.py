@@ -60,6 +60,9 @@ with tempfile.TemporaryDirectory() as temporary:
     mask = bytes(255 if 4 <= y < 12 and 4 <= x < 12 else (1 if x % 2 else 127)
                  for y in range(16) for x in range(16))
     (data / "mask/roi_mask.jpg").write_bytes(b"P5\n16 16\n255\n" + mask)
+    (data / "stage5").mkdir()
+    new_image = data / "stage5/1.jpg"
+    new_image.write_bytes(image)
 
     for app, native in (("sharpen", 4), ("conv", 8), ("sobel", 11), ("dct", 32)):
         hardware = root / (app + "_hardware.csv")
@@ -145,6 +148,29 @@ with tempfile.TemporaryDirectory() as temporary:
         assert failed["status"] == "quality_not_met" and failed["visual_status"] == "not_eligible"
         assert failed["global_mse"] != "" and len(rows(failure / "configurations.csv")) == native
         assert not list(failure.glob("*.png"))
+        # Explicit input must work without routing this diagnostic id through
+        # the legacy1..40 resolver. A new input may share an old filename/id.
+        comparisons = root / f"{app}_new_input"
+        invoke(app, data, comparisons, *common, "--input-image", new_image,
+               "--image", 65, "--image-mode", "comparisons")
+        assert metrics(comparisons) == metrics(compact)
+        notes = (comparisons / "RUN.txt").read_text()
+        assert f"input_image={new_image}\n" in notes and "image=65\n" in notes
+        assert {p.name for p in comparisons.glob("*.png")} == {
+            "selected_comparison.png", "selected_roi_comparison.png"}
+        assert {r["image_kind"] for r in rows(comparisons / "images.csv")} == {
+            "comparison", "roi_comparison"}
+        assert rows(comparisons / "summary.csv")[1]["images_exported"] == "1"
+        # Below-threshold images stay available for human inspection, with the
+        # actual numeric failure status retained rather than relabelled.
+        failed_comparison = root / f"{app}_failed_comparison"
+        invoke(app, data, failed_comparison, *impossible, "--input-image", new_image,
+               "--image-mode", "comparisons")
+        assert rows(failed_comparison / "summary.csv")[1]["status"] == "quality_not_met"
+        assert len(list(failed_comparison.glob("*.png"))) == 2
+        missing_explicit = root / f"{app}_missing_explicit"
+        invoke(app, data, missing_explicit, *common, "--input-image", data / "stage5/missing.jpg", ok=False)
+        assert "completed=1" not in (missing_explicit / "RUN.txt").read_text()
         before = (compact / "summary.csv").read_bytes()
         invoke(app, data, compact, *common, ok=False)
         assert (compact / "summary.csv").read_bytes() == before
