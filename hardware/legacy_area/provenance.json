@@ -1,0 +1,14 @@
+{
+  "source": "User DC_Area/results/area_runtime/*/rtl baseline snapshots, read 2026-10-28",
+  "legacy_script_sha256": "20b9ebe63ef38735147ab48f49dd2f9dc6a6329375ad6c0fede9272418158157",
+  "liberty_sha256": "8d540a4d4cf6d09d27c87ad067857a9c0c2eeb023ab7a56e058cd3113db4e9b1",
+  "files": {
+    "sharpen_baseline.v": "e8630f90988aec8883bc08a52459c2de87118159bd53f63a6289069fd3a16e50",
+    "conv_baseline.v": "d254dbd90d2cfd5973b29ea0ff0d90b56ea22a67c37daadd434fb48daeeebf6b",
+    "sobel_baseline.v": "c625e93150517f68b39cda902bfc0ac874c51c0d6c3a203f081682239643684c",
+    "dct_baseline.v": "08dd599770ccd730c850ef9a4cc757adc0594570617892717b34f05d55781392",
+    "evo_5RP.v": "218875f265d2ca390eb8eb64077d39626fd05f779f0c8158b4ab49813a607a98"
+  },
+  "historical_baseline_um2": {"sharpen": 293.132, "conv": 482.790, "sobel": 513.380, "dct": 16686.446},
+  "historical_proposed_reg_um2": {"sharpen": 1391.180, "conv": 1557.430, "sobel": 1801.352, "dct": 18365.704}
+}

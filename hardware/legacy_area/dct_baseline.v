@@ -1,0 +1,223 @@
+module dct_baseline(
+  input wire signed [11:0] x0,
+  input wire signed [11:0] x1,
+  input wire signed [11:0] x2,
+  input wire signed [11:0] x3,
+  input wire signed [11:0] x4,
+  input wire signed [11:0] x5,
+  input wire signed [11:0] x6,
+  input wire signed [11:0] x7,
+  output wire signed [31:0] y0,
+  output wire signed [31:0] y1,
+  output wire signed [31:0] y2,
+  output wire signed [31:0] y3,
+  output wire signed [31:0] y4,
+  output wire signed [31:0] y5,
+  output wire signed [31:0] y6,
+  output wire signed [31:0] y7
+);
+  // One arithmetic kernel; no full-frame buffering or runtime configuration storage.
+  // Signed 32-bit accumulator as in Dct8FixedGraph::Value.
+  function automatic signed [31:0] round_q15(input signed [63:0] v);
+    if (v >= 0) round_q15 = (v + 64'sd16384) >>> 15;
+    else round_q15 = -(((-v) + 64'sd16384) >>> 15);
+  endfunction
+  wire signed [31:0] n0_a = x0;
+  wire signed [31:0] n0_b = x7;
+  wire signed [31:0] n0 = n0_a + n0_b;
+  wire signed [31:0] n1_a = x1;
+  wire signed [31:0] n1_b = x6;
+  wire signed [31:0] n1 = n1_a + n1_b;
+  wire signed [31:0] n2_a = x2;
+  wire signed [31:0] n2_b = x5;
+  wire signed [31:0] n2 = n2_a + n2_b;
+  wire signed [31:0] n3_a = x3;
+  wire signed [31:0] n3_b = x4;
+  wire signed [31:0] n3 = n3_a + n3_b;
+  wire signed [31:0] n4_a = x0;
+  wire signed [31:0] n4_b = -x7;
+  wire signed [31:0] n4 = n4_a + n4_b;
+  wire signed [31:0] n5_a = x1;
+  wire signed [31:0] n5_b = -x6;
+  wire signed [31:0] n5 = n5_a + n5_b;
+  wire signed [31:0] n6_a = x2;
+  wire signed [31:0] n6_b = -x5;
+  wire signed [31:0] n6 = n6_a + n6_b;
+  wire signed [31:0] n7_a = x3;
+  wire signed [31:0] n7_b = -x4;
+  wire signed [31:0] n7 = n7_a + n7_b;
+  wire signed [63:0] mul0_0 = $signed(n0) * 64'sd11585;
+  wire signed [31:0] prod0_0 = round_q15(mul0_0);
+  wire signed [63:0] mul0_1 = $signed(n1) * 64'sd11585;
+  wire signed [31:0] prod0_1 = round_q15(mul0_1);
+  wire signed [63:0] mul0_2 = $signed(n2) * 64'sd11585;
+  wire signed [31:0] prod0_2 = round_q15(mul0_2);
+  wire signed [63:0] mul0_3 = $signed(n3) * 64'sd11585;
+  wire signed [31:0] prod0_3 = round_q15(mul0_3);
+  wire signed [31:0] n8_a = prod0_0;
+  wire signed [31:0] n8_b = prod0_1;
+  wire [12:0] n8_baseline_raw;
+  evo_5RP base8(.A(n8_a[11:0]),.B(n8_b[11:0]),.Y(n8_baseline_raw));
+  wire signed [31:0] n8_base = $signed(n8_baseline_raw);
+  wire signed [31:0] n8 = n8_base;
+  wire signed [31:0] n9_a = n8;
+  wire signed [31:0] n9_b = prod0_2;
+  wire signed [31:0] n9 = n9_a + n9_b;
+  wire signed [31:0] n10_a = n9;
+  wire signed [31:0] n10_b = prod0_3;
+  wire [12:0] n10_baseline_raw;
+  evo_5RP base10(.A(n10_a[11:0]),.B(n10_b[11:0]),.Y(n10_baseline_raw));
+  wire signed [31:0] n10_base = $signed(n10_baseline_raw);
+  wire signed [31:0] n10 = n10_base;
+  assign y0 = n10;
+  wire signed [63:0] mul1_0 = $signed(n4) * 64'sd16069;
+  wire signed [31:0] prod1_0 = round_q15(mul1_0);
+  wire signed [63:0] mul1_1 = $signed(n5) * 64'sd13623;
+  wire signed [31:0] prod1_1 = round_q15(mul1_1);
+  wire signed [63:0] mul1_2 = $signed(n6) * 64'sd9102;
+  wire signed [31:0] prod1_2 = round_q15(mul1_2);
+  wire signed [63:0] mul1_3 = $signed(n7) * 64'sd3196;
+  wire signed [31:0] prod1_3 = round_q15(mul1_3);
+  wire signed [31:0] n11_a = prod1_0;
+  wire signed [31:0] n11_b = prod1_1;
+  wire [12:0] n11_baseline_raw;
+  evo_5RP base11(.A(n11_a[11:0]),.B(n11_b[11:0]),.Y(n11_baseline_raw));
+  wire signed [31:0] n11_base = $signed(n11_baseline_raw);
+  wire signed [31:0] n11 = n11_base;
+  wire signed [31:0] n12_a = n11;
+  wire signed [31:0] n12_b = prod1_2;
+  wire signed [31:0] n12 = n12_a + n12_b;
+  wire signed [31:0] n13_a = n12;
+  wire signed [31:0] n13_b = prod1_3;
+  wire [12:0] n13_baseline_raw;
+  evo_5RP base13(.A(n13_a[11:0]),.B(n13_b[11:0]),.Y(n13_baseline_raw));
+  wire signed [31:0] n13_base = $signed(n13_baseline_raw);
+  wire signed [31:0] n13 = n13_base;
+  assign y1 = n13;
+  wire signed [63:0] mul2_0 = $signed(n0) * 64'sd15137;
+  wire signed [31:0] prod2_0 = round_q15(mul2_0);
+  wire signed [63:0] mul2_1 = $signed(n1) * 64'sd6270;
+  wire signed [31:0] prod2_1 = round_q15(mul2_1);
+  wire signed [63:0] mul2_2 = $signed(n2) * -64'sd6270;
+  wire signed [31:0] prod2_2 = round_q15(mul2_2);
+  wire signed [63:0] mul2_3 = $signed(n3) * -64'sd15137;
+  wire signed [31:0] prod2_3 = round_q15(mul2_3);
+  wire signed [31:0] n14_a = prod2_0;
+  wire signed [31:0] n14_b = prod2_1;
+  wire signed [31:0] n14 = n14_a + n14_b;
+  wire signed [31:0] n15_a = n14;
+  wire signed [31:0] n15_b = prod2_2;
+  wire signed [31:0] n15 = n15_a + n15_b;
+  wire signed [31:0] n16_a = n15;
+  wire signed [31:0] n16_b = prod2_3;
+  wire [12:0] n16_baseline_raw;
+  evo_5RP base16(.A(n16_a[11:0]),.B(n16_b[11:0]),.Y(n16_baseline_raw));
+  wire signed [31:0] n16_base = $signed(n16_baseline_raw);
+  wire signed [31:0] n16 = n16_base;
+  assign y2 = n16;
+  wire signed [63:0] mul3_0 = $signed(n4) * 64'sd13623;
+  wire signed [31:0] prod3_0 = round_q15(mul3_0);
+  wire signed [63:0] mul3_1 = $signed(n5) * -64'sd3196;
+  wire signed [31:0] prod3_1 = round_q15(mul3_1);
+  wire signed [63:0] mul3_2 = $signed(n6) * -64'sd16069;
+  wire signed [31:0] prod3_2 = round_q15(mul3_2);
+  wire signed [63:0] mul3_3 = $signed(n7) * -64'sd9102;
+  wire signed [31:0] prod3_3 = round_q15(mul3_3);
+  wire signed [31:0] n17_a = prod3_0;
+  wire signed [31:0] n17_b = prod3_1;
+  wire signed [31:0] n17 = n17_a + n17_b;
+  wire signed [31:0] n18_a = n17;
+  wire signed [31:0] n18_b = prod3_2;
+  wire signed [31:0] n18 = n18_a + n18_b;
+  wire signed [31:0] n19_a = n18;
+  wire signed [31:0] n19_b = prod3_3;
+  wire [12:0] n19_baseline_raw;
+  evo_5RP base19(.A(n19_a[11:0]),.B(n19_b[11:0]),.Y(n19_baseline_raw));
+  wire signed [31:0] n19_base = $signed(n19_baseline_raw);
+  wire signed [31:0] n19 = n19_base;
+  assign y3 = n19;
+  wire signed [63:0] mul4_0 = $signed(n0) * 64'sd11585;
+  wire signed [31:0] prod4_0 = round_q15(mul4_0);
+  wire signed [63:0] mul4_1 = $signed(n1) * -64'sd11585;
+  wire signed [31:0] prod4_1 = round_q15(mul4_1);
+  wire signed [63:0] mul4_2 = $signed(n2) * -64'sd11585;
+  wire signed [31:0] prod4_2 = round_q15(mul4_2);
+  wire signed [63:0] mul4_3 = $signed(n3) * 64'sd11585;
+  wire signed [31:0] prod4_3 = round_q15(mul4_3);
+  wire signed [31:0] n20_a = prod4_0;
+  wire signed [31:0] n20_b = prod4_1;
+  wire signed [31:0] n20 = n20_a + n20_b;
+  wire signed [31:0] n21_a = n20;
+  wire signed [31:0] n21_b = prod4_2;
+  wire signed [31:0] n21 = n21_a + n21_b;
+  wire signed [31:0] n22_a = n21;
+  wire signed [31:0] n22_b = prod4_3;
+  wire [12:0] n22_baseline_raw;
+  evo_5RP base22(.A(n22_a[11:0]),.B(n22_b[11:0]),.Y(n22_baseline_raw));
+  wire signed [31:0] n22_base = $signed(n22_baseline_raw);
+  wire signed [31:0] n22 = n22_base;
+  assign y4 = n22;
+  wire signed [63:0] mul5_0 = $signed(n4) * 64'sd9102;
+  wire signed [31:0] prod5_0 = round_q15(mul5_0);
+  wire signed [63:0] mul5_1 = $signed(n5) * -64'sd16069;
+  wire signed [31:0] prod5_1 = round_q15(mul5_1);
+  wire signed [63:0] mul5_2 = $signed(n6) * 64'sd3196;
+  wire signed [31:0] prod5_2 = round_q15(mul5_2);
+  wire signed [63:0] mul5_3 = $signed(n7) * 64'sd13623;
+  wire signed [31:0] prod5_3 = round_q15(mul5_3);
+  wire signed [31:0] n23_a = prod5_0;
+  wire signed [31:0] n23_b = prod5_1;
+  wire signed [31:0] n23 = n23_a + n23_b;
+  wire signed [31:0] n24_a = n23;
+  wire signed [31:0] n24_b = prod5_2;
+  wire signed [31:0] n24 = n24_a + n24_b;
+  wire signed [31:0] n25_a = n24;
+  wire signed [31:0] n25_b = prod5_3;
+  wire [12:0] n25_baseline_raw;
+  evo_5RP base25(.A(n25_a[11:0]),.B(n25_b[11:0]),.Y(n25_baseline_raw));
+  wire signed [31:0] n25_base = $signed(n25_baseline_raw);
+  wire signed [31:0] n25 = n25_base;
+  assign y5 = n25;
+  wire signed [63:0] mul6_0 = $signed(n0) * 64'sd6270;
+  wire signed [31:0] prod6_0 = round_q15(mul6_0);
+  wire signed [63:0] mul6_1 = $signed(n1) * -64'sd15137;
+  wire signed [31:0] prod6_1 = round_q15(mul6_1);
+  wire signed [63:0] mul6_2 = $signed(n2) * 64'sd15137;
+  wire signed [31:0] prod6_2 = round_q15(mul6_2);
+  wire signed [63:0] mul6_3 = $signed(n3) * -64'sd6270;
+  wire signed [31:0] prod6_3 = round_q15(mul6_3);
+  wire signed [31:0] n26_a = prod6_0;
+  wire signed [31:0] n26_b = prod6_1;
+  wire signed [31:0] n26 = n26_a + n26_b;
+  wire signed [31:0] n27_a = n26;
+  wire signed [31:0] n27_b = prod6_2;
+  wire signed [31:0] n27 = n27_a + n27_b;
+  wire signed [31:0] n28_a = n27;
+  wire signed [31:0] n28_b = prod6_3;
+  wire [12:0] n28_baseline_raw;
+  evo_5RP base28(.A(n28_a[11:0]),.B(n28_b[11:0]),.Y(n28_baseline_raw));
+  wire signed [31:0] n28_base = $signed(n28_baseline_raw);
+  wire signed [31:0] n28 = n28_base;
+  assign y6 = n28;
+  wire signed [63:0] mul7_0 = $signed(n4) * 64'sd3196;
+  wire signed [31:0] prod7_0 = round_q15(mul7_0);
+  wire signed [63:0] mul7_1 = $signed(n5) * -64'sd9102;
+  wire signed [31:0] prod7_1 = round_q15(mul7_1);
+  wire signed [63:0] mul7_2 = $signed(n6) * 64'sd13623;
+  wire signed [31:0] prod7_2 = round_q15(mul7_2);
+  wire signed [63:0] mul7_3 = $signed(n7) * -64'sd16069;
+  wire signed [31:0] prod7_3 = round_q15(mul7_3);
+  wire signed [31:0] n29_a = prod7_0;
+  wire signed [31:0] n29_b = prod7_1;
+  wire signed [31:0] n29 = n29_a + n29_b;
+  wire signed [31:0] n30_a = n29;
+  wire signed [31:0] n30_b = prod7_2;
+  wire signed [31:0] n30 = n30_a + n30_b;
+  wire signed [31:0] n31_a = n30;
+  wire signed [31:0] n31_b = prod7_3;
+  wire [12:0] n31_baseline_raw;
+  evo_5RP base31(.A(n31_a[11:0]),.B(n31_b[11:0]),.Y(n31_baseline_raw));
+  wire signed [31:0] n31_base = $signed(n31_baseline_raw);
+  wire signed [31:0] n31 = n31_base;
+  assign y7 = n31;
+endmodule

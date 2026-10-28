@@ -1,4 +1,4 @@
-"""Fixture-only runner checks: subprocess.run is always intercepted."""
+"""Fixture runner checks; real Yosys is used only for a tee/help path probe."""
 import copy
 import importlib.util
 import json
@@ -237,6 +237,54 @@ class RunnerTests(unittest.TestCase):
         stat, mapped = self.data()
         result = self.runner.validate_result(stat, mapped, "top", self.library, 0)
         self.assertEqual(result["area_um2"], 1.0)
+
+    def test_legacy_mode_uses_historical_recipe_scope_and_reproduction_check(self):
+        def legacy(output,config_path=None):
+            m=self.generate(output,config_path)
+            m['scope']='single_arithmetic_kernel_not_full_image_system'
+            m['liberty_sha256']=self.runner._sha(self.liberty)
+            for a in m['applications']:
+                a['historical_baseline_um2']=1.0
+            return m
+        output=self.root/'legacy_result'
+        with patch.object(self.runner,'load_library_manifest',return_value=self.library), \
+             patch.object(self.runner,'generate_legacy_design',side_effect=legacy), \
+             patch.object(self.runner.subprocess,'run',side_effect=self.fake_process):
+            m=self.runner.run_area(self.library_path,output,legacy_kernel=True)
+        self.assertEqual(m['state'],'complete')
+        self.assertEqual(m['scope'],'single_arithmetic_kernel_not_full_image_system')
+        self.assertEqual(m['recipe'],'legacy_runtime')
+        script=(output/'scripts/sharpen_host_attacked.ys').read_text()
+        self.assertNotIn('\ndffunmap\n',script)
+        self.assertLess(script.index('abc -liberty'),script.index('read_liberty -lib'))
+        with (output/'summary.csv').open() as handle:
+            row=next(__import__('csv').DictReader(handle))
+        self.assertIn('kernel_overhead_percent',row)
+        self.assertNotIn('selected_bank_overhead_percent',row)
+        self.assertEqual(float(row['historical_baseline_delta_um2']),0)
+        self.assertEqual(int(row['configured_bits']),96)
+        self.assertEqual(int(row['retained_config_bits']),96)
+
+    def test_legacy_library_mismatch_fails_before_tools(self):
+        def legacy(output,config_path=None):
+            m=self.generate(output,config_path)
+            m['scope']='single_arithmetic_kernel_not_full_image_system'
+            m['liberty_sha256']='0'*64
+            return m
+        with patch.object(self.runner,'load_library_manifest',return_value=self.library), \
+             patch.object(self.runner,'generate_legacy_design',side_effect=legacy), \
+             patch.object(self.runner.subprocess,'run') as process:
+            with self.assertRaisesRegex(ValueError,'historical Liberty'):
+                self.runner.run_area(self.library_path,self.root/'legacy_result',legacy_kernel=True)
+            process.assert_not_called()
+
+    def test_legacy_integration_records_pruned_config_bits_without_hiding_them(self):
+        stat,mapped=self.data()
+        result=self.runner.validate_result(stat,mapped,'top',self.library,96,allow_pruned_config=True)
+        self.assertEqual(result['sequential_bits'],0)
+        self.assertEqual(result['pruned_config_bits'],96)
+        with self.assertRaises(ValueError):
+            self.runner.validate_result(stat,mapped,'top',self.library,96)
 
     def test_invalid_areas_rejected(self):
         for area in [None, 0, -1, float("nan"), float("inf"), True]:

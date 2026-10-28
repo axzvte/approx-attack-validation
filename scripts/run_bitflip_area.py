@@ -13,10 +13,16 @@ from bitflip_area_report import validate_result, write_summary
 
 KINDS = ("attack_comb", "config_storage", "attack_complete", "host_baseline", "host_attacked")
 SCOPE = "selected_unit_bank_not_full_application"
+LEGACY_SCOPE = "single_arithmetic_kernel_not_full_image_system"
 
 
 def generate_design(output, config_path=None):
     from bitflip_area_design import generate_design as generate
+    return generate(output, config_path)
+
+
+def generate_legacy_design(output, config_path=None):
+    from bitflip_legacy_design import generate_design as generate
     return generate(output, config_path)
 
 
@@ -69,29 +75,31 @@ def _quote(path):
     return '"' + value + '"'
 
 
-def _script(top, rtl_files, liberty, result):
+def _script(top, rtl_files, liberty, result, legacy_kernel=False):
     # tee in Yosys 0.33 passes its output token directly to fopen without
     # unquoting it. The runner's cwd is the output directory; this generated
     # relative token has no whitespace even when the output directory does.
     report_path = "results/" + top + "/stat.json"
-    return "\n".join([
+    recipe = [
         "# Fixed area recipe; no clock target, physical implementation or power estimate.",
-        "read_liberty -lib " + _quote(liberty),
+        *([] if legacy_kernel else ["read_liberty -lib " + _quote(liberty)]),
         "read_verilog -sv " + " ".join(_quote(p) for p in rtl_files),
-        "hierarchy -check -top " + top,
-        "synth -flatten -noabc -top " + top,
-        "dffunmap",
+        *([] if legacy_kernel else ["hierarchy -check -top " + top]),
+        ("synth -top " + top + " -flatten -noabc") if legacy_kernel else ("synth -flatten -noabc -top " + top),
+        *([] if legacy_kernel else ["dffunmap"]),
         "dfflibmap -liberty " + _quote(liberty),
         "abc -liberty " + _quote(liberty),
         "clean",
+        *(["read_liberty -lib " + _quote(liberty)] if legacy_kernel else []),
         "check -assert",
         "select -assert-none t:$*",
         "tee -o " + report_path + " stat -json -liberty " + _quote(liberty) + " -top " + top,
         "write_verilog -noattr " + _quote(result / "mapped.v"),
-        "write_json " + _quote(result / "mapped.json"), ""])
+        "write_json " + _quote(result / "mapped.json"), ""]
+    return "\n".join(recipe)
 
 
-def run_area(library_path, output, config_path=None, dry_run=False):
+def run_area(library_path, output, config_path=None, dry_run=False, legacy_kernel=False):
     library_path, output = Path(library_path).resolve(), Path(output).resolve()
     config_path = Path(config_path).resolve() if config_path else None
     repo = Path(__file__).resolve().parents[1]
@@ -100,6 +108,7 @@ def run_area(library_path, output, config_path=None, dry_run=False):
     if output.exists() or any(_overlap(output, p) for p in protected):
         raise ValueError("Output must be new and must not overlap inputs or source directories")
     library = load_library_manifest(library_path)
+    scope = LEGACY_SCOPE if legacy_kernel else SCOPE
     if library.get("area_unit") != "um^2" or not library.get("cell_areas") or not library.get("lef_verified_cells"):
         raise ValueError("Unsupported library or unverified area units")
     liberty = Path(library["liberty_path"]).resolve()
@@ -108,15 +117,18 @@ def run_area(library_path, output, config_path=None, dry_run=False):
         raise ValueError("Output overlaps a verified library input")
     output.mkdir(parents=True)
     manifest = {"schema": "bitflip_area_run_v1", "state": "preparing", "dry_run": dry_run,
-                "scope": SCOPE, "area_unit": "um^2", "started_utc": datetime.now(timezone.utc).isoformat(),
+                "scope": scope, "recipe": "legacy_runtime" if legacy_kernel else "selected_bank_v1",
+                "area_unit": "um^2", "started_utc": datetime.now(timezone.utc).isoformat(),
                 "library": library, "tool_version": None, "jobs": [], "source_sha256": {}}
     manifest_path = output / "run_manifest.json"
     _save(manifest_path, manifest)
     try:
         design_dir = output / "design"
-        design = generate_design(design_dir, config_path)
-        if design.get("schema") != "bitflip_area_design_v1" or design.get("scope") != SCOPE:
+        design = (generate_legacy_design if legacy_kernel else generate_design)(design_dir, config_path)
+        if design.get("schema") != "bitflip_area_design_v1" or design.get("scope") != scope:
             raise ValueError("Unsupported design manifest")
+        if legacy_kernel and design.get('liberty_sha256') != _sha(liberty):
+            raise ValueError('Library differs from historical Liberty bytes')
         rtl_files = []
         for value in design["rtl_files"]:
             path = (design_dir / value).resolve()
@@ -141,7 +153,7 @@ def run_area(library_path, output, config_path=None, dry_run=False):
                 result = output / "results" / top
                 result.mkdir()  # Duplicate tops are rejected here.
                 script = output / "scripts" / (top + ".ys")
-                script.write_text(_script(top, rtl_files, liberty, result), encoding="utf-8")
+                script.write_text(_script(top, rtl_files, liberty, result, legacy_kernel), encoding="utf-8")
                 manifest["jobs"].append({"application": app["application"], "kind": kind, "top": top,
                     "expected_config_bits": app["config_bits"] if kind in ("config_storage", "attack_complete", "host_attacked") else 0,
                     "script": str(script.relative_to(output)), "log": str((result / "yosys.log").relative_to(output)),
@@ -156,7 +168,8 @@ def run_area(library_path, output, config_path=None, dry_run=False):
             if design_dir.resolve() not in snapshot.parents:
                 raise ValueError('Configuration snapshot escapes design directory')
             sources.append(snapshot)
-        for dependency in ("area_library.py", "bitflip_area_design.py"):
+        sources.extend(Path(p).resolve() for p in design.get('source_dependencies',[]))
+        for dependency in ("area_library.py", "bitflip_area_design.py", *(['bitflip_legacy_design.py'] if legacy_kernel else [])):
             path = Path(__file__).with_name(dependency)
             if path.is_file():
                 sources.append(path)
@@ -191,13 +204,14 @@ def run_area(library_path, output, config_path=None, dry_run=False):
             for name in ("stat.json", "mapped.json", "mapped.v"):
                 if not (result / name).is_file() or not (result / name).stat().st_size:
                     raise ValueError(f"Missing or empty output {job['top']}/{name}")
+            options={'allow_pruned_config':True} if legacy_kernel and job['kind']=='host_attacked' else {}
             job["measurement"] = validate_result(json.loads((result / "stat.json").read_text()),
-                json.loads((result / "mapped.json").read_text()), job["top"], library, job["expected_config_bits"])
+                json.loads((result / "mapped.json").read_text()), job["top"], library, job["expected_config_bits"],**options)
             job["output_sha256"] = {name: _sha(result / name) for name in ("stat.json", "mapped.json", "mapped.v", "yosys.log")}
             job["state"] = "complete"
             _save(manifest_path, manifest)
         _verify_sources(manifest["source_sha256"])
-        write_summary(output, manifest["jobs"])
+        write_summary(output, manifest["jobs"], design if legacy_kernel else None)
         manifest["state"] = "complete"
         manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
         _save(manifest_path, manifest)
@@ -217,10 +231,11 @@ def main(argv=None):
     parser.add_argument("--library", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--config", type=Path)
+    parser.add_argument("--legacy-kernel",action='store_true',help='Use previous full arithmetic cores and mapping recipe with the identical Liberty; preserve current hardware configuration')
     parser.add_argument("--dry-run", action="store_true", help="Generate RTL and plans without invoking Yosys, including version queries")
     args = parser.parse_args(argv)
     try:
-        result = run_area(args.library, args.output, args.config, args.dry_run)
+        result = run_area(args.library, args.output, args.config, args.dry_run,args.legacy_kernel)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"Area run failed: {exc}", file=sys.stderr)
         return 1

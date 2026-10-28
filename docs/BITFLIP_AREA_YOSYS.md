@@ -3,6 +3,67 @@
 这是用户手动执行的面积流程。脚本不会随导入、拉取代码或运行图片实验自动启动综合。
 U²-Net、ROI、PSNR、训练和区间搜索均不在待综合RTL中。软件搜索算法、历史图片和原始报告保持不变。
 
+## 按旧方法评估当前方案（2026-10-28）
+
+要与之前`DC_Area`中的结果核对，请显式使用`--legacy-kernel`。
+不加此参数仍为原来的“选中单元组”模式，两类百分比不能混用。
+
+已核对旧工程的Liberty SHA-256为
+`8d540a4d4cf6d09d27c87ad067857a9c0c2eeb023ab7a56e058cd3113db4e9b1`，
+与当前下载器固定的文件完全相同。新模式会再次检查字节一致性。
+旧脚本的映射步骤为`read_verilog; synth -top ... -flatten -noabc; dfflibmap; abc; clean`，
+该模式不额外执行`dffunmap`。映射完成后才读入库黑盒作严格检查和JSON导出，不再执行逻辑优化。
+
+新模式复用旧实验的四个完整Baseline算术核心RTL（含原连接关系和输出处理）：
+Sharpening、Conv、Sobel分别为单像素算术核心；DCT为包含乘法和Q15舍入的一维8点变换核心。
+不含行缓存、完整二维DCT/IDCT、总线、图像存储或U²-Net。
+来源和原文件指纹见`hardware/legacy_area/provenance.json`，文件均保持原始字节；
+程序不执行外部旧Python构建脚本，也不依赖本机必须保存旧工程。
+
+本次不做结构优化：仍使用当前固定H的4/6/6/6个节点、监控信号、翻转位、96/148/148/148位区间配置。
+像素核原生监控/结果为signed13，DCT为signed32；输入监控的界限仍signed12，输出监控的界限仍signed13。
+比较时保留原生监控值并将界限符号扩展，不能把DCT监控值截为12位或擅自改成0～255。
+翻转发生在完整原生结果的固定位0..11，再进入原来的后续运算和输出处理。
+
+在VS Code WSL项目终端运行（复用已经成功校验的工艺库）：
+
+```bash
+cd ~/projects/approx_attack_validation &&
+git switch feature/u2net-roi-stage1 &&
+git pull --ff-only origin feature/u2net-roi-stage1 &&
+OUT="results/area/bitflip_legacy_method_$(date +%Y%m%d-%H%M%S)" &&
+python3 scripts/run_bitflip_area.py \
+  --legacy-kernel \
+  --library hardware/libcache/nangate45/library_manifest.json \
+  --output "$OUT" &&
+cat "$OUT/summary.md"
+```
+
+如仅准备脚本，可加`--dry-run`，不会查询Yosys版本或启动综合。
+所有结果进入新目录，不覆盖旧实验。真实综合仍由用户手动执行。
+
+用户需要核对的三个数值在`summary.csv`中对应：
+
+| 评估项 | 字段 | 含义 |
+|---|---|---|
+| 配置存储面积 | `config_storage_um2` | 独立上下界寄存器及装载选择逻辑 |
+| 区间比较和翻转逻辑面积 | `attack_comb_um2` | 独立、可变界限的有符号比较和固定位翻转 |
+| 集成后实际新增面积 | `integrated_delta_um2` | 完整算术核心接入后面积减去同一核心Baseline面积 |
+
+配置存储进一步分为`config_storage_sequential_um2`和`config_storage_load_logic_um2`。
+`attack_complete_um2`为完整新增模块单独综合的面积，不用前两项相加替代。
+`kernel_overhead_percent`分母为重测的完整算术核心Baseline，不能称为整帧图像系统开销。
+
+报告同时列出`configured_bits`、`retained_config_bits`和`pruned_config_bits`。
+独立存储模块必须保留所有配置位；集成核心允许综合器根据原图的常量/可达范围消除冗余状态，但必须明确报告减少位数。
+这不代表搜索算法改变了配置位宽，也不能用静默少计寄存器来声称优化。
+
+`historical_baseline_um2`和`historical_baseline_delta_um2`用于核对旧结果：
+Sharpening293.132、Conv482.790、Sobel513.380、DCT16686.446 um²。
+`historical_baseline_reproduced`若为False，应先检查工具版本、映射和数据范围，不能直接作优劣比较。
+即使Baseline复现，两轮攻击节点和监控选择仍不同，旧/新总差异也不能全部归因于载荷机制。
+先取得本轮三部分面积和单元数量，之后再决定是否研究配置压缩、监控范围缩减或节点减少。
+
 ## 评价范围与论文对齐
 
 参考论文第8页只写明DC + FreePDK45，未披露具体库版本、工艺角或时序约束。

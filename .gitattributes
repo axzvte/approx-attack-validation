@@ -1,2 +1,4 @@
 # Keep shell scripts executable by Bash when checked out on Windows or WSL.
 *.sh text eol=lf
+# Preserve audited legacy RTL byte fingerprints on Windows and WSL.
+hardware/legacy_area/*.v text eol=lf
