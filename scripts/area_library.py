@@ -51,25 +51,33 @@ def scalar(text,name,positive=False):
     return value
 
 def inspect_library(liberty,lef):
-    text=strip_comments(liberty);areas={};sequential=[]
+    text=strip_comments(liberty);areas={};sequential=[];unused_pinless=set()
     for name,body in groups(text,'cell'):
         if name in areas:raise ValueError('Duplicate Liberty cell '+name)
         areas[name]=scalar(body,'area',True)
         if re.search(r'\b(ff|latch)\s*\(',body):sequential.append(name)
+        # A physical filler has only supply pins, no signal pins or state.
+        # dont_use alone is insufficient: real logic may also be dont_use.
+        if (re.search(r'\bdont_use\s*:\s*true\s*;',body)
+                and not re.search(r'\b(pin|bus|bundle|ff|latch)\s*\(',body)):
+            unused_pinless.add(name)
     if not areas:raise ValueError('No standard-cell areas in Liberty')
-    geometries={}
+    geometries={};spacers=set()
+    lef=re.sub(r'#[^\n]*','',lef)
     for match in re.finditer(r'(?m)^\s*MACRO\s+([A-Za-z_][A-Za-z0-9_]*)\s*$',lef):
         name=match.group(1)
         end=re.search(r'(?m)^\s*END\s+'+re.escape(name)+r'\s*$',lef[match.end():])
         if not end:raise ValueError('Unterminated LEF macro '+name)
         body=lef[match.end():match.end()+end.start()]
+        if re.search(r'\bCLASS\s+CORE\s+SPACER\s*;',body):spacers.add(name)
         size=re.search(r'\bSIZE\s+([0-9.eE+-]+)\s+BY\s+([0-9.eE+-]+)\s*;',body)
         if not size:raise ValueError('Missing LEF geometry '+name)
         width,height=map(float,size.groups())
         if not all(math.isfinite(v) and v>0 for v in (width,height)) or name in geometries:
             raise ValueError('Invalid/duplicate LEF macro '+name)
         geometries[name]=width*height
-    common=sorted(set(areas)&set(geometries))
+    excluded=unused_pinless & spacers & set(geometries)
+    common=sorted((set(areas)&set(geometries))-excluded)
     if len(common)<3 or not {'NAND2_X1','DFF_X1'}.issubset(common):
         raise ValueError('Need matching NAND2/DFF and at least three LEF macro areas')
     for name in common:
@@ -78,9 +86,11 @@ def inspect_library(liberty,lef):
     voltage=scalar(text,'nom_voltage',True);temperature=scalar(text,'nom_temperature')
     time_unit=re.search(r'\btime_unit\s*:\s*"([^"\n]+)"\s*;',text)
     if not time_unit:raise ValueError('Missing Liberty time_unit')
-    return dict(area_unit='um^2',area_unit_validation='Liberty area agrees with LEF SIZE in microns',
+    return dict(area_unit='um^2',area_unit_validation='Logic-cell Liberty area agrees with LEF SIZE in microns; physical spacers excluded',
         operating_conditions=dict(voltage_v=voltage,temperature_c=temperature,time_unit=time_unit.group(1)),
         cell_areas=areas,sequential_cells=sorted(sequential),lef_verified_cells=common,
+        excluded_physical_cells={name:dict(reason='LEF CORE SPACER; Liberty dont_use with no signal pins or state',
+            liberty_area=areas[name],lef_area_um2=geometries[name]) for name in sorted(excluded)},
         sequential_cell_bits={name:1 for name in sequential})
 
 def make_library_manifest(directory):

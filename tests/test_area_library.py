@@ -51,6 +51,34 @@ class LibraryTests(unittest.TestCase):
                         (LIB.replace('area : 0.798','area : nan'),LEF)]:
             with self.assertRaises(ValueError):m.inspect_library(lib,lef)
 
+    def test_physical_spacer_mismatch_is_recorded_but_not_verified_for_mapping(self):
+        # Pinned upstream FILLCELL_X2: Liberty .266 versus LEF .38 * 1.4.
+        lib=LIB[:-1]+'''cell (FILLCELL_X2) { area : 0.266;
+          dont_use : true; pg_pin (VDD) { pg_type : primary_power; } } }'''
+        lef=LEF+'''MACRO FILLCELL_X2
+ #CLASS CORE ;
+ CLASS CORE SPACER ;
+ SIZE 0.38 BY 1.4 ;
+END FILLCELL_X2
+'''
+        meta=self.module().inspect_library(lib,lef)
+        self.assertNotIn('FILLCELL_X2',meta['lef_verified_cells'])
+        self.assertIn('NAND2_X1',meta['lef_verified_cells'])
+        excluded=meta['excluded_physical_cells']['FILLCELL_X2']
+        self.assertAlmostEqual(excluded['liberty_area'],.266)
+        self.assertAlmostEqual(excluded['lef_area_um2'],.532)
+
+    def test_dont_use_logic_cell_still_requires_matching_geometry(self):
+        lib=LIB.replace('area : 0.798;', 'area : 0.798; dont_use : true;')
+        with self.assertRaisesRegex(ValueError,'NAND2_X1'):
+            self.module().inspect_library(lib,LEF.replace('.57 BY','1.57 BY'))
+
+    def test_spacer_label_cannot_exempt_cell_with_logical_pins(self):
+        lef=LEF.replace('MACRO NAND2_X1','MACRO NAND2_X1\n CLASS CORE SPACER ;')
+        lib=LIB.replace('area : 0.798;', 'area : 0.798; dont_use : true;')
+        with self.assertRaisesRegex(ValueError,'NAND2_X1'):
+            self.module().inspect_library(lib,lef.replace('.57 BY','1.57 BY'))
+
     def test_manifest_recomputes_hashes_geometry_and_derived_area(self):
         m=self.module()
         with tempfile.TemporaryDirectory() as tmp:
