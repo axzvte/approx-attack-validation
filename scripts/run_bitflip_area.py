@@ -70,6 +70,10 @@ def _quote(path):
 
 
 def _script(top, rtl_files, liberty, result):
+    # tee in Yosys 0.33 passes its output token directly to fopen without
+    # unquoting it. The runner's cwd is the output directory; this generated
+    # relative token has no whitespace even when the output directory does.
+    report_path = "results/" + top + "/stat.json"
     return "\n".join([
         "# Fixed area recipe; no clock target, physical implementation or power estimate.",
         "read_liberty -lib " + _quote(liberty),
@@ -82,7 +86,7 @@ def _script(top, rtl_files, liberty, result):
         "clean",
         "check -assert",
         "select -assert-none t:$*",
-        "tee -o " + _quote(result / "stat.json") + " stat -json -liberty " + _quote(liberty) + " -top " + top,
+        "tee -o " + report_path + " stat -json -liberty " + _quote(liberty) + " -top " + top,
         "write_verilog -noattr " + _quote(result / "mapped.v"),
         "write_json " + _quote(result / "mapped.json"), ""])
 

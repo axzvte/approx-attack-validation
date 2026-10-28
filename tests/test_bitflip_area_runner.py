@@ -3,6 +3,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -85,6 +86,25 @@ class RunnerTests(unittest.TestCase):
             for command in ("synth -flatten -noabc", "dffunmap", "dfflibmap -liberty", "abc -liberty", "check -assert", "tee -o", "stat -json"):
                 self.assertIn(command, text)
         self.assertFalse((self.root / "result" / "summary.csv").exists())
+
+    @unittest.skipUnless(shutil.which('yosys'), 'Yosys required for report redirection check only')
+    def test_generated_report_redirection_works_in_output_path_with_spaces(self):
+        output=self.root/'output with spaces'
+        self.invoke(output=output,dry_run=True)
+        script=output/'scripts/sharpen_attack_comb.ys'
+        tee=next(line for line in script.read_text().splitlines() if line.startswith('tee -o '))
+        prefix,separator,_=tee.partition(' stat -json ')
+        self.assertTrue(separator)
+        # Exercise the real tee file handling without loading RTL, a library,
+        # or any synthesis pass. Reusing the generated prefix catches quoting.
+        probe=output/'report_path_probe.ys'
+        probe.write_text(prefix+' help stat\n')
+        result=subprocess.run(['yosys','-Q','-T','-s',str(probe)],cwd=output,
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,check=False)
+        self.assertEqual(result.returncode,0,result.stdout[-2000:])
+        report=output/'results/sharpen_attack_comb/stat.json'
+        self.assertTrue(report.is_file())
+        self.assertIn('stat',report.read_text())
 
     def test_existing_output_is_untouched(self):
         output = self.root / "existing"
