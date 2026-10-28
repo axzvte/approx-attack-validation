@@ -158,6 +158,10 @@ target_link_libraries(sharpen_bitflip_diagnostics PRIVATE approx_framework)
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME bitflip_area_unit COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${PROJECT_SOURCE_DIR}/tests -p "test*area*.py")
+        add_test(NAME fetch_nangate45_unit COMMAND ${Python3_EXECUTABLE}
+            ${PROJECT_SOURCE_DIR}/tests/test_fetch_nangate45.py)
         execute_process(COMMAND ${Python3_EXECUTABLE} -c "import PIL" RESULT_VARIABLE ROI_PIL_RESULT OUTPUT_QUIET ERROR_QUIET)
         if(ROI_PIL_RESULT EQUAL 0)
             add_test(NAME image_roi_python COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_image_roi.py)

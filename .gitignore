@@ -8,6 +8,7 @@ data/
 
 # Generated results
 results/
+/hardware/libcache/
 
 # VS Code
 .vscode/

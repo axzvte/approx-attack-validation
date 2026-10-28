@@ -1,0 +1,149 @@
+{
+  "schema": "fixed_bitflip_area_config_v1",
+  "scope": "selected_unit_bank_not_full_application",
+  "source_run": "completed offline per-image U2-Net ROI fixed-H runs, 2026-10-28",
+  "source_fingerprints": {
+    "src/applications/sharpen.cpp": "038a75d86acb1cf60059c0c24c7340da4c87ddd0389dbc799038c1ff29f20f82",
+    "src/applications/conv.cpp": "eb874d546228e27d88d5dac4431e89cb37e8fe3bced701f038243f06e1266667",
+    "src/applications/sobel.cpp": "59e416e8b61e213366c4304a69efb65418ccf6cd51269578d03bcab0e20c4103",
+    "src/applications/dct8_fixed_graph.cpp": "e15011e961ad490e805eb91a91f118d3d3190d64d426d2bc6052f20224aa48f5",
+    "src/approximate/evoapprox_adapter.cpp": "e162f5999827d0aa14bf6f74626d644338bba9d3e19390d7b0f3f7db57168116",
+    "third_party/evoapproxlib/add12se_5RP.c": "a6394aab970710abeec2467d65b21d74deff0e2582d7fc7150a6e0cfb9fd3eea"
+  },
+  "applications": [
+    {
+      "application": "sharpen",
+      "hardware_id": "ten_h9",
+      "nodes": [
+        {
+          "node_id": 0,
+          "monitor": "input1",
+          "bit": 6
+        },
+        {
+          "node_id": 1,
+          "monitor": "input1",
+          "bit": 5
+        },
+        {
+          "node_id": 2,
+          "monitor": "input1",
+          "bit": 5
+        },
+        {
+          "node_id": 3,
+          "monitor": "input1",
+          "bit": 6
+        }
+      ]
+    },
+    {
+      "application": "conv",
+      "hardware_id": "ten_h7",
+      "nodes": [
+        {
+          "node_id": 0,
+          "monitor": "input2",
+          "bit": 7
+        },
+        {
+          "node_id": 1,
+          "monitor": "input1",
+          "bit": 6
+        },
+        {
+          "node_id": 3,
+          "monitor": "baseline_output",
+          "bit": 5
+        },
+        {
+          "node_id": 5,
+          "monitor": "input1",
+          "bit": 9
+        },
+        {
+          "node_id": 6,
+          "monitor": "baseline_output",
+          "bit": 8
+        },
+        {
+          "node_id": 7,
+          "monitor": "input2",
+          "bit": 4
+        }
+      ]
+    },
+    {
+      "application": "sobel",
+      "hardware_id": "ten_h7",
+      "nodes": [
+        {
+          "node_id": 0,
+          "monitor": "baseline_output",
+          "bit": 8
+        },
+        {
+          "node_id": 2,
+          "monitor": "input2",
+          "bit": 7
+        },
+        {
+          "node_id": 3,
+          "monitor": "input2",
+          "bit": 4
+        },
+        {
+          "node_id": 5,
+          "monitor": "input1",
+          "bit": 6
+        },
+        {
+          "node_id": 7,
+          "monitor": "input1",
+          "bit": 9
+        },
+        {
+          "node_id": 8,
+          "monitor": "baseline_output",
+          "bit": 5
+        }
+      ]
+    },
+    {
+      "application": "dct",
+      "hardware_id": "ten_h7",
+      "nodes": [
+        {
+          "node_id": 5,
+          "monitor": "input2",
+          "bit": 7
+        },
+        {
+          "node_id": 15,
+          "monitor": "baseline_output",
+          "bit": 8
+        },
+        {
+          "node_id": 16,
+          "monitor": "input1",
+          "bit": 6
+        },
+        {
+          "node_id": 22,
+          "monitor": "input2",
+          "bit": 4
+        },
+        {
+          "node_id": 28,
+          "monitor": "baseline_output",
+          "bit": 5
+        },
+        {
+          "node_id": 29,
+          "monitor": "input1",
+          "bit": 9
+        }
+      ]
+    }
+  ]
+}
