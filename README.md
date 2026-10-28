@@ -1,5 +1,7 @@
 # Approximate Attack Validation
 
+对比图显示全图与 ROI 的实际 PSNR，已有18图结果可直接补标注，无需重跑实验，见 [图片指标标注说明](docs/COMPARISON_PSNR_LABELS.md)。
+
 逐图 U²-Net ROI 第一阶段已接通十图固定硬件训练与单图区间搜索，详见 [VS Code/WSL 准备、校验和运行命令](docs/U2NET_ROI_STAGE1.md)。新十图流程默认逐图 ROI，U²-Net 仅离线运行。
 
 Conv、Sobel、DCT 三应用后台批量实验与完整效果图导出见 [三应用运行说明](docs/U2NET_OTHER_APPS.md)。默认 batch 包含全部四应用，可明确指定其余三个应用复用已有 ROI。

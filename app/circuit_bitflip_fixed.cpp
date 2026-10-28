@@ -5,6 +5,7 @@
 #include "applications/sharpen.hpp"
 #include "applications/dct.hpp"
 #include "io/image_io.hpp"
+#include "io/bitflip_comparison.hpp"
 #include "region/region_mask.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -16,6 +17,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -235,21 +237,19 @@ std::vector<Hits> triggers(const core::Application& app, const cv::Mat& input, c
     }
     return counts;
 }
-cv::Mat panel(const std::array<cv::Mat, 3>& images) {
-    cv::Mat output;
-    cv::hconcat(std::vector<cv::Mat>{images[0], images[1], images[2]}, output);
-    cv::copyMakeBorder(output, output, 24, 0, 0, 0, cv::BORDER_CONSTANT, cv::Scalar(0));
-    const std::array<std::string, 3> labels{"exact", "baseline", "fixed H + intervals"};
-    for (int i = 0; i < 3; ++i)
-        cv::putText(output, labels[i], cv::Point(i * images[0].cols + 3, 17),
-                    cv::FONT_HERSHEY_SIMPLEX, .43, cv::Scalar(255), 1, cv::LINE_AA);
-    return output;
-}
 void save(const fs::path& path, const cv::Mat& image) {
     if (!cv::imwrite(path.string(), image)) throw std::runtime_error("Image write failed: " + path.string());
 }
 void images(const fs::path& output, const cv::Mat& exact, const cv::Mat& baseline,
-            const cv::Mat& selected, const cv::Mat& mask, Csv& manifest, const std::string& mode) {
+            const cv::Mat& selected, const cv::Mat& mask, Csv& manifest, const std::string& mode,
+            const Quality& baselineQuality, const Quality& selectedQuality, const std::string& status) {
+    const double inf=std::numeric_limits<double>::infinity();
+    const std::array<image_io::ComparisonPsnr,3> quality{{{inf,inf},
+        {baselineQuality.globalPsnr(),baselineQuality.roiPsnr()},
+        {selectedQuality.globalPsnr(),selectedQuality.roiPsnr()}}};
+    const auto panel = [&](const std::array<cv::Mat,3>& frames) {
+        return image_io::bitflipComparisonPanel(frames,quality,status);
+    };
     const auto write = [&](const std::string& kind, const cv::Mat& image) {
         const std::string file = "selected_" + kind + ".png";
         save(output / file, image);
@@ -258,8 +258,11 @@ void images(const fs::path& output, const cv::Mat& exact, const cv::Mat& baselin
     cv::Mat binary;
     cv::compare(mask, cv::Scalar(128), binary, cv::CMP_GE);
     const auto box = cv::boundingRect(binary);
-    cv::Mat roi = panel({exact(box), baseline(box), selected(box)});
-    cv::resize(roi, roi, cv::Size(), 2, 2, cv::INTER_NEAREST);
+    std::array<cv::Mat,3> roiFrames;
+    const std::array<cv::Mat,3> original{exact,baseline,selected};
+    for (int i=0;i<3;++i)
+        cv::resize(original[i](box),roiFrames[i],cv::Size(),2,2,cv::INTER_NEAREST);
+    cv::Mat roi = panel(roiFrames);
     if (mode == "comparisons") {
         write("comparison", panel({exact, baseline, selected}));
         write("roi_comparison", roi);
@@ -478,7 +481,8 @@ int main(int argc, char** argv) {
             row["delta_roi_mse"] = number(selected->metrics.roiMse - baselineQuality.roiMse);
             row["delta_non_roi_mse"] = number(selected->metrics.nonRoiMse - baselineQuality.nonRoiMse);
             spatial(row, exact, baseline, selected->image, mask); summary.row(row);
-            if (exported) images(output, exact, baseline, selected->image, mask, manifest, mode);
+            if (exported) images(output, exact, baseline, selected->image, mask, manifest, mode,
+                                 baselineQuality, selected->metrics, selectedStatus);
             std::sort(selected->configuration.begin(), selected->configuration.end(), [](const auto& a, const auto& b) { return a.nodeId < b.nodeId; });
             for (const auto& node : selected->configuration) {
                 const auto& count = counts.at(node.nodeId);
