@@ -160,12 +160,16 @@ if(UNIX)
             add_test(NAME image_roi_python COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_image_roi.py)
             add_test(NAME u2net_roi_pipeline COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_pipeline.py)
             add_test(NAME u2net_roi_orientation COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_orientation.py $<TARGET_FILE:circuit_bitflip_fixed>)
+            add_test(NAME u2net_other_apps COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_other_apps.py)
+            add_test(NAME u2net_other_apps_launcher COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_other_apps_launcher.py)
         else()
             message(STATUS "Pillow unavailable: install requirements-roi.txt to enable Python ROI validation tests")
         endif()
         add_test(NAME u2net_roi_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_roi_cli.py
                 $<TARGET_FILE:circuit_bitflip_ten_train> $<TARGET_FILE:circuit_bitflip_fixed> $<TARGET_FILE:sharpen_bitflip_fixed>)
+        add_test(NAME u2net_other_apps_cli COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_u2net_other_apps_cli.py
+            $<TARGET_FILE:circuit_bitflip_ten_train> $<TARGET_FILE:circuit_bitflip_fixed>)
         add_test(NAME circuit_bitflip_fixed_cli
             COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_circuit_bitflip_fixed_cli.py
             $<TARGET_FILE:circuit_bitflip_fixed>)

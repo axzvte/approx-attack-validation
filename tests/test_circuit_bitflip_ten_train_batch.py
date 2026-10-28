@@ -23,7 +23,7 @@ import run_circuit_bitflip_ten_train_batch as batch
 class TenTrainBatchTests(unittest.TestCase):
     def setup_run(self,root):
         data,fixed,train=ten_fixture.TenTrainPipelineTests().fixture(root)
-        argv=[str(data),str(root/'all'),'--roi-mode','legacy-fixed','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
+        argv=[str(data),str(root/'all'),'--applications','sharpen,conv,dct','--roi-mode','legacy-fixed','--skip-build','--train-exe',str(train),'--fixed-exe',str(fixed)]
         return data,fixed,train,argv
 
     def test_summary_denominator_and_root_paths_preserve_missing_results(self):

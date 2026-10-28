@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""User-run shared ten-image workflow for Sharpen, Conv, DCT (optionally Sobel).
+"""Shared per-image ROI workflow for Sharpen, Conv, Sobel and DCT.
 
 Build once; each application selects its own fixed H on images1–10 under the
 same controls, then calibrates intervals independently on images31–40.
@@ -15,7 +15,7 @@ import run_circuit_bitflip_ten_train as single
 from run_sharpen_bitflip_batch import atomic_csv,atomic_json,process,read_csv
 
 APPLICATIONS=('sharpen','conv','sobel','dct')
-DEFAULT_APPLICATIONS=('sharpen','conv','dct')
+DEFAULT_APPLICATIONS=APPLICATIONS
 MERGED={
     'best_per_image.csv':'best_per_image.csv',
     'training_ranking_all.csv':'training_ranking.csv',
@@ -30,6 +30,7 @@ MERGED={
     'images_all.csv':'images_all.csv',
     'interval_attempts_all.csv':'interval_attempts.csv',
     'run_status.csv':'run_status.csv',
+    'roi_inputs_all.csv':'train/roi_inputs.csv',
 }
 CONTROLS=('train','test','max_train_evaluations','max_candidates','initial_candidates',
           'proposals_per_round','max_rounds','patience','workers','scheduling','initial_batch',
@@ -164,6 +165,8 @@ def main(argv=None):
         if args.skip_build and (not train.is_file() or not fixed.is_file()):raise ValueError('Missing shared ten-image/fixed-H executable')
         out.mkdir(parents=True,exist_ok=False);owned=True
         meta=dict(completed=False,all_succeeded=False,workflow='ten_train_batch',applications=applications,
+                  roi_mode=args.roi_mode,roi_dir=str(roi_dir) if roi_dir else None,
+                  roi_source='offline_u2net' if roi_dir else 'legacy_fixed',u2net_runtime_hardware=False,
                   splits=dict(train=train_images,test=test_images),data=str(data),
                   options={key:value for key,value in vars(args).items() if isinstance(value,(str,int,float,bool))},
                   hardware_fixed_fields=['node_id','monitor','bit'],adaptive_fields=['lower','upper'],

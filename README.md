@@ -2,6 +2,8 @@
 
 逐图 U²-Net ROI 第一阶段已接通十图固定硬件训练与单图区间搜索，详见 [VS Code/WSL 准备、校验和运行命令](docs/U2NET_ROI_STAGE1.md)。新十图流程默认逐图 ROI，U²-Net 仅离线运行。
 
+Conv、Sobel、DCT 三应用后台批量实验与完整效果图导出见 [三应用运行说明](docs/U2NET_OTHER_APPS.md)。默认 batch 包含全部四应用，可明确指定其余三个应用复用已有 ROI。
+
 近似计算攻击验证工程，包含 Conv、Sharpening、DCT、Sobel、区间搜索和固定硬件配置验证，以及 Sharpening 位反转分析与多节点联合搜索。
 
 ## 目录
