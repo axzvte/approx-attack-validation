@@ -1,17 +1,19 @@
 # 固定区域统计与电路验证
 
-在 WSL 中进入 `approx-attack-validation` 的 `feature/fixed-roi-pipeline` 分支。需要 Python 3.10+、CMake、C++17 编译器和 OpenCV 开发库。区域统计复用已有的 U²-Net 二值掩膜。
+在 WSL 中进入整理后的 `feature/fixed-roi-clean` 分支。需要 Python 3.10+、CMake、C++17 编译器和 OpenCV 开发库。区域统计复用已有的 U²-Net 二值掩膜。
 
 ```bash
-git fetch origin
-git switch feature/fixed-roi-pipeline
-git pull --ff-only origin feature/fixed-roi-pipeline
+cd ~/projects
+git clone --depth 1 --single-branch --branch feature/fixed-roi-clean \
+  https://github.com/axzvte/approx-attack-validation.git approx_attack_validation_clean
+cd approx_attack_validation_clean
 
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r roi/requirements-color.txt
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target fixed_roi_verify -j 4
+cmake --build build -j 4
+ctest --test-dir build --output-on-failure
 ```
 
 数据根目录沿用 `datasets/imgs/pascal/<id>.jpg` 和 `pred_masks/<id>_mask.png`。已经生成过 RC 并集统计时，可以直接把已有的完整结果目录传给第二步。该目录需要包含 `protocol.json` 和 `rectangles.json`。
@@ -46,3 +48,5 @@ python scripts/fixed_roi_pipeline.py verify --config "$RUN/frozen.json" \
 `verify/images.csv` 逐图记录原近似基准、仅补偿、补偿加翻转三种输出相对于精确参考的全图、矩形内和矩形外 PSNR。`summary.json` 汇总全图达标、区域相对原基准下降和同时达标的张数。命令的退出码反映运行错误或全图不达标，区域是否下降以 `joint_pass` 和逐图报告为准。首批示例在 `examples/`。配置文件与源代码版本绑定，验证不重新选节点。验证图与区域统计图重叠时，结果属于同批数据验证。
 
 本阶段验证的是软件中的坐标判定和算术行为。DC 面积综合和硬件计数器的时序实现留到后续。扩展其他算法时需要补充其代码运算关系，当前流程没有从任意 C/C++ 自动提取误差模型。
+
+如需运行区域统计回归测试，执行 `PYTHONPATH=roi python -m unittest discover -s roi/tests -v`。RC 与 FT 的计算约定见 [颜色显著性说明](../roi/COLOR_SALIENCY.md)，PC 对照见 [PC 统计说明](../roi/UNION_FREQUENCY_RECTANGLES.md)。

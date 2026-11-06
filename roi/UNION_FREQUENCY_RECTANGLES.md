@@ -4,39 +4,13 @@
 结构候选，然后逐图取并集。所有掩膜直接映射到 320×320，统计 850 张图的出现频率。
 输出每个比例的高频区域掩膜、外接矩形掩膜、预览和坐标，最终比例由用户查看后决定。
 
-## 拉取与运行（WSL）
+## 运行对照统计
 
-在现有 u2net_roi 项目目录执行。先确认 `git status`，有本地修改时先保存，避免强制切换。
-
-```bash
-git fetch origin
-git switch feature/spatial-feature-statistics
-git pull --ff-only origin feature/spatial-feature-statistics
-source .venv/bin/activate
-python -m pip install -r requirements-pc.txt
-python -m unittest discover -s tests -p 'test_union_frequency_rectangles.py' -v
-python union_frequency_rectangles.py \
-  --data ~/datasets/PASCAL-S \
-  --count 850 --grid 320 \
-  --output output/union_frequency_850_01
-```
-
-默认输入为 `--data` 下 `datasets/imgs/pascal/<id>.jpg` 和 `pred_masks/<id>_mask.png`，
-编号 1–850。可用 `--start`、`--count` 先进行小规模路径和图片检查，例如 count=20。
-`--image-dir`、`--mask-dir` 接受绝对路径或相对 --data 的路径。
-输出目录必须为新目录，失败后保留 protocol 供排查，下次换输出目录名。
-
-有已有 PC 缓存时，可在上述运行命令中加上：
+从工程根目录运行，依赖安装见[整合流程](../docs/FIXED_ROI_PIPELINE.md)。
 
 ```bash
---pc-dir output/pc_train_600/pc_maps
+python roi/union_frequency_rectangles.py --data "$HOME/datasets/PASCAL-S" --feature pc --count 850 --grid 320 --output results/union_pc_01
 ```
-
-缓存为原尺寸 16 位单通道 `<id>_pc16.png`，值/65535 为 PC。找到的缓存只读复用，
-缺失 ID 在当前新输出中计算，路径、SHA-256 和来源逐图记录。缓存参数版本需由来源
-实验核对，文件本身无法证明历史提取参数；首次统一参数实验可以省略 --pc-dir。
-不接受 8 位预览图当缓存。所有实际使用的 PC 响应另存为无损压缩的 float NPZ。
-复用 16 位缓存时，保存的响应包含该缓存既有量化精度。
 
 ## 两类阈值
 
@@ -91,24 +65,3 @@ Otsu 只依据 PC 值的分布，不读取 GT 或眼动。PC 测量结构，联�
 `pooled_union_coverage` 将所有采样前景像素合并计算。两者均使用 320×320 采样掩膜，
 空目标和空矩形的覆盖指标留空。结果属于 850 图内描述统计，用户事后选比例的过程需在
 论文中披露。达到某个出现频率不等于矩形完整覆盖相同比例的图片。
-
-## 打包回传
-
-PC 原始响应可能占较大空间。先打包统计、掩膜、预览及来源记录供判断：
-
-```bash
-tar --exclude='union_frequency_850_01/pc_responses' \
-  -czf union_frequency_850_01_review.tar.gz \
-  -C output union_frequency_850_01
-```
-
-原始 PC 响应保留在本地。先看 `union_overview.png`，然后查看感兴趣比例的两种掩膜、
-`rectangles.csv` 和 `examples/`。确认 `protocol.json` 的 status 为 completed。
-
-## 开发验证记录
-
-2026-11-05 在对应发布内容的副本中运行完整测试，共 50 项通过（含本次 8 项）。
-覆盖真实 PC 计算、16 位缓存、常量 PC、并集计数、72% 的整数边界、空矩形、输出保护。
-另外对 6 张合成图跑完全部 19 档导出及命令行流程，并检查总览和叠加预览。
-实际 850 张图的实验由用户在终端执行。
-独立只读审查未发现实质性问题；根据审查建议增加了覆盖率具体值和输入缺失/尺寸不符的回归测试。

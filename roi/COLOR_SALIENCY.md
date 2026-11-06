@@ -4,32 +4,13 @@
 原 PC 命令默认仍为 `--feature pc`。两次运行分别比较 U²-Net∪RC、U²-Net∪FT；
 没有把 RC、FT 同时加入同一个并集。
 
-## WSL 拉取和运行
+## 运行对照统计
+
+从工程根目录运行，依赖安装见[整合流程](../docs/FIXED_ROI_PIPELINE.md)。
 
 ```bash
-cd ~/projects/u2net_roi
-git status
-git fetch origin
-git switch feature/spatial-feature-statistics
-git pull --ff-only origin feature/spatial-feature-statistics
-source .venv/bin/activate
-python -m pip install -r requirements-color.txt
-python -m unittest discover -s tests -p 'test_color_saliency.py' -v
-
-for feature in rc ft; do
-  python union_frequency_rectangles.py \
-    --feature "$feature" \
-    --data ~/datasets/PASCAL-S \
-    --count 850 --grid 320 \
-    --output "output/union_${feature}_850_01" || break
-done
+python roi/union_frequency_rectangles.py --data "$HOME/datasets/PASCAL-S" --feature ft --count 850 --grid 320 --output results/union_ft_01
 ```
-
-有本地修改导致切换/拉取失败时先保存修改，避免强制覆盖。
-首次可先将 count 改成 20，使用新的输出目录做图片检查。
-全量两组结果分别进入 `output/union_rc_850_01` 和 `output/union_ft_850_01`。
-RC 逐图分割和比较区域直方图，计算量可能明显高于 FT，日志每25张显示进度。
-运行期间保持电脑开机。脚本不覆盖已有输出目录，失败目录保留 protocol 供排查。
 
 ## 计算定义及来源
 
@@ -100,24 +81,3 @@ mean-shift 分割流程有所区别。不能直接声称复现原论文的分割
 `mean_union_coverage_nonempty_images` 数字不宜直接解释为同一目标下的方法优劣。
 可以先看各自相对 U²-Net 矩形的增益，以及新增内容和新增面积。
 实际是否能形成更高频且合适的固定矩形，依靠本次实验结果判断。
-
-## 打包回传
-
-连续响应保留在本地。打包其他记录供分析：
-
-```bash
-tar --exclude='union_rc_850_01/rc_responses' \
-    --exclude='union_ft_850_01/ft_responses' \
-    -czf union_rc_ft_850_01_review.tar.gz \
-    -C output union_rc_850_01 union_ft_850_01
-```
-
-先确认两个目录的 `protocol.json` 都为 completed，再回传压缩包。
-
-## 开发验证
-
-2026-11-05 对应发布内容的完整测试55项通过，包含5项新增 RC/FT 测试及原有PC回归。
-FT 与直接实现的二项式Lab定义核对，RC 区域直方图对比与显式颜色对求和核对。
-两种方法分别在6张合成图上执行完整命令行和全部19档输出，已检查叠加图和总览。
-独立审查核对了原论文公式，并独立运行5项新增测试，未发现阻塞问题。
-实际850张图的 RC/FT 实验由用户运行；尚未与作者原始程序比较逐像素结果。
