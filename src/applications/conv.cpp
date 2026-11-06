@@ -467,7 +467,8 @@ cv::Mat ConvApplication::runInternal(
     const cv::Mat& inputImage,
     const std::vector<core::AttackConfig>* configs,
     const cv::Mat* roiMask,
-    std::vector<core::AddSample>* samples
+    std::vector<core::AddSample>* samples,
+    bool gateByRegion
 ) const
 {
     validateInput(
@@ -631,6 +632,10 @@ cv::Mat ConvApplication::runInternal(
             };
 
 
+            const auto& pixelConfigs =
+                gateByRegion && !region_mask::isImportantPixel(*roiMask, row, col)
+                ? emptyConfigs : activeConfigs;
+
             Trace
                 trace{};
 
@@ -663,7 +668,7 @@ cv::Mat ConvApplication::runInternal(
                             nodeId,
                             input1,
                             input2,
-                            activeConfigs,
+                            pixelConfigs,
                             samples == nullptr
                             ?
                             nullptr
@@ -822,6 +827,16 @@ cv::Mat ConvApplication::runApprox(
             nullptr,
             nullptr
         );
+}
+
+
+cv::Mat ConvApplication::runFixedRegion(
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<core::AttackConfig>& configs
+) const
+{
+    return runInternal(inputImage, &configs, &roiMask, nullptr, true);
 }
 
 

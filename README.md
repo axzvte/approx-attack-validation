@@ -1,5 +1,7 @@
 # Approximate Attack Validation
 
+固定区域实验从 [整合流程](docs/FIXED_ROI_PIPELINE.md) 开始。该流程依次生成 U²-Net 与 RC 并集矩形、根据算术误差冻结电路配置，再用图片验证。下方是历史实验入口。
+
 Yosys / FreePDK45兼容Nangate45面积评估的RTL、范围说明和用户运行命令见 [面积综合说明](docs/BITFLIP_AREA_YOSYS.md)。代码不自动启动综合。
 
 对比图显示全图与 ROI 的实际 PSNR，已有18图结果可直接补标注，无需重跑实验，见 [图片指标标注说明](docs/COMPARISON_PSNR_LABELS.md)。

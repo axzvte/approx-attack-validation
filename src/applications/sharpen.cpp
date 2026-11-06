@@ -391,7 +391,8 @@ cv::Mat SharpenApplication::runInternal(
     const cv::Mat& inputImage,
     const std::vector<core::AttackConfig>* configs,
     const cv::Mat* roiMask,
-    std::vector<core::AddSample>* samples
+    std::vector<core::AddSample>* samples,
+    bool gateByRegion
 ) const
 {
     validateInput(
@@ -472,6 +473,10 @@ cv::Mat SharpenApplication::runInternal(
                 );
 
 
+            const auto& pixelConfigs =
+                gateByRegion && !region_mask::isImportantPixel(*roiMask, row, col)
+                ? emptyConfigs : activeConfigs;
+
             Trace
                 trace{};
 
@@ -542,7 +547,7 @@ cv::Mat SharpenApplication::runInternal(
                         0,
                         5 * center,
                         -top,
-                        activeConfigs,
+                        pixelConfigs,
                         samples == nullptr
                         ?
                         nullptr
@@ -556,7 +561,7 @@ cv::Mat SharpenApplication::runInternal(
                         1,
                         a1,
                         -bottom,
-                        activeConfigs,
+                        pixelConfigs,
                         samples == nullptr
                         ?
                         nullptr
@@ -570,7 +575,7 @@ cv::Mat SharpenApplication::runInternal(
                         2,
                         a2,
                         -left,
-                        activeConfigs,
+                        pixelConfigs,
                         samples == nullptr
                         ?
                         nullptr
@@ -584,7 +589,7 @@ cv::Mat SharpenApplication::runInternal(
                         3,
                         a3,
                         -right,
-                        activeConfigs,
+                        pixelConfigs,
                         samples == nullptr
                         ?
                         nullptr
@@ -673,6 +678,16 @@ cv::Mat SharpenApplication::runApprox(
             nullptr,
             nullptr
         );
+}
+
+
+cv::Mat SharpenApplication::runFixedRegion(
+    const cv::Mat& inputImage,
+    const cv::Mat& roiMask,
+    const std::vector<core::AttackConfig>& configs
+) const
+{
+    return runInternal(inputImage, &configs, &roiMask, nullptr, true);
 }
 
 

@@ -1,0 +1,5 @@
+numpy
+Pillow
+gdown
+h5py
+

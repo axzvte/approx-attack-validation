@@ -1,0 +1,2 @@
+-r requirements-pc.txt
+scikit-image>=0.24,<0.26

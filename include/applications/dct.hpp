@@ -41,6 +41,10 @@ public:
         const std::vector<core::AttackConfig>& configs
     ) const override;
 
+    cv::Mat runFixedDcRegion(
+        const cv::Mat& inputImage, const cv::Rect& region, int bit
+    ) const;
+
 
     void collectExactAddSamples(
         const cv::Mat& inputImage,

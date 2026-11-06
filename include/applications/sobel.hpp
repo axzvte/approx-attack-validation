@@ -86,6 +86,12 @@ public:
     ) const override;
 
 
+    cv::Mat runFixedRegion(
+        const cv::Mat& inputImage,
+        const cv::Mat& roiMask,
+        const std::vector<core::AttackConfig>& configs
+    ) const;
+
     void collectExactAddSamples(
         const cv::Mat& inputImage,
         const cv::Mat& roiMask,
@@ -176,7 +182,8 @@ private:
         const cv::Mat& inputImage,
         const std::vector<core::AttackConfig>* configs,
         const cv::Mat* roiMask,
-        std::vector<core::AddSample>* samples
+        std::vector<core::AddSample>* samples,
+        bool gateByRegion = false
     ) const;
 };
 

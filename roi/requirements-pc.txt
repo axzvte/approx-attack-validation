@@ -1,0 +1,4 @@
+-r requirements.txt
+scipy
+phasecongruency==1.0.5
+

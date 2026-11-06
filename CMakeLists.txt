@@ -1245,18 +1245,5 @@ target_link_libraries(
 )
 
 
-# =========================================================
-# PPT-ready Stage3 image export
-# =========================================================
-
-add_executable(
-    ppt_stage3_export
-
-    app/ppt_stage3_export.cpp
-)
-
-target_link_libraries(
-    ppt_stage3_export
-    PRIVATE
-        approx_framework
-)
+add_executable(fixed_roi_verify app/fixed_roi_verify.cpp)
+target_link_libraries(fixed_roi_verify PRIVATE approx_framework)

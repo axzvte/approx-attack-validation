@@ -1,5 +1,6 @@
 #include "applications/dct.hpp"
 #include "applications/dct8_fixed_graph.hpp"
+#include "core/output_bitflip.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -430,7 +431,9 @@ cv::Mat runForwardBlock(
 cv::Mat runDctImage(
     const cv::Mat& inputImage,
     const Dct8FixedGraph::BaselineConfig& baselineConfig,
-    const std::vector<core::AttackConfig>* configs
+    const std::vector<core::AttackConfig>* configs,
+    const cv::Rect* dcRegion = nullptr,
+    int dcBit = 0
 )
 {
     validateInput(
@@ -480,6 +483,19 @@ cv::Mat runDctImage(
                 reconstructedBlock
             );
 
+            int dcPixelDelta = 0;
+            const cv::Rect block(blockCol, blockRow, 8, 8);
+            const bool flipDc = dcRegion && (block & *dcRegion) == block;
+            if (flipDc)
+            {
+                // The last add for k=0 (node 10) in column 0 produces
+                // this coefficient. Its inverse basis value is 1/8
+                // everywhere in the block. Evaluate this linear term
+                // separately so its integer effect survives rounding.
+                const int dc = static_cast<int>(dctBlock.at<double>(0, 0));
+                dcPixelDelta = (core::flipNonSignOutputBit(dc, dcBit) - dc) / 8;
+            }
+
 
             for (int row = 0;
                  row < 8;
@@ -489,16 +505,9 @@ cv::Mat runDctImage(
                      col < 8;
                      ++col)
                 {
-                    reconstructed.at<double>(
-                        blockRow + row,
-                        blockCol + col
-                    ) =
-                        reconstructedBlock.at<double>(
-                            row,
-                            col
-                        )
-                        +
-                        128.0;
+                    const double pixel = reconstructedBlock.at<double>(row, col) + 128.0;
+                    reconstructed.at<double>(blockRow + row, blockCol + col) =
+                        flipDc ? cvRound(pixel) + dcPixelDelta : pixel;
                 }
             }
         }
@@ -617,6 +626,19 @@ cv::Mat DctApplication::runApprox(
             baselineConfig_,
             &configs
         );
+}
+
+
+cv::Mat DctApplication::runFixedDcRegion(
+    const cv::Mat& inputImage, const cv::Rect& region, int bit
+) const
+{
+    if (bit < 4 || bit > 11)
+        throw std::runtime_error("DCT DC flip requires an even integer inverse offset.");
+    for (const auto& node : baselineConfig_)
+        if (!node.exact)
+            throw std::runtime_error("DCT DC error bound requires exact arithmetic.");
+    return runDctImage(inputImage, baselineConfig_, nullptr, &region, bit);
 }
 
 
