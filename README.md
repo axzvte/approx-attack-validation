@@ -11,6 +11,8 @@
 
 第二部分支持在 freeze 时使用 `--apps sharpen sobel` 选择内置算法，或使用 `--circuit circuit_processing/configs/circuits/sharpen_mixed.json` 输入逐节点配置。可重复指定 `--circuit` 比较多套配置。新增逐像素算法可通过运算图文件接入，完整说明见 `circuit_processing/README.md`。
 
+四个应用一起完整验证时，激活现有 Python 环境后执行 `bash circuit_processing/scripts/run_all_applications.sh`。该入口采用当前混合锐化基准及卷积、Sobel、DCT 的现有默认基准，每个应用验证 850 张图片，统一输出编号三图对比及含四个工作表的 Excel。
+
 ## 现在从这里开始
 
 在 WSL 中执行。沿用现有 Python 环境和已有 RC 结果。
