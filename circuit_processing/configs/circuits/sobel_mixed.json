@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "name": "sobel_mixed",
+  "application": "sobel",
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "5QC"
+    },
+    {
+      "node": 1,
+      "unit": "exact"
+    },
+    {
+      "node": 2,
+      "unit": "5L8"
+    },
+    {
+      "node": 3,
+      "unit": "exact"
+    },
+    {
+      "node": 4,
+      "unit": "5RP"
+    },
+    {
+      "node": 5,
+      "unit": "exact"
+    },
+    {
+      "node": 6,
+      "unit": "exact"
+    },
+    {
+      "node": 7,
+      "unit": "5TE"
+    },
+    {
+      "node": 8,
+      "unit": "exact"
+    },
+    {
+      "node": 9,
+      "unit": "5QC"
+    },
+    {
+      "node": 10,
+      "unit": "exact"
+    }
+  ]
+}

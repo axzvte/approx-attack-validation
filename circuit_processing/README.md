@@ -10,7 +10,7 @@
 python circuit_processing/scripts/fixed_roi_pipeline.py list-circuits
 ```
 
-`configs/circuits/` 中有四种原基准的完整配置、混合单元示例 `sharpen_mixed.json` 和新运算图示例 `custom_sharpen.json`。复制一份配置，修改 `name` 和每个节点的 `unit`，即可定义自己的输入基准。`unit` 支持 `exact`、`5QC`、`5QT`、`5L8`、`5RP`、`5TE`、`5PD`、`5PN`、`5SB`、`5Z0`。每个加减节点必须出现一次，编号从 0 开始。
+`configs/circuits/` 中有四种原基准的完整配置、四套混合单元配置 `sharpen_mixed.json`、`conv_mixed.json`、`sobel_mixed.json`、`dct_mixed.json` 和新运算图示例 `custom_sharpen.json`。复制一份配置，修改 `name` 和每个节点的 `unit`，即可定义自己的输入基准。`unit` 支持 `exact`、`5QC`、`5QT`、`5L8`、`5RP`、`5TE`、`5PD`、`5PN`、`5SB`、`5Z0`。每个加减节点必须出现一次，编号从 0 开始。
 
 下面以混合单元基准为例。生成配置时已经选定输入电路，验证时读取冻结文件中的完整输入配置。
 
@@ -57,7 +57,7 @@ python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
 
 ## 完整验证 850 张图片并保存三图对比
 
-四个应用一起运行时，在工程根目录执行以下命令。脚本将混合锐化基准和卷积、Sobel、DCT 的现有默认基准放入同一个冻结文件，再分别验证 850 张图片。
+四个应用一起运行时，在工程根目录执行以下命令。脚本将锐化、卷积、Sobel、DCT 的四套混合单元基准放入同一个冻结文件，再分别验证 850 张图片。
 
 ```bash
 source ~/projects/u2net_roi/.venv/bin/activate
@@ -67,11 +67,11 @@ bash circuit_processing/scripts/run_all_applications.sh
 | 输入基准 | 节点总数 | 近似节点与单元 | 其他节点 |
 |---|---:|---|---|
 | `sharpen_mixed` | 4 | 0 用 5QC，1 用 5L8，2 用 5RP，3 用 5TE | 无 |
-| `conv` | 8 | 1、2、4、7 用 5RP | 精确 |
-| `sobel` | 11 | 0、2、4、7、9 用 5RP | 精确 |
-| `dct` | 32 | 8、10、11、13、16、19、22、25、28、31 用 5RP | 精确 |
+| `conv_mixed` | 8 | 1 用 5QC，2 用 5L8，4 用 5RP，7 用 5TE | 精确 |
+| `sobel_mixed` | 11 | 0、9 用 5QC，2 用 5L8，4 用 5RP，7 用 5TE | 精确 |
+| `dct_mixed` | 32 | 8、16、28 用 5QC；10、19、31 用 5L8；11、22 用 5RP；13、25 用 5TE | 精确 |
 
-节点编号从 0 开始，对应当前算法模型中的加减节点。输入配置位于 `configs/circuits/`，修改各自 JSON 中的 `unit` 即可更改该应用的基准。
+节点编号从 0 开始，对应当前算法模型中的加减节点。这次新增的三套混合配置按已有近似节点编号升序，循环分配 5QC → 5L8 → 5RP → 5TE。该固定规则用于提供不同单元共同使用的输入基准，尚未据此开展图片效果验证。四应用入口读取 `configs/circuits/*_mixed.json`，修改各自 JSON 中的 `unit` 即可更改该应用的基准。`*_default.json` 及 `--apps` 对应历史内置基准，选择混合配置时使用 `--circuit` 或四应用入口。
 
 输出集中放在 `circuit_processing/results/all_apps_时间戳/`，其中 `verify/comparisons/` 存放所有应用的编号拼图，`verify/psnr_results.xlsx` 包含四张工作表。`ROI_RUN`、`IMAGE_DIR`、`RUN_DIR`、`IMAGE_COUNT`、`PYTHON_BIN` 环境变量可覆盖对应路径、验证数量和 Python 解释器。运行脚本前激活现有 Python 环境。
 

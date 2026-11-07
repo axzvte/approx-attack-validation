@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the current mixed sharpening baseline and the three existing default baselines.
+# Run one fixed mixed-adder input profile for each of the four applications.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,9 +16,9 @@ printf 'Results directory: %s\n' "$RUN_DIR"
 
 "$PYTHON_BIN" "$PIPELINE" freeze \
   --circuit "$PROFILES/sharpen_mixed.json" \
-  --circuit "$PROFILES/conv_default.json" \
-  --circuit "$PROFILES/sobel_default.json" \
-  --circuit "$PROFILES/dct_default.json" \
+  --circuit "$PROFILES/conv_mixed.json" \
+  --circuit "$PROFILES/sobel_mixed.json" \
+  --circuit "$PROFILES/dct_mixed.json" \
   --roi-run "$ROI_RUN" --threshold 85 \
   --output "$RUN_DIR/frozen.json"
 
