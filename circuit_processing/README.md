@@ -26,7 +26,7 @@ python circuit_processing/scripts/fixed_roi_pipeline.py freeze \
   --output "$RUN/frozen.json"
 python circuit_processing/scripts/fixed_roi_pipeline.py verify \
   --config "$RUN/frozen.json" --images "$DATA/datasets/imgs/pascal" \
-  --count 10 --save-examples 10 --output "$RUN/verify"
+  --count 10 --output "$RUN/verify"
 ```
 
 可重复指定 `--circuit`，在同一次运行中比较多个独立输入基准，各配置的 `name` 必须不同。也可在 freeze 时使用 `--apps sharpen sobel` 只选内置默认基准。verify 的 `--apps` 指冻结文件中的配置名称，例如 `sharpen_mixed`。
@@ -54,6 +54,31 @@ python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
 `freeze` 读取第一部分的矩形统计和输入电路，根据算术模型、逐节点近似加法器误差界和全图 MSE 预算，确定精确替换节点、翻转节点和位。`--threshold 85` 选择统计中的 85% 矩形，`--min-bit` 默认 4。
 
 `verify` 固定使用冻结文件中选定的电路。省略输入电路参数时，freeze 沿用 sharpen、conv、sobel、dct 四种原基准。`--count 10` 用于先检查流程，后续可在新输出目录运行 `--count 850`。每次输出目录必须不存在。
+
+## 完整验证 850 张图片并保存三图对比
+
+以下命令沿用混合锐化基准。`--circuit` 可替换为你自己的配置文件，也可重复指定以比较多个输入基准。
+
+```bash
+cd ~/projects/approx_attack_validation
+source ~/projects/u2net_roi/.venv/bin/activate
+ROI_RUN="$HOME/projects/u2net_roi/output/union_rc_850_01"
+RUN="circuit_processing/results/full850_$(date +%Y%m%d_%H%M%S)"
+
+python circuit_processing/scripts/fixed_roi_pipeline.py freeze \
+  --circuit circuit_processing/configs/circuits/sharpen_mixed.json \
+  --roi-run "$ROI_RUN" --threshold 85 --output "$RUN/frozen.json"
+python circuit_processing/scripts/fixed_roi_pipeline.py verify \
+  --config "$RUN/frozen.json" \
+  --images "$HOME/datasets/PASCAL-S/datasets/imgs/pascal" \
+  --count 850 --output "$RUN/verify"
+```
+
+每张图片、每个应用或输入基准配置生成一张横向三图拼图，依次为 `Exact reference`、`Baseline`、`Processed`。标注原图片编号、配置名称、处理前全图 PSNR、处理后全图 PSNR 和处理后重要区域 PSNR，单位为 dB，显示两位小数。PSNR 均相对于精确参考计算。图像保持原像素尺寸，标注放在图像外的白色画布中。
+
+所有拼图集中保存在 `verify/comparisons/`，例如 `sharpen_mixed_0001.png` 至 `sharpen_mixed_0850.png`。一次运行多个配置时也使用同一个文件夹，文件名包含配置名称。每张成功完成的验证都会保存拼图。旧的 `--save-examples` 参数仍可传入，拼图始终保存全部图片。
+
+仅补偿结果用于运行中的数值检查，最终图片输出为三图拼图。单独图片放在临时目录中，运行结束后清理。失败记录写入 `summary.json` 和数据表，结束时打印拼图及 Excel 的保存路径。
 
 | 文件夹 | 内容 |
 |---|---|

@@ -58,7 +58,9 @@ class ProfileExecutionTests(unittest.TestCase):
                 bbox_half_open=[120, 135, 193, 201])]))
             images = root/'inputs'
             images.mkdir()
-            Image.fromarray(np.random.default_rng(4).integers(0, 256, (320, 320), dtype=np.uint8)).save(images/'1.jpg')
+            image = np.random.default_rng(4).integers(0, 256, (320, 320), dtype=np.uint8)
+            Image.fromarray(image).save(images/'1.jpg')
+            Image.fromarray(255-image).save(images/'2.jpg')
             config = root/'frozen.json'
             self.run_command(sys.executable, PIPELINE, 'freeze', '--roi-run', roi,
                 '--circuit', ROOT/'configs/circuits/sharpen_mixed.json',
@@ -66,9 +68,19 @@ class ProfileExecutionTests(unittest.TestCase):
             frozen = json.loads(config.read_text())
             self.assertEqual(set(frozen['input_circuits']), {'sharpen_mixed', 'custom_sharpen'})
             self.run_command(sys.executable, PIPELINE, 'verify', '--config', config,
-                '--images', images, '--count', 1, '--output', root/'verified')
+                '--images', images, '--count', 2, '--save-examples', 0, '--output', root/'verified')
             summary = json.loads((root/'verified/summary.json').read_text())
-            self.assertTrue(all(row['global_pass'] == 1 for row in summary['applications'].values()))
+            self.assertTrue(all(row['global_pass'] == 2 for row in summary['applications'].values()))
+            comparisons = root/'verified/comparisons'
+            self.assertEqual({path.name for path in comparisons.iterdir()},
+                             {'sharpen_mixed_0001.png', 'sharpen_mixed_0002.png',
+                              'custom_sharpen_0001.png', 'custom_sharpen_0002.png'})
+            self.assertFalse((root/'verified/examples').exists())
+            self.assertFalse(list((root/'verified').rglob('compensated.png')))
+            for path in comparisons.iterdir():
+                with Image.open(path) as comparison:
+                    self.assertIn(comparison.info['image'], ('1.jpg', '2.jpg'))
+                    self.assertIn('processed_roi_psnr', comparison.info)
             import zipfile
             import xml.etree.ElementTree as ET
             with zipfile.ZipFile(root/'verified/psnr_results.xlsx') as workbook:

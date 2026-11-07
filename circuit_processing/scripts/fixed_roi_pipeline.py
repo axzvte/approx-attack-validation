@@ -14,6 +14,7 @@ import tempfile
 
 import circuit_profiles as profiles
 from excel_report import export_psnr_workbook, export_results_directory
+from comparison_images import save_comparison
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -217,13 +218,19 @@ def profile_digest(selected):
 
 
 def compatible_sources(frozen_sources, current_sources):
-    """The preceding version used identical arithmetic before XLSX reporting was added."""
+    """Accept audited reporting-only revisions with identical circuit calculations."""
     if frozen_sources == current_sources:
         return True
-    previous_pipeline = "8b37af2d91bda42755ecae243dd5e2f063c3ed4eec70f430ab503d208ea4b8b5"
-    expected = dict(current_sources)
-    expected["scripts/fixed_roi_pipeline.py"] = previous_pipeline
-    return frozen_sources == expected
+    previous_pipelines = {
+        "8b37af2d91bda42755ecae243dd5e2f063c3ed4eec70f430ab503d208ea4b8b5",
+        "6fae3c49df3858e8ad91161fdbd2266b84d2d7baa2b29c86607c7504edd93575",
+    }
+    for previous in previous_pipelines:
+        expected = dict(current_sources)
+        expected["scripts/fixed_roi_pipeline.py"] = previous
+        if frozen_sources == expected:
+            return True
+    return False
 
 
 def plan_profiles(selected, area, total, min_bit, max_subsets):
@@ -316,13 +323,15 @@ def evaluate(args):
         raise ValueError("Output and input image directories must be separate")
     if not args.binary.is_file():
         raise ValueError(f"Missing compiled verifier: {args.binary}")
-    if args.start < 1 or args.count < 1 or args.save_examples < 0:
+    if args.start < 1 or args.count < 1 or (args.save_examples is not None and args.save_examples < 0):
         raise ValueError("Invalid image range or example count")
     inputs = [image_dir/f"{index}.jpg" for index in range(args.start, args.start+args.count)]
     for path in inputs:
         if not path.is_file():
             raise ValueError(f"Missing input image: {path}")
     output.mkdir(parents=True, exist_ok=False)
+    comparisons = output/"comparisons"
+    comparisons.mkdir()
     rows = []
     failures = []
     with tempfile.TemporaryDirectory(dir=output) as scratch:
@@ -357,9 +366,6 @@ def evaluate(args):
                     if area == 0 or not within_budget(area, total, plan["inside_error_bound"], plan["outside_error_bound"]):
                         raise ValueError("Projected rectangle is empty or exceeds the frozen error budget")
                     destination = scratch
-                    if index < args.save_examples:
-                        destination = output/"examples"/app/path.stem
-                        destination.mkdir(parents=True)
                     extra = ["--circuit", str(profile_paths[app])] if schema == 2 else []
                     subprocess.run([str(args.binary.resolve()), selected[app]["application"], str(path), str(destination),
                                     *map(str, box), str(plan["node"]), str(plan["bit"]),
@@ -390,6 +396,7 @@ def evaluate(args):
                             np.any(result[~mask] != compensated[~mask])
                         ):
                             raise ValueError("Observed error exceeds its bound or the disturbance leaks outside ROI")
+                    save_comparison(destination, comparisons/f"{app}_{int(path.stem):04d}.png", row)
                     row.update(status="completed", global_pass=1000*errors["processed"][0] <= PEAK_SQUARED*total,
                                roi_decreased=errors["processed"][1] > errors["baseline"][1],
                                roi_decreased_vs_compensated=errors["processed"][1] > errors["compensated"][1])
@@ -417,6 +424,7 @@ def evaluate(args):
     report = export_psnr_workbook(rows, output/"psnr_results.xlsx")
     print(json.dumps(summary, indent=2))
     print(f"Excel report: {report}")
+    print(f"Comparison images: {comparisons}")
     return 1 if failures or any(not r["global_pass"] for r in rows) else 0
 
 
@@ -444,7 +452,8 @@ def main():
     verify.add_argument("--start", type=int, default=1)
     verify.add_argument("--count", type=int, required=True)
     verify.add_argument("--apps", nargs="+", help="Names present in the frozen input circuits")
-    verify.add_argument("--save-examples", type=int, default=3)
+    verify.add_argument("--save-examples", type=int,
+                        help="Legacy option accepted for compatibility; all comparison images are saved")
     verify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
