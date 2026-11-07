@@ -9,6 +9,8 @@
 
 第一部分输出的 `protocol.json` 和 `rectangles.json` 是第二部分的输入。已有的 RC 统计结果可直接复用，不必重新计算 850 张图片。
 
+第二部分支持在 freeze 时使用 `--apps sharpen sobel` 选择内置算法，或使用 `--circuit circuit_processing/configs/circuits/sharpen_mixed.json` 输入逐节点配置。可重复指定 `--circuit` 比较多套配置。新增逐像素算法可通过运算图文件接入，完整说明见 `circuit_processing/README.md`。
+
 ## 现在从这里开始
 
 在 WSL 中执行。沿用现有 Python 环境和已有 RC 结果。

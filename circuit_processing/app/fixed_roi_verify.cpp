@@ -2,6 +2,7 @@
 #include "applications/dct.hpp"
 #include "applications/sharpen.hpp"
 #include "applications/sobel.hpp"
+#include "circuit_profile.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 #include <type_traits>
@@ -31,8 +32,16 @@ void save(const std::filesystem::path& directory, const char* name, const cv::Ma
 
 template <typename Application>
 void verify(const cv::Mat& image, const cv::Rect& region, const std::filesystem::path& directory,
-            int node, int bit, const std::vector<int>& replacements) {
-    const Application original;
+            int node, int bit, const std::vector<int>& replacements,
+            const circuit_profile::Profile* profile = nullptr) {
+    auto initial = Application{}.baselineConfig();
+    if (profile) {
+        for (std::size_t i=0; i<initial.size(); ++i) {
+            initial[i].exact = profile->baseline.at(i).exact;
+            initial[i].unit = profile->baseline.at(i).unit;
+        }
+    }
+    const Application original(initial);
     auto baseline = original.baselineConfig();
     for (int index : replacements) {
         if (index < 0 || static_cast<std::size_t>(index) >= baseline.size() || baseline[index].exact) {
@@ -64,11 +73,11 @@ void verify(const cv::Mat& image, const cv::Rect& region, const std::filesystem:
             processed = compensated.runFixedDcRegion(image, region, bit);
         } else {
             if (node < 0 || static_cast<std::size_t>(node) >= baseline.size() ||
-                original.baselineConfig()[node].exact) {
-                throw std::runtime_error("Flip must name an original approximate node.");
+                (!profile && original.baselineConfig()[node].exact)) {
+                throw std::runtime_error("Flip must name a valid arithmetic node.");
             }
             const core::AttackConfig flip{
-                node, approximate::ApproxUnitId::Add12se5RP, core::MonitorSignal::BaselineOutput,
+                node, original.baselineConfig()[node].unit, core::MonitorSignal::BaselineOutput,
                 std::numeric_limits<int>::min(), std::numeric_limits<int>::max(),
                 core::AttackPayload::BitFlip, bit
             };
@@ -82,6 +91,34 @@ void verify(const cv::Mat& image, const cv::Rect& region, const std::filesystem:
     save(directory, "compensated.png", noFlip);
     save(directory, "processed.png", processed);
 }
+
+void verifyGraph(const cv::Mat& image, const cv::Rect& region, const std::filesystem::path& directory,
+                 int node, int bit, const std::vector<int>& replacements,
+                 const circuit_profile::Profile& profile) {
+    auto compensated = profile.baseline;
+    for (const int replacement : replacements) {
+        if (replacement < 0 || static_cast<size_t>(replacement) >= compensated.size() || compensated[replacement].exact)
+            throw std::runtime_error("Replacement must name an original approximate node once.");
+        compensated[replacement].exact = true;
+    }
+    if (node < -1 || (node >= 0 && static_cast<size_t>(node) >= compensated.size()))
+        throw std::runtime_error("Flip must name a valid arithmetic node.");
+    if (node == -1) {
+        if (bit < 0 || bit > 7) throw std::runtime_error("Output-pixel bit must be between 0 and 7.");
+    } else core::flipNonSignOutputBit(0,bit);
+    auto allExact = profile.baseline;
+    for (auto& item : allExact) item.exact = true;
+    const auto reference = profile.run(image,allExact);
+    const auto baseline = profile.run(image,profile.baseline);
+    const auto noFlip = profile.run(image,compensated);
+    auto processed = node == -1 ? noFlip.clone() : profile.run(image,compensated,region,node,bit);
+    if (node == -1) for (int y=region.y; y<region.y+region.height; ++y)
+        for (int x=region.x; x<region.x+region.width; ++x) processed.at<unsigned char>(y,x) ^= 1u << bit;
+    save(directory,"exact.png",reference);
+    save(directory,"baseline.png",baseline);
+    save(directory,"compensated.png",noFlip);
+    save(directory,"processed.png",processed);
+}
 }
 
 int main(int argc, char** argv) {
@@ -91,6 +128,17 @@ int main(int argc, char** argv) {
                 "Usage: fixed_roi_verify APP IMAGE OUT LEFT TOP RIGHT BOTTOM NODE BIT [EXACT_NODE ...]");
         }
         const std::string app(argv[1]);
+        std::string profilePath;
+        if (argc >= 12 && std::string(argv[argc-2]) == "--circuit") {
+            profilePath = argv[argc-1];
+            argc -= 2;
+        }
+        circuit_profile::Profile profile;
+        const circuit_profile::Profile* selectedProfile = nullptr;
+        if (!profilePath.empty()) {
+            profile = circuit_profile::Profile::load(profilePath,app);
+            selectedProfile = &profile;
+        }
         const auto image = cv::imread(argv[2], cv::IMREAD_GRAYSCALE | cv::IMREAD_IGNORE_ORIENTATION);
         if (image.empty()) {
             throw std::runtime_error("Cannot read input image.");
@@ -108,13 +156,15 @@ int main(int argc, char** argv) {
             replacements.push_back(integer(argv[i]));
         }
         if (app == "sharpen") {
-            verify<applications::SharpenApplication>(image, region, argv[3], node, bit, replacements);
+            verify<applications::SharpenApplication>(image, region, argv[3], node, bit, replacements, selectedProfile);
         } else if (app == "conv") {
-            verify<applications::ConvApplication>(image, region, argv[3], node, bit, replacements);
+            verify<applications::ConvApplication>(image, region, argv[3], node, bit, replacements, selectedProfile);
         } else if (app == "sobel") {
-            verify<applications::SobelApplication>(image, region, argv[3], node, bit, replacements);
+            verify<applications::SobelApplication>(image, region, argv[3], node, bit, replacements, selectedProfile);
         } else if (app == "dct") {
-            verify<applications::DctApplication>(image, region, argv[3], node, bit, replacements);
+            verify<applications::DctApplication>(image, region, argv[3], node, bit, replacements, selectedProfile);
+        } else if (app == "graph" && selectedProfile) {
+            verifyGraph(image,region,argv[3],node,bit,replacements,profile);
         } else {
             throw std::runtime_error("Unknown application: " + app);
         }

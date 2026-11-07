@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "name": "conv",
+  "application": "conv",
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "exact"
+    },
+    {
+      "node": 1,
+      "unit": "5RP"
+    },
+    {
+      "node": 2,
+      "unit": "5RP"
+    },
+    {
+      "node": 3,
+      "unit": "exact"
+    },
+    {
+      "node": 4,
+      "unit": "5RP"
+    },
+    {
+      "node": 5,
+      "unit": "exact"
+    },
+    {
+      "node": 6,
+      "unit": "exact"
+    },
+    {
+      "node": 7,
+      "unit": "5RP"
+    }
+  ]
+}

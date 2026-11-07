@@ -12,6 +12,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+import circuit_profiles as profiles
+
 
 ROOT = Path(__file__).resolve().parents[1]
 APPLICATIONS = ("sharpen", "conv", "sobel", "dct")
@@ -154,6 +156,11 @@ def source_identity():
              ROOT/"src/approximate/evoapprox_adapter.cpp",
              ROOT/"third_party/evoapproxlib/add12se_5RP.c"]
     paths.extend(ROOT/f"src/applications/{app}.cpp" for app in (*APPLICATIONS, "dct8_fixed_graph"))
+    paths.extend((ROOT/"scripts/circuit_profiles.py", ROOT/"configs/unit_error_bounds.json"))
+    paths.extend(sorted((ROOT/"app").glob("*.hpp")))
+    paths.extend(path for path in sorted((ROOT/"include").rglob("*.hpp")) if path not in paths)
+    paths.extend(path for path in sorted((ROOT/"src").rglob("*.cpp")) if path not in paths)
+    paths.extend(path for path in sorted((ROOT/"third_party/evoapproxlib").glob("*.c")) if path not in paths)
     return {path.relative_to(ROOT).as_posix(): hashlib.sha256(
         path.read_text(encoding="utf-8").encode("utf-8")
     ).hexdigest() for path in paths}
@@ -178,6 +185,43 @@ def write_json(path, value):
         stream.write("\n")
 
 
+def profile_graph(profile):
+    if profile["application"] == "graph":
+        return profile["graph"]
+    if profile["application"] != "dct":
+        return profiles.graph_from_tuples(spatial_graph(profile["application"]))
+    return None
+
+
+def unit_bounds():
+    document = read_json(ROOT/"configs/unit_error_bounds.json")
+    for relative, digest in document["sources"].items():
+        if hashlib.sha256((ROOT/relative).read_text(encoding="utf-8").encode()).hexdigest() != digest:
+            raise ValueError(f"Re-audit signed adder error bounds after changing {relative}")
+    return document["units"]
+
+
+def select_profiles(args):
+    selected = [profiles.validate_profile(read_json(path)) for path in args.circuit]
+    if not selected:
+        selected = [profiles.default_profile(app) for app in (args.apps or APPLICATIONS)]
+    if len({profile["name"] for profile in selected}) != len(selected):
+        raise ValueError("Circuit profile names must be unique")
+    return {profile["name"]: profile for profile in selected}
+
+
+def profile_digest(selected):
+    canonical = json.dumps(selected, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def plan_profiles(selected, area, total, min_bit, max_subsets):
+    bounds = unit_bounds()
+    return {name: profiles.plan(profile, profile_graph(profile), bounds, area, total,
+                               min_bit, within_budget, max_subsets)
+            for name, profile in selected.items()}
+
+
 def freeze(args):
     protocol = read_json(args.roi_run/"protocol.json")
     if (protocol["status"], protocol["feature"], protocol["coordinate_mode"]) != ("completed", "rc", "stretch"):
@@ -192,10 +236,12 @@ def freeze(args):
     if not 0 <= left < right <= grid or not 0 <= top < bottom <= grid:
         raise ValueError("Rectangle coordinates are outside the statistical grid")
     area = (right-left)*(bottom-top)
-    config = dict(schema=1, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
+    selected = select_profiles(args)
+    config = dict(schema=2, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
                   roi_images=protocol["count"], roi_run_sha256=sha256(args.roi_run/"rectangles.json"),
-                  min_bit=args.min_bit, sources=checked_sources(),
-                  circuits={app: plan_circuit(app, area, grid*grid, args.min_bit) for app in APPLICATIONS})
+                  min_bit=args.min_bit, max_subsets=args.max_subsets, sources=checked_sources(),
+                  input_circuits=selected, input_circuits_sha256=profile_digest(selected),
+                  circuits=plan_profiles(selected, area, grid*grid, args.min_bit, args.max_subsets))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     write_json(args.output, config)
     for app, choice in config["circuits"].items():
@@ -215,13 +261,44 @@ def evaluate(args):
     from PIL import Image
 
     config = read_json(args.config)
-    if config["schema"] != 1 or config["sources"] != checked_sources():
-        raise ValueError("Frozen configuration belongs to a different source revision")
+    current_sources = checked_sources()
+    schema = config.get("schema")
+    profiles.integer(config["min_bit"], "min_bit", 0, 7)
     grid, bounds = config["grid"], config["bbox_half_open"]
+    if type(grid) is not int or grid < 2 or not isinstance(bounds, list) or len(bounds) != 4:
+        raise ValueError("Invalid frozen grid or rectangle")
+    if any(type(value) is not int for value in bounds):
+        raise ValueError("Rectangle coordinates must be integers")
     l, t, r, b = bounds
-    expected = {app: plan_circuit(app, (r-l)*(b-t), grid**2, config["min_bit"]) for app in APPLICATIONS}
+    if not 0 <= l < r <= grid or not 0 <= t < b <= grid:
+        raise ValueError("Invalid frozen rectangle")
+    if schema == 1:
+        legacy_sources = read_json(ROOT/"configs/legacy_frozen_sources.json")
+        if config["sources"] != legacy_sources:
+            raise ValueError("Legacy configuration belongs to an unsupported source revision")
+        selected = {app: profiles.default_profile(app) for app in APPLICATIONS}
+        expected = {app: plan_circuit(app, (r-l)*(b-t), grid**2, config["min_bit"]) for app in APPLICATIONS}
+    elif schema == 2:
+        profiles.integer(config["max_subsets"], "max_subsets", 1, 1000000)
+        if config["sources"] != current_sources:
+            raise ValueError("Frozen configuration belongs to a different source revision")
+        selected = config["input_circuits"]
+        if not isinstance(selected, dict) or not selected:
+            raise ValueError("Frozen configuration needs input circuits")
+        if profile_digest(selected) != config["input_circuits_sha256"]:
+            raise ValueError("Frozen input circuit definitions changed")
+        for name, profile in selected.items():
+            profiles.validate_profile(profile)
+            if name != profile["name"]:
+                raise ValueError("Circuit profile key and name differ")
+        expected = plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"], config["max_subsets"])
+    else:
+        raise ValueError("Unsupported frozen configuration schema")
     if config["circuits"] != expected:
         raise ValueError("Frozen circuit configuration differs from the code-derived result")
+    applications = args.apps or list(selected)
+    if len(set(applications)) != len(applications) or any(app not in selected for app in applications):
+        raise ValueError("--apps must name unique circuits present in the frozen configuration")
     image_dir = args.images.expanduser().resolve()
     output = args.output.resolve()
     if output.is_relative_to(image_dir) or image_dir.is_relative_to(output):
@@ -237,9 +314,13 @@ def evaluate(args):
     output.mkdir(parents=True, exist_ok=False)
     rows = []
     failures = []
-    applications = args.apps or APPLICATIONS
     with tempfile.TemporaryDirectory(dir=output) as scratch:
         scratch = Path(scratch)
+        profile_paths = {}
+        if schema == 2:
+            for name in applications:
+                profile_paths[name] = scratch/f"{name}.json"
+                write_json(profile_paths[name], selected[name])
         for index, path in enumerate(inputs):
             try:
                 with Image.open(path) as image:
@@ -268,9 +349,10 @@ def evaluate(args):
                     if index < args.save_examples:
                         destination = output/"examples"/app/path.stem
                         destination.mkdir(parents=True)
-                    subprocess.run([str(args.binary.resolve()), app, str(path), str(destination),
+                    extra = ["--circuit", str(profile_paths[app])] if schema == 2 else []
+                    subprocess.run([str(args.binary.resolve()), selected[app]["application"], str(path), str(destination),
                                     *map(str, box), str(plan["node"]), str(plan["bit"]),
-                                    *map(str, plan["exact_nodes"])], check=True, capture_output=True, text=True)
+                                    *map(str, plan["exact_nodes"]), *extra], check=True, capture_output=True, text=True)
                     def pixels(name):
                         with Image.open(destination/f"{name}.png") as im:
                             return np.asarray(im, dtype=np.int32)
@@ -333,22 +415,35 @@ def main():
     prepare.add_argument("--threshold", type=int, default=85)
     prepare.add_argument("--min-bit", type=int, choices=range(8), default=4)
     prepare.add_argument("--output", type=Path, required=True)
+    prepare.add_argument("--circuit", type=Path, action="append", default=[],
+                         help="Input circuit JSON; repeat to compare independent baselines")
+    prepare.add_argument("--apps", nargs="+", choices=APPLICATIONS,
+                         help="Select built-in default circuits when --circuit is omitted")
+    prepare.add_argument("--max-subsets", type=int, default=10000,
+                         help="Maximum compensated node subsets examined per circuit")
+    listing = sub.add_parser("list-circuits", help="Show built-in node counts and supported units")
     verify = sub.add_parser("verify")
     verify.add_argument("--config", type=Path, required=True)
     verify.add_argument("--binary", type=Path, default=ROOT/"build/fixed_roi_verify")
     verify.add_argument("--images", type=Path, required=True)
     verify.add_argument("--start", type=int, default=1)
     verify.add_argument("--count", type=int, required=True)
-    verify.add_argument("--apps", nargs="+", choices=APPLICATIONS)
+    verify.add_argument("--apps", nargs="+", help="Names present in the frozen input circuits")
     verify.add_argument("--save-examples", type=int, default=3)
     verify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "list-circuits":
+            print(json.dumps(dict(applications=profiles.NODE_COUNTS, units=profiles.UNITS), indent=2))
+            return 0
         if args.command == "freeze":
+            if args.circuit and args.apps:
+                raise ValueError("Choose --circuit profiles or --apps defaults")
+            profiles.integer(args.max_subsets, "max-subsets", 1, 1000000)
             freeze(args)
             return 0
         return evaluate(args)
-    except (ValueError, KeyError, OSError) as error:
+    except (ValueError, KeyError, TypeError, OSError) as error:
         parser.exit(1, f"{error}\n")
 
 

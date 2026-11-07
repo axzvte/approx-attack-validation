@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "name": "custom_sharpen",
+  "application": "graph",
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "5QC"
+    },
+    {
+      "node": 1,
+      "unit": "5L8"
+    },
+    {
+      "node": 2,
+      "unit": "5RP"
+    },
+    {
+      "node": 3,
+      "unit": "5QC"
+    }
+  ],
+  "graph": {
+    "border": "replicate",
+    "inputs": {
+      "center": {
+        "dx": 0,
+        "dy": 0,
+        "scale": 5
+      },
+      "top": {
+        "dx": 0,
+        "dy": -1
+      },
+      "bottom": {
+        "dx": 0,
+        "dy": 1
+      },
+      "left": {
+        "dx": -1,
+        "dy": 0
+      },
+      "right": {
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    "operations": [
+      {
+        "id": "0",
+        "op": "sub",
+        "args": [
+          "center",
+          "top"
+        ]
+      },
+      {
+        "id": "1",
+        "op": "sub",
+        "args": [
+          "0",
+          "bottom"
+        ]
+      },
+      {
+        "id": "2",
+        "op": "sub",
+        "args": [
+          "1",
+          "left"
+        ]
+      },
+      {
+        "id": "3",
+        "op": "sub",
+        "args": [
+          "2",
+          "right"
+        ]
+      }
+    ],
+    "output": "3"
+  }
+}

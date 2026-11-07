@@ -1,0 +1,12 @@
+{
+  "scripts/fixed_roi_pipeline.py": "3da865a98afa7e713e2893fb8ccf48bb1b0c823a3af6d9e35bc872fb4d9b8e01",
+  "app/fixed_roi_verify.cpp": "6d6703bdcf489bb0c56c8b4856645c5c4b13b3db20511918fed9928e323d2e84",
+  "include/core/output_bitflip.hpp": "68a1d895f312be1d58aa319eb21bc76357dd367a7ad86d01e6e9548ebda5bd15",
+  "src/approximate/evoapprox_adapter.cpp": "e162f5999827d0aa14bf6f74626d644338bba9d3e19390d7b0f3f7db57168116",
+  "third_party/evoapproxlib/add12se_5RP.c": "a6394aab970710abeec2467d65b21d74deff0e2582d7fc7150a6e0cfb9fd3eea",
+  "src/applications/sharpen.cpp": "8cd3e13480d2a1cc3f372ec6543588df62668f04ed0b0625fcda98008cacc9e3",
+  "src/applications/conv.cpp": "bf884ee440d7573c380b043db4907f6bd4304f5e45502be51b20fe643c7756bb",
+  "src/applications/sobel.cpp": "6099a6aa7bb6b8995e048489b777bcbc2978499cf0e0b58f78f71d64db0fadbb",
+  "src/applications/dct.cpp": "c78b3fa569c84919958fb925b146e765089b377ac9121f2ac033d54766ac38eb",
+  "src/applications/dct8_fixed_graph.cpp": "e15011e961ad490e805eb91a91f118d3d3190d64d426d2bc6052f20224aa48f5"
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "name": "sharpen",
+  "application": "sharpen",
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "5RP"
+    },
+    {
+      "node": 1,
+      "unit": "5RP"
+    },
+    {
+      "node": 2,
+      "unit": "5RP"
+    },
+    {
+      "node": 3,
+      "unit": "5RP"
+    }
+  ]
+}
