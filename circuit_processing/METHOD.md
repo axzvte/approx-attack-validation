@@ -1,43 +1,3 @@
-# 固定区域统计与电路验证
-
-在 WSL 中进入整理后的 `feature/fixed-roi-clean` 分支。需要 Python 3.10+、CMake、C++17 编译器和 OpenCV 开发库。区域统计复用已有的 U²-Net 二值掩膜。
-
-```bash
-cd ~/projects
-git clone --depth 1 --single-branch --branch feature/fixed-roi-clean \
-  https://github.com/axzvte/approx-attack-validation.git approx_attack_validation_clean
-cd approx_attack_validation_clean
-
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r roi/requirements-color.txt
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j 4
-ctest --test-dir build --output-on-failure
-```
-
-数据根目录沿用 `datasets/imgs/pascal/<id>.jpg` 和 `pred_masks/<id>_mask.png`。已经生成过 RC 并集统计时，可以直接把已有的完整结果目录传给第二步。该目录需要包含 `protocol.json` 和 `rectangles.json`。
-
-```bash
-DATA="$HOME/datasets/PASCAL-S"
-RUN="results/fixed_roi_$(date +%Y%m%d_%H%M%S)"
-
-# 1. 统计 850 张图，输出候选矩形。可按需要修改阈值列表。
-python roi/union_frequency_rectangles.py --data "$DATA" --feature rc \
-  --count 850 --grid 320 --thresholds 80 81 82 83 84 85 86 87 88 89 90 \
-  --output "$RUN/roi"
-
-# 2. 从统计结果选择 85% 的矩形，并在读取验证图像前冻结四套配置。
-python scripts/fixed_roi_pipeline.py freeze --roi-run "$RUN/roi" \
-  --threshold 85 --output "$RUN/frozen.json"
-
-# 3. 先跑前 10 张检查输入和输出。完整验证时可改 --count 850。
-python scripts/fixed_roi_pipeline.py verify --config "$RUN/frozen.json" \
-  --images "$DATA/datasets/imgs/pascal" --count 10 --output "$RUN/verify"
-```
-
-若要生成缺失掩膜，可在安装 PyTorch 后运行 `python roi/batch_infer_u2net.py --data "$DATA" --repo /path/to/U-2-Net`。此参数指向已有 U²-Net 源码及权重。保留现有掩膜时省略 `--overwrite-masks`。
-
 配置选择依据如下。
 
 1. 统计阶段在每张图上合并 U²-Net 和 RC 掩膜，累计像素频率，再取选定频率的高频点外接矩形。验证阶段将同一个半开矩形按像素中心映射到每张图的原分辨率。
@@ -49,4 +9,4 @@ python scripts/fixed_roi_pipeline.py verify --config "$RUN/frozen.json" \
 
 本阶段验证的是软件中的坐标判定和算术行为。DC 面积综合和硬件计数器的时序实现留到后续。扩展其他算法时需要补充其代码运算关系，当前流程没有从任意 C/C++ 自动提取误差模型。
 
-如需运行区域统计回归测试，执行 `PYTHONPATH=roi python -m unittest discover -s roi/tests -v`。RC 与 FT 的计算约定见 [颜色显著性说明](../roi/COLOR_SALIENCY.md)，PC 对照见 [PC 统计说明](../roi/UNION_FREQUENCY_RECTANGLES.md)。
+

@@ -1,17 +1,11 @@
-"""RC (Cheng CVPR2011 equations5-7) and FT (Achanta CVPR2009 equation8).
-
-Independent equation-based implementations. See COLOR_SALIENCY.md for numerical
-conventions and differences from the authors' complete segmentation pipelines.
-"""
+"""Region contrast (Cheng CVPR2011 equations 5-7); see METHOD.md."""
 import numpy as np
-from scipy.ndimage import convolve1d
 from scipy.spatial.distance import cdist
 from skimage.color import rgb2lab
 from skimage.segmentation import felzenszwalb
 
 RC_PARAMS = dict(color_bins=12, retained_mass=.95, segmentation_scale=100,
                  segmentation_sigma=.5, min_size=50, spatial_denominator=.4)
-FT_PARAMS = dict(kernel=[1,4,6,4,1], kernel_divisor=16, boundary='reflect', color='CIELAB D65')
 
 
 def validate_rgb(rgb):
@@ -19,14 +13,6 @@ def validate_rgb(rgb):
     if array.ndim!=3 or array.shape[2]!=3 or min(array.shape[:2])<1 or array.dtype!=np.uint8:
         raise ValueError('Expected a nonempty uint8 RGB image')
     return array
-
-
-def compute_ft(rgb):
-    lab=rgb2lab(validate_rgb(rgb).astype(float)/255)
-    kernel=np.array(FT_PARAMS['kernel'],float)/FT_PARAMS['kernel_divisor']
-    smooth=convolve1d(lab,kernel,axis=0,mode='reflect')
-    smooth=convolve1d(smooth,kernel,axis=1,mode='reflect')
-    return np.linalg.norm(smooth-lab.mean(axis=(0,1)),axis=2).astype(np.float32)
 
 
 def quantize_colors(rgb):

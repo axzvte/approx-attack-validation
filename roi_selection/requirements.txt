@@ -1,2 +1,4 @@
--r requirements-pc.txt
+numpy
+Pillow
+scipy
 scikit-image>=0.24,<0.26

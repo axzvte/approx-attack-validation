@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""U2-Net union with per-image Otsu-PC, RC or FT and a frequency-threshold sweep."""
+"""U2-Net union with per-image Otsu-RC and a frequency-threshold sweep."""
 from __future__ import annotations
 
 import argparse
@@ -14,16 +14,15 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageOps, __version__ as pillow_version
 from scipy.ndimage import label
 
-from consensus_region_statistics import otsu_mask
-from pc_extract import PC_PARAMS, compute_pc, mask_overlay
-from spatial_feature_statistics import read_mask, sample_mask, heatmap, write_csv, write_json
+from mask_utils import otsu_mask, mask_overlay, read_mask, sample_mask, heatmap, write_csv, write_json
+from color_saliency import RC_PARAMS, compute_rc
 
-DEFAULT_THRESHOLDS = sorted([*range(10, 100, 5), 72])
-METHODS = ('u2net', 'pc', 'union')
+DEFAULT_THRESHOLDS = list(range(80, 91))
+METHODS = ('u2net', 'rc', 'union')
 
 
-def combine(u2, pc):
-    return u2 | pc, pc & ~u2
+def combine(u2, rc):
+    return u2 | rc, rc & ~u2
 
 
 def threshold_rectangle(counts, image_count, percent):
@@ -70,29 +69,21 @@ def example(original, masks, path, methods=METHODS):
 
 
 def run(args):
-    feature = getattr(args, 'feature', 'pc')
-    if feature not in ('pc', 'rc', 'ft'):
-        raise ValueError('Feature must be pc, rc or ft')
-    methods = ('u2net', feature, 'union')
-    if feature != 'pc' and args.pc_dir:
-        raise ValueError('--pc-dir is only available with --feature pc')
-    feature_params = PC_PARAMS
-    compute_color = None
-    if feature != 'pc':
-        from color_saliency import RC_PARAMS, FT_PARAMS, compute_rc, compute_ft
-        feature_params = RC_PARAMS if feature == 'rc' else FT_PARAMS
-        compute_color = compute_rc if feature == 'rc' else compute_ft
+    feature = getattr(args, 'feature', 'rc')
+    if feature != 'rc':
+        raise ValueError('Only the accepted RC feature is supported')
+    methods = METHODS
+    feature_params = RC_PARAMS
     data = args.data.expanduser().resolve()
     image_dir, mask_dir = (data/args.image_dir).resolve(), (data/args.mask_dir).resolve()
-    pc_dir = args.pc_dir.expanduser().resolve() if args.pc_dir else None
     output = args.output.expanduser().resolve()
     percentages = sorted(set(args.thresholds))
     if (args.count < 1 or args.start < 1 or args.grid < 2 or args.preview_count < 0
             or not percentages or any(p < 1 or p > 100 for p in percentages)):
         raise ValueError('Invalid image range, grid, preview count or frequency percentages (1..100)')
-    for source in (image_dir, mask_dir, pc_dir):
+    for source in (image_dir, mask_dir):
         if source and (output.is_relative_to(source) or source.is_relative_to(output)):
-            raise ValueError('Output must be separate from images, masks and PC cache')
+            raise ValueError('Output must be separate from images and masks')
     if output.exists():
         raise ValueError(f'Output must be a new directory: {output}')
     ids = range(args.start, args.start+args.count)
@@ -103,24 +94,18 @@ def run(args):
     output.mkdir(parents=True, exist_ok=False)
     protocol = dict(status='running', started_utc=datetime.now(timezone.utc).isoformat(),
                     data=str(data), image_dir=str(image_dir), mask_dir=str(mask_dir),
-                    pc_dir=str(pc_dir) if pc_dir else None, count=args.count, start=args.start,
+                    count=args.count, start=args.start,
                     grid=args.grid, coordinate_mode='stretch', frequency_percentages=percentages,
                     feature=feature, feature_params=feature_params,
-                    pc_params=PC_PARAMS if feature == 'pc' else None,
-                    pc_binarization='per-image Otsu on native-size PC; strict > threshold' if feature == 'pc' else None,
                     feature_binarization='per-image Otsu on native-size response; strict > threshold',
-                    constant_pc_policy='empty PC mask; undefined threshold' if feature == 'pc' else None,
                     constant_feature_policy='empty feature mask; undefined threshold',
                     union_rule=f'per-image U2-Net OR {feature} before spatial accumulation',
                     frequency_rule='foreground image count / all selected images',
                     python=sys.version, numpy=np.__version__, pillow=pillow_version,
                     scipy=version('scipy'),
+                    scikit_image=version('scikit-image'),
                     script_hashes={p: fingerprint(Path(__file__).parent/p) for p in
-                                   ('union_frequency_rectangles.py','spatial_feature_statistics.py',
-                                    'pc_extract.py','consensus_region_statistics.py')})
-    if feature != 'pc':
-        protocol['scikit_image'] = version('scikit-image')
-        protocol['script_hashes']['color_saliency.py'] = fingerprint(Path(__file__).parent/'color_saliency.py')
+                                   ('union_frequency_rectangles.py', 'mask_utils.py', 'color_saliency.py')})
     write_json(output/'protocol.json', protocol)
     try:
         counts = {name: np.zeros((args.grid, args.grid), np.uint32) for name in (*methods, 'added')}
@@ -136,24 +121,8 @@ def run(args):
             u2 = read_mask(mask_path)
             if u2.shape != (original.height, original.width):
                 raise ValueError(f'Image/mask size mismatch: {image_id}')
-            cache = pc_dir/f'{image_id}_pc16.png' if pc_dir else None
-            if compute_color is not None:
-                response = compute_color(np.asarray(original, np.uint8))
-                response_source, source_hash = 'computed', None
-            elif cache and cache.is_file():
-                with Image.open(cache) as image:
-                    if image.mode not in ('I;16', 'I;16B', 'I') or image.format != 'PNG':
-                        raise ValueError(f'PC cache must be a native-size 16-bit PNG: {cache}')
-                    array = np.array(image)
-                    if array.min() < 0 or array.max() > 65535:
-                        raise ValueError(f'Invalid PC cache range: {cache}')
-                if array.shape != u2.shape:
-                    raise ValueError(f'Image/PC size mismatch: {image_id}')
-                response = array.astype(np.float32)/65535.0
-                response_source, source_hash = str(cache), fingerprint(cache)
-            else:
-                response = compute_pc(np.asarray(original.convert('L'), np.uint8))
-                response_source, source_hash = 'computed', None
+            response = compute_rc(np.asarray(original, np.uint8))
+            response_source, source_hash = 'computed', None
             response_path = response_dir/f'{image_id}.npz'
             np.savez_compressed(response_path, **{feature: response})
             feature_mask, feature_threshold = otsu_mask(response)
@@ -241,17 +210,16 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--feature', choices=('pc','rc','ft'), default='pc')
+    parser.add_argument('--feature', choices=('rc',), default='rc')
     parser.add_argument('--data', type=Path, default=Path.home()/'datasets/PASCAL-S')
     parser.add_argument('--image-dir', default='datasets/imgs/pascal')
     parser.add_argument('--mask-dir', default='pred_masks')
-    parser.add_argument('--pc-dir', type=Path, help='Optional native-size ID_pc16.png cache; missing IDs are computed')
     parser.add_argument('--start', type=int, default=1)
     parser.add_argument('--count', type=int, default=850)
     parser.add_argument('--grid', type=int, default=320)
     parser.add_argument('--preview-count', type=int, default=12)
     parser.add_argument('--thresholds', type=int, nargs='+', default=DEFAULT_THRESHOLDS,
-                        help='Integer frequency percentages, e.g. 50 65 72 85')
+                        help='Integer frequency percentages, e.g. 80 85 88 90')
     parser.add_argument('--output', type=Path, required=True)
     try:
         run(parser.parse_args())
