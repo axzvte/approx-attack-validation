@@ -69,6 +69,12 @@ class ProfileExecutionTests(unittest.TestCase):
                 '--images', images, '--count', 1, '--output', root/'verified')
             summary = json.loads((root/'verified/summary.json').read_text())
             self.assertTrue(all(row['global_pass'] == 1 for row in summary['applications'].values()))
+            import zipfile
+            import xml.etree.ElementTree as ET
+            with zipfile.ZipFile(root/'verified/psnr_results.xlsx') as workbook:
+                meta = ET.fromstring(workbook.read('xl/workbook.xml'))
+                sheets = meta.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheets/{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet')
+                self.assertEqual([sheet.attrib['name'] for sheet in sheets], ['sharpen_mixed', 'custom_sharpen'])
             frozen['input_circuits']['sharpen_mixed']['baseline'][0]['unit'] = '5Z0'
             config.write_text(json.dumps(frozen))
             result = subprocess.run([sys.executable, str(PIPELINE), 'verify', '--config', str(config),

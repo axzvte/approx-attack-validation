@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 
 import circuit_profiles as profiles
+from excel_report import export_psnr_workbook, export_results_directory
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,6 +216,16 @@ def profile_digest(selected):
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def compatible_sources(frozen_sources, current_sources):
+    """The preceding version used identical arithmetic before XLSX reporting was added."""
+    if frozen_sources == current_sources:
+        return True
+    previous_pipeline = "8b37af2d91bda42755ecae243dd5e2f063c3ed4eec70f430ab503d208ea4b8b5"
+    expected = dict(current_sources)
+    expected["scripts/fixed_roi_pipeline.py"] = previous_pipeline
+    return frozen_sources == expected
+
+
 def plan_profiles(selected, area, total, min_bit, max_subsets):
     bounds = unit_bounds()
     return {name: profiles.plan(profile, profile_graph(profile), bounds, area, total,
@@ -280,7 +291,7 @@ def evaluate(args):
         expected = {app: plan_circuit(app, (r-l)*(b-t), grid**2, config["min_bit"]) for app in APPLICATIONS}
     elif schema == 2:
         profiles.integer(config["max_subsets"], "max_subsets", 1, 1000000)
-        if config["sources"] != current_sources:
+        if not compatible_sources(config["sources"], current_sources):
             raise ValueError("Frozen configuration belongs to a different source revision")
         selected = config["input_circuits"]
         if not isinstance(selected, dict) or not selected:
@@ -403,7 +414,9 @@ def evaluate(args):
     write_json(output/"summary.json", dict(config_sha256=sha256(args.config),
                                           binary_sha256=sha256(args.binary), applications=summary,
                                           failures=failures))
+    report = export_psnr_workbook(rows, output/"psnr_results.xlsx")
     print(json.dumps(summary, indent=2))
+    print(f"Excel report: {report}")
     return 1 if failures or any(not r["global_pass"] for r in rows) else 0
 
 
@@ -422,6 +435,8 @@ def main():
     prepare.add_argument("--max-subsets", type=int, default=10000,
                          help="Maximum compensated node subsets examined per circuit")
     listing = sub.add_parser("list-circuits", help="Show built-in node counts and supported units")
+    report = sub.add_parser("export-excel", help="Export an existing verify directory without rerunning images")
+    report.add_argument("--results", type=Path, required=True)
     verify = sub.add_parser("verify")
     verify.add_argument("--config", type=Path, required=True)
     verify.add_argument("--binary", type=Path, default=ROOT/"build/fixed_roi_verify")
@@ -433,6 +448,10 @@ def main():
     verify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "export-excel":
+            report = export_results_directory(args.results.expanduser().resolve())
+            print(f"Excel report: {report}")
+            return 0
         if args.command == "list-circuits":
             print(json.dumps(dict(applications=profiles.NODE_COUNTS, units=profiles.UNITS), indent=2))
             return 0

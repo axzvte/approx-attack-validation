@@ -71,5 +71,16 @@ python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
 
 `verify/summary.json` 中 `global_pass` 是全图 PSNR 达到 30 dB 的张数，`roi_decreased` 是区域 PSNR 比原近似基准下降的张数，`joint_pass` 是两者同时满足的张数。另有 `roi_decreased_vs_compensated` 用于观察翻转本身的作用。退出码非零表示运行错误或全图不达标；退出码为零仍需检查区域是否下降。
 
+每次 verify 完成时，自动生成 `verify/psnr_results.xlsx`，并在终端打印绝对路径。每个应用或输入基准配置独占一张工作表，依次列出图片编号、处理前全图 PSNR、处理后全图 PSNR、处理前重要区域 PSNR、处理后重要区域 PSNR。末行是逐图 PSNR 的算术平均。数值单位为 dB，显示两位小数并保留底层精度，表头冻结，支持筛选。
+
+`∞` 表示该范围内与精确参考完全一致，平均中也计入无穷值。失败图片保留编号并标记，PSNR 留空，平均仅使用完成结果。Excel 导出仅依赖 Python 标准库。
+
+已有运行可以直接从 `verify/images.csv` 补导出 Excel。
+
+```bash
+python circuit_processing/scripts/fixed_roi_pipeline.py export-excel \
+  --results /实际运行目录/verify
+```
+
 当前原始算术规则见 [METHOD.md](METHOD.md)。混合配置使用每种单元的实际误差界传播，DCT 的处理路径将输入基准中的全部近似节点精确化后修改终端 DC 系数。已有配置与源码指纹绑定。DC 面积和硬件计数器时序留待后续。
 
