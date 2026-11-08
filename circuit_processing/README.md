@@ -94,4 +94,5 @@ python circuit_processing/scripts/fixed_roi_pipeline.py export-excel --results /
 python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
 ```
 
-本阶段验证软件算术与结构分析。RTL 映射、硬件计数器时序和 DC 综合面积留到后续。近似单元内部的布尔门级 C 实现继续使用已审计单元函数，自动源码编码目前面向上述有明确接口的应用算术内核。
+软件算术与结构分析配套的三个版本 RTL 位于 [hardware/](hardware/README.md)，包括坐标判定和 DCT 复用调度。当前尚未执行 DC 面积综合。近似单元 RTL 从已审计的布尔门级 C 函数生成；自动源码编码面向上述有明确接口的应用算术内核。
+

@@ -1,0 +1,304 @@
+{
+  "bbox_half_open": [
+    120,
+    135,
+    193,
+    201
+  ],
+  "circuits": {
+    "conv": {
+      "analysis_evaluations": 10,
+      "baseline": [
+        {
+          "node": 0,
+          "unit": "exact"
+        },
+        {
+          "node": 1,
+          "unit": "5QC"
+        },
+        {
+          "node": 2,
+          "unit": "5L8"
+        },
+        {
+          "node": 3,
+          "unit": "exact"
+        },
+        {
+          "node": 4,
+          "unit": "5RP"
+        },
+        {
+          "node": 5,
+          "unit": "exact"
+        },
+        {
+          "node": 6,
+          "unit": "exact"
+        },
+        {
+          "node": 7,
+          "unit": "5TE"
+        }
+      ],
+      "bit": 5,
+      "exact_nodes": [
+        2,
+        4,
+        7
+      ],
+      "inside_error_bound": 34.00000000000827,
+      "node": "n20",
+      "outside_error_bound": 2.000000000008157,
+      "source_sha256": "0cb164680f8db2f0fb89530f941fc489e114a12ce24ceb8253e22c7e37ab2423",
+      "unit_node": 0
+    },
+    "dct": {
+      "analysis_evaluations": 22,
+      "baseline": [
+        {
+          "node": 0,
+          "unit": "exact"
+        },
+        {
+          "node": 1,
+          "unit": "exact"
+        },
+        {
+          "node": 2,
+          "unit": "exact"
+        },
+        {
+          "node": 3,
+          "unit": "exact"
+        },
+        {
+          "node": 4,
+          "unit": "exact"
+        },
+        {
+          "node": 5,
+          "unit": "exact"
+        },
+        {
+          "node": 6,
+          "unit": "exact"
+        },
+        {
+          "node": 7,
+          "unit": "exact"
+        },
+        {
+          "node": 8,
+          "unit": "5QC"
+        },
+        {
+          "node": 9,
+          "unit": "exact"
+        },
+        {
+          "node": 10,
+          "unit": "5L8"
+        },
+        {
+          "node": 11,
+          "unit": "5RP"
+        },
+        {
+          "node": 12,
+          "unit": "exact"
+        },
+        {
+          "node": 13,
+          "unit": "5TE"
+        },
+        {
+          "node": 14,
+          "unit": "exact"
+        },
+        {
+          "node": 15,
+          "unit": "exact"
+        },
+        {
+          "node": 16,
+          "unit": "5QC"
+        },
+        {
+          "node": 17,
+          "unit": "exact"
+        },
+        {
+          "node": 18,
+          "unit": "exact"
+        },
+        {
+          "node": 19,
+          "unit": "5L8"
+        },
+        {
+          "node": 20,
+          "unit": "exact"
+        },
+        {
+          "node": 21,
+          "unit": "exact"
+        },
+        {
+          "node": 22,
+          "unit": "5RP"
+        },
+        {
+          "node": 23,
+          "unit": "exact"
+        },
+        {
+          "node": 24,
+          "unit": "exact"
+        },
+        {
+          "node": 25,
+          "unit": "5TE"
+        },
+        {
+          "node": 26,
+          "unit": "exact"
+        },
+        {
+          "node": 27,
+          "unit": "exact"
+        },
+        {
+          "node": 28,
+          "unit": "5QC"
+        },
+        {
+          "node": 29,
+          "unit": "exact"
+        },
+        {
+          "node": 30,
+          "unit": "exact"
+        },
+        {
+          "node": 31,
+          "unit": "5L8"
+        }
+      ],
+      "bit": 8,
+      "exact_nodes": [
+        8,
+        10,
+        11,
+        13,
+        16,
+        19,
+        22,
+        25,
+        28,
+        31
+      ],
+      "inside_error_bound": 35.00000000000091,
+      "node": "n1404",
+      "outside_error_bound": 0,
+      "source_sha256": "6ee3510bda63a902bfbaf4cab394ae297ae09c592e1a1276f18fbddfafe0bf3a",
+      "unit_node": 8
+    },
+    "sharpen": {
+      "analysis_evaluations": 10,
+      "baseline": [
+        {
+          "node": 0,
+          "unit": "5QC"
+        },
+        {
+          "node": 1,
+          "unit": "5L8"
+        },
+        {
+          "node": 2,
+          "unit": "5RP"
+        },
+        {
+          "node": 3,
+          "unit": "5TE"
+        }
+      ],
+      "bit": 5,
+      "exact_nodes": [
+        1,
+        2,
+        3
+      ],
+      "inside_error_bound": 34.000000000005556,
+      "node": "n2",
+      "outside_error_bound": 2.000000000005439,
+      "source_sha256": "a735cb8b77e4b94b667cd90734176ad59bfa67d69a9b5cbc52f4dba6aa1e4fb0",
+      "unit_node": 0
+    },
+    "sobel": {
+      "analysis_evaluations": 12,
+      "baseline": [
+        {
+          "node": 0,
+          "unit": "5QC"
+        },
+        {
+          "node": 1,
+          "unit": "exact"
+        },
+        {
+          "node": 2,
+          "unit": "5L8"
+        },
+        {
+          "node": 3,
+          "unit": "exact"
+        },
+        {
+          "node": 4,
+          "unit": "5RP"
+        },
+        {
+          "node": 5,
+          "unit": "exact"
+        },
+        {
+          "node": 6,
+          "unit": "exact"
+        },
+        {
+          "node": 7,
+          "unit": "5TE"
+        },
+        {
+          "node": 8,
+          "unit": "exact"
+        },
+        {
+          "node": 9,
+          "unit": "5QC"
+        },
+        {
+          "node": 10,
+          "unit": "exact"
+        }
+      ],
+      "bit": 5,
+      "exact_nodes": [
+        0,
+        2,
+        4,
+        7
+      ],
+      "inside_error_bound": 34.00000000000827,
+      "node": "n1",
+      "outside_error_bound": 2.000000000008157,
+      "source_sha256": "762d4a2bdcffcad8d1d2ed2c10e4d3d506f765e3a0607ce7b1e61b85fcf0e667",
+      "unit_node": 0
+    }
+  },
+  "grid": 320,
+  "schema": 1
+}

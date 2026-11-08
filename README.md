@@ -30,3 +30,7 @@ bash circuit_processing/scripts/run_all_applications.sh
 - `verify/images.csv`、`verify/summary.json` 保存详细数据和失败记录。
 
 编码接口、支持的 C 语法、结构选择的复杂度与限制，见 `circuit_processing/README.md`。旧 schema 1/2 冻结文件通过独立历史路径复现，新 freeze 统一生成 schema 3。
+
+## 三个版本的 RTL
+
+`circuit_processing/hardware/rtl/` 已提供四个应用的原基准、仅补偿、完整处理三个版本，配置记录在 `hardware/config/selection.json`。生成方法、帧协议、仿真命令及综合范围见 [硬件说明](circuit_processing/hardware/README.md)。DCT 本轮为复用核心的完整二维前向变换，不含软件逆变换重建；本次未执行 DC 综合。
