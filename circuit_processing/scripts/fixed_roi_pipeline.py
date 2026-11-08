@@ -5,14 +5,16 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-import itertools
 import json
 import math
 from pathlib import Path
 import subprocess
 import tempfile
 
-import circuit_profiles as profiles
+import legacy_circuit_profiles as profiles
+import legacy_planning
+import circuit_ir
+import circuit_sources
 from excel_report import export_psnr_workbook, export_results_directory
 from comparison_images import save_comparison
 
@@ -31,121 +33,11 @@ WCE_5RP = 4
 
 # The operands follow the numbered calls in src/applications/*.cpp.
 # Tuples of ints are input ranges. Strings refer to preceding values.
-def spatial_graph(app):
-    p, neg, twice = (0, 255), (-255, 0), (0, 510)
-    if app == "sharpen":
-        return [
-            ("0", "add", (0, 1275), neg),
-            ("1", "add", "0", neg),
-            ("2", "add", "1", neg),
-            ("3", "add", "2", neg),
-        ]
-    if app == "conv":
-        n = (-127, 128)
-        return [
-            ("0", "add", n, n), ("1", "add", n, n),
-            ("2", "add", (-1024, 1016), n), ("3", "add", n, n),
-            ("4", "add", "0", "1"), ("5", "add", "2", "3"),
-            ("6", "add", "4", "5"), ("7", "add", "6", n),
-            ("magnitude", "abs", "7"),
-        ]
-    if app == "sobel":
-        return [
-            ("0", "add", p, twice), ("1", "add", "0", p),
-            ("2", "add", p, twice), ("3", "add", "2", p),
-            ("4", "sub", "1", "3"),
-            ("5", "add", p, twice), ("6", "add", "5", p),
-            ("7", "add", p, twice), ("8", "add", "7", p),
-            ("9", "sub", "6", "8"),
-            ("ax", "abs", "4"), ("ay", "abs", "9"),
-            ("10", "add", "ax", "ay"),
-        ]
-    raise ValueError(f"No internal error model for {app}")
-
-
-def output_error_bound(graph, approximate, flip=None):
-    """Propagate value intervals and error bounds, including signed input limits."""
-    state = {}
-    for node, operation, *inputs in graph:
-        operands = [state[x] if isinstance(x, str) else (*x, 0) for x in inputs]
-        lo, hi, error = operands[0]
-        if operation == "abs":
-            state[node] = (0 if lo <= 0 <= hi else min(abs(lo), abs(hi)),
-                           max(abs(lo), abs(hi)), error)
-            continue
-        if node in approximate and any(a < -2048 or b > 2047 for a, b, _ in operands):
-            return None
-        other_lo, other_hi, other_error = operands[1]
-        if operation == "sub":
-            other_lo, other_hi = -other_hi, -other_lo
-            if node in approximate and (other_lo < -2048 or other_hi > 2047):
-                return None
-        local = WCE_5RP if node in approximate else 0
-        lo, hi = lo + other_lo - local, hi + other_hi + local
-        error += other_error + local
-        if flip and node == flip[0]:
-            if lo < -4096 or hi > 4095:
-                return None
-            delta = 1 << flip[1]
-            lo, hi, error = lo-delta, hi+delta, error+delta
-        state[node] = lo, hi, error
-    # Saturation to a byte cannot increase the difference.
-    return min(255, state[node][2])
 
 
 def within_budget(area, total, inside_error, outside_error):
     return 1000 * (area*inside_error**2 + (total-area)*outside_error**2) <= PEAK_SQUARED*total
 
-
-def plan_circuit(app, area, total, min_bit):
-    original = ORIGINAL_5RP[app]
-    if app != "dct":
-        graph = spatial_graph(app)
-        # For equal certified choices prefer the shorter remaining path,
-        # since additional operators can suppress an internal flip.
-        downstream = {graph[-1][0]: 0}
-        for node, _, *inputs in reversed(graph):
-            for operand in inputs:
-                if isinstance(operand, str):
-                    downstream[operand] = max(downstream.get(operand, 0), downstream[node]+1)
-        for count in range(len(original)+1):
-            candidates = []
-            for replaced in itertools.combinations(original, count):
-                kept = set(map(str, set(original)-set(replaced)))
-                outside = output_error_bound(graph, kept)
-                if outside is None or not within_budget(area, total, outside, outside):
-                    continue
-                for node in original:
-                    for bit in range(min_bit, 12):
-                        inside = output_error_bound(graph, kept, (str(node), bit))
-                        if inside is not None and within_budget(area, total, inside, outside):
-                            candidates.append((-bit, downstream[str(node)], -node, replaced, inside, outside))
-            if candidates:
-                neg_bit, distance, neg_node, replaced, inside, outside = min(candidates)
-                return dict(mode="internal", exact_nodes=list(replaced), node=-neg_node,
-                            bit=-neg_bit, inside_error_bound=inside, outside_error_bound=outside,
-                            downstream_ops_before_clip=distance,
-                            roi_mse_lower_bound=0, roi_effect="requires_image_verification")
-    else:
-        # An isolated terminal coefficient in the final transform pass
-        # contributes 1/8 of its change to each of the block's pixels.
-        for bit in range(11, max(4, min_bit+3)-1, -1):
-            bound = 1 << (bit-3)
-            if within_budget(area, total, bound, 0):
-                return dict(mode="internal_dc", exact_nodes=list(original), node=10,
-                            bit=bit, inside_error_bound=bound, outside_error_bound=0,
-                            scope="column_pass_frequency_0_full_blocks",
-                            roi_mse_lower_bound=0, roi_effect="requires_image_verification")
-    # Exact arithmetic makes the output bit's effect independent of the
-    # upstream graph, including block transforms and reconstruction.
-    for bit in range(7, min_bit-1, -1):
-        if within_budget(area, total, 1 << bit, 0):
-            return dict(mode="output_fallback", exact_nodes=list(original), node=-1,
-                        bit=bit, inside_error_bound=1 << bit, outside_error_bound=0,
-                        roi_mse_lower_bound=(1 << bit)**2,
-                        roi_effect="relative_to_exact_output",
-                        reason="no internal candidate within configured bounds")
-    raise ValueError(f"{app}: no configuration fits this rectangle and minimum flip bit")
 
 
 def sha256(path):
@@ -158,7 +50,8 @@ def source_identity():
              ROOT/"src/approximate/evoapprox_adapter.cpp",
              ROOT/"third_party/evoapproxlib/add12se_5RP.c"]
     paths.extend(ROOT/f"src/applications/{app}.cpp" for app in (*APPLICATIONS, "dct8_fixed_graph"))
-    paths.extend((ROOT/"scripts/circuit_profiles.py", ROOT/"configs/unit_error_bounds.json"))
+    paths.extend((ROOT/"scripts/legacy_circuit_profiles.py", ROOT/"configs/unit_error_bounds.json"))
+    paths.extend(ROOT/f"scripts/{name}.py" for name in ("legacy_planning", "circuit_sources", "c_kernel_encoder", "circuit_ir"))
     paths.extend(sorted((ROOT/"app").glob("*.hpp")))
     paths.extend(path for path in sorted((ROOT/"include").rglob("*.hpp")) if path not in paths)
     paths.extend(path for path in sorted((ROOT/"src").rglob("*.cpp")) if path not in paths)
@@ -187,11 +80,11 @@ def write_json(path, value):
         stream.write("\n")
 
 
-def profile_graph(profile):
+def legacy_profile_graph(profile):
     if profile["application"] == "graph":
         return profile["graph"]
     if profile["application"] != "dct":
-        return profiles.graph_from_tuples(spatial_graph(profile["application"]))
+        return profiles.graph_from_tuples(legacy_planning.spatial_graph(profile["application"]))
     return None
 
 
@@ -204,9 +97,11 @@ def unit_bounds():
 
 
 def select_profiles(args):
-    selected = [profiles.validate_profile(read_json(path)) for path in args.circuit]
-    if not selected:
-        selected = [profiles.default_profile(app) for app in (args.apps or APPLICATIONS)]
+    if args.circuit:
+        selected = [circuit_sources.load_profile(path) for path in args.circuit]
+    else:
+        selected = [circuit_sources.builtin_source(profiles.default_profile(app))
+                    for app in (args.apps or APPLICATIONS)]
     if len({profile["name"] for profile in selected}) != len(selected):
         raise ValueError("Circuit profile names must be unique")
     return {profile["name"]: profile for profile in selected}
@@ -218,26 +113,32 @@ def profile_digest(selected):
 
 
 def compatible_sources(frozen_sources, current_sources):
-    """Accept audited reporting-only revisions with identical circuit calculations."""
-    if frozen_sources == current_sources:
-        return True
-    previous_pipelines = {
-        "8b37af2d91bda42755ecae243dd5e2f063c3ed4eec70f430ab503d208ea4b8b5",
-        "6fae3c49df3858e8ad91161fdbd2266b84d2d7baa2b29c86607c7504edd93575",
-    }
-    for previous in previous_pipelines:
-        expected = dict(current_sources)
-        expected["scripts/fixed_roi_pipeline.py"] = previous
-        if frozen_sources == expected:
-            return True
-    return False
+    snapshots = read_json(ROOT/"configs/legacy_schema2_sources.json")
+    return frozen_sources in snapshots
 
 
-def plan_profiles(selected, area, total, min_bit, max_subsets):
+def legacy_plan_profiles(selected, area, total, min_bit, max_subsets):
     bounds = unit_bounds()
-    return {name: profiles.plan(profile, profile_graph(profile), bounds, area, total,
+    return {name: profiles.plan(profile, legacy_profile_graph(profile), bounds, area, total,
                                min_bit, within_budget, max_subsets)
             for name, profile in selected.items()}
+
+
+def plan_profiles(selected, area, total, min_bit, max_evaluations, max_candidates):
+    bounds = unit_bounds()
+    result = {}
+    for name, profile in selected.items():
+        choice = circuit_ir.plan(profile, bounds, area, total, min_bit,
+                                 max_evaluations, max_candidates)
+        if choice['mode'] == 'no_certified_configuration':
+            raise ValueError(f"{name}: {choice['reason']}")
+        if choice['mode'] == 'ir_internal':
+            operation = next(item for item in profile['ir']['operations'] if item['id'] == choice['node'])
+            choice['unit_node'] = operation['unit_node']
+            choice['source_coord'] = operation.get('source_coord')
+            choice['call_stack'] = operation.get('call_stack', [])
+        result[name] = choice
+    return result
 
 
 def freeze(args):
@@ -255,11 +156,11 @@ def freeze(args):
         raise ValueError("Rectangle coordinates are outside the statistical grid")
     area = (right-left)*(bottom-top)
     selected = select_profiles(args)
-    config = dict(schema=2, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
+    config = dict(schema=3, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
                   roi_images=protocol["count"], roi_run_sha256=sha256(args.roi_run/"rectangles.json"),
-                  min_bit=args.min_bit, max_subsets=args.max_subsets, sources=checked_sources(),
+                  min_bit=args.min_bit, max_evaluations=args.max_evaluations, max_candidates=args.max_candidates, sources=checked_sources(),
                   input_circuits=selected, input_circuits_sha256=profile_digest(selected),
-                  circuits=plan_profiles(selected, area, grid*grid, args.min_bit, args.max_subsets))
+                  circuits=plan_profiles(selected, area, grid*grid, args.min_bit, args.max_evaluations, args.max_candidates))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     write_json(args.output, config)
     for app, choice in config["circuits"].items():
@@ -295,7 +196,7 @@ def evaluate(args):
         if config["sources"] != legacy_sources:
             raise ValueError("Legacy configuration belongs to an unsupported source revision")
         selected = {app: profiles.default_profile(app) for app in APPLICATIONS}
-        expected = {app: plan_circuit(app, (r-l)*(b-t), grid**2, config["min_bit"]) for app in APPLICATIONS}
+        expected = {app: legacy_planning.plan_circuit(app, (r-l)*(b-t), grid**2, config["min_bit"]) for app in APPLICATIONS}
     elif schema == 2:
         profiles.integer(config["max_subsets"], "max_subsets", 1, 1000000)
         if not compatible_sources(config["sources"], current_sources):
@@ -309,7 +210,21 @@ def evaluate(args):
             profiles.validate_profile(profile)
             if name != profile["name"]:
                 raise ValueError("Circuit profile key and name differ")
-        expected = plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"], config["max_subsets"])
+        expected = legacy_plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"], config["max_subsets"])
+    elif schema == 3:
+        if config["sources"] != current_sources:
+            raise ValueError("Frozen IR configuration belongs to a different source revision")
+        selected = config["input_circuits"]
+        if not isinstance(selected, dict) or not selected or profile_digest(selected) != config["input_circuits_sha256"]:
+            raise ValueError("Frozen input circuits changed")
+        for name, profile in selected.items():
+            circuit_ir.validate_profile(profile)
+            if name != profile["name"]:
+                raise ValueError("Circuit name differs from its key")
+        profiles.integer(config["max_evaluations"], "max-evaluations", 4, 100000)
+        profiles.integer(config["max_candidates"], "max-candidates", 1, 10000)
+        expected = plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"],
+                                 config["max_evaluations"], config["max_candidates"])
     else:
         raise ValueError("Unsupported frozen configuration schema")
     if config["circuits"] != expected:
@@ -323,6 +238,14 @@ def evaluate(args):
         raise ValueError("Output and input image directories must be separate")
     if not args.binary.is_file():
         raise ValueError(f"Missing compiled verifier: {args.binary}")
+    if schema == 3:
+        capability = subprocess.run([str(args.binary.resolve()), '--capabilities'], capture_output=True, text=True)
+        try:
+            supported = capability.returncode == 0 and json.loads(capability.stdout).get('circuit_ir') == 1
+        except (ValueError, AttributeError):
+            supported = False
+        if not supported:
+            raise ValueError('Rebuild the native verifier for circuit IR: cmake --build circuit_processing/build -j 4')
     if args.start < 1 or args.count < 1 or (args.save_examples is not None and args.save_examples < 0):
         raise ValueError("Invalid image range or example count")
     inputs = [image_dir/f"{index}.jpg" for index in range(args.start, args.start+args.count)]
@@ -337,7 +260,7 @@ def evaluate(args):
     with tempfile.TemporaryDirectory(dir=output) as scratch:
         scratch = Path(scratch)
         profile_paths = {}
-        if schema == 2:
+        if schema in (2, 3):
             for name in applications:
                 profile_paths[name] = scratch/f"{name}.json"
                 write_json(profile_paths[name], selected[name])
@@ -366,7 +289,7 @@ def evaluate(args):
                     if area == 0 or not within_budget(area, total, plan["inside_error_bound"], plan["outside_error_bound"]):
                         raise ValueError("Projected rectangle is empty or exceeds the frozen error budget")
                     destination = scratch
-                    extra = ["--circuit", str(profile_paths[app])] if schema == 2 else []
+                    extra = ["--circuit", str(profile_paths[app])] if schema in (2, 3) else []
                     subprocess.run([str(args.binary.resolve()), selected[app]["application"], str(path), str(destination),
                                     *map(str, box), str(plan["node"]), str(plan["bit"]),
                                     *map(str, plan["exact_nodes"]), *extra], check=True, capture_output=True, text=True)
@@ -441,7 +364,12 @@ def main():
     prepare.add_argument("--apps", nargs="+", choices=APPLICATIONS,
                          help="Select built-in default circuits when --circuit is omitted")
     prepare.add_argument("--max-subsets", type=int, default=10000,
-                         help="Maximum compensated node subsets examined per circuit")
+                         help="Legacy option accepted only for old frozen configurations")
+    prepare.add_argument("--max-evaluations", type=int, default=512)
+    prepare.add_argument("--max-candidates", type=int, default=128)
+    encode = sub.add_parser("encode-c", help="Encode a supported C kernel into the shared circuit IR")
+    encode.add_argument("--interface", type=Path, required=True)
+    encode.add_argument("--output", type=Path, required=True)
     listing = sub.add_parser("list-circuits", help="Show built-in node counts and supported units")
     report = sub.add_parser("export-excel", help="Export an existing verify directory without rerunning images")
     report.add_argument("--results", type=Path, required=True)
@@ -457,6 +385,12 @@ def main():
     verify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "encode-c":
+            encoded = circuit_sources.load_profile(args.interface)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            write_json(args.output, encoded)
+            print(f"Encoded {len(encoded['ir']['operations'])} operations: {args.output}")
+            return 0
         if args.command == "export-excel":
             report = export_results_directory(args.results.expanduser().resolve())
             print(f"Excel report: {report}")
@@ -467,7 +401,8 @@ def main():
         if args.command == "freeze":
             if args.circuit and args.apps:
                 raise ValueError("Choose --circuit profiles or --apps defaults")
-            profiles.integer(args.max_subsets, "max-subsets", 1, 1000000)
+            profiles.integer(args.max_evaluations, "max-evaluations", 4, 100000)
+            profiles.integer(args.max_candidates, "max-candidates", 1, 10000)
             freeze(args)
             return 0
         return evaluate(args)

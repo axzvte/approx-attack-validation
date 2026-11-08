@@ -3,6 +3,7 @@
 #include "applications/sharpen.hpp"
 #include "applications/sobel.hpp"
 #include "circuit_profile.hpp"
+#include "circuit_ir.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 #include <type_traits>
@@ -123,6 +124,10 @@ void verifyGraph(const cv::Mat& image, const cv::Rect& region, const std::filesy
 
 int main(int argc, char** argv) {
     try {
+        if (argc == 2 && std::string(argv[1]) == "--capabilities") {
+            std::cout << "{\"circuit_ir\":1,\"legacy\":true}\n";
+            return 0;
+        }
         if (argc < 10) {
             throw std::runtime_error(
                 "Usage: fixed_roi_verify APP IMAGE OUT LEFT TOP RIGHT BOTTOM NODE BIT [EXACT_NODE ...]");
@@ -136,8 +141,10 @@ int main(int argc, char** argv) {
         circuit_profile::Profile profile;
         const circuit_profile::Profile* selectedProfile = nullptr;
         if (!profilePath.empty()) {
-            profile = circuit_profile::Profile::load(profilePath,app);
-            selectedProfile = &profile;
+            if (app != "ir") {
+                profile = circuit_profile::Profile::load(profilePath,app);
+                selectedProfile = &profile;
+            }
         }
         const auto image = cv::imread(argv[2], cv::IMREAD_GRAYSCALE | cv::IMREAD_IGNORE_ORIENTATION);
         if (image.empty()) {
@@ -150,6 +157,24 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Invalid nonempty half-open rectangle.");
         }
         const cv::Rect region(left, top, right-left, bottom-top);
+        if (app == "ir") {
+            circuit_ir::need(!profilePath.empty(),"--circuit profile is required");
+            const auto ir=circuit_ir::Profile::load(profilePath);
+            const std::string site(argv[8]); const int bit=integer(argv[9]);
+            std::vector<int> replacements;
+            for(int i=10;i<argc;++i) replacements.push_back(integer(argv[i]));
+            const auto compensated=ir.compensatedConfig(replacements);
+            const auto exact=ir.run(image,ir.exactConfig());
+            const auto baseline=ir.run(image,ir.baseline);
+            const auto noFlip=ir.run(image,compensated);
+            cv::Mat processed;
+            if(site=="-1") {
+                processed=ir.flipOutput(image,noFlip,region,bit);
+            } else processed=ir.run(image,compensated,region,site,bit);
+            save(argv[3],"exact.png",exact); save(argv[3],"baseline.png",baseline);
+            save(argv[3],"compensated.png",noFlip); save(argv[3],"processed.png",processed);
+            return 0;
+        }
         const int node = integer(argv[8]), bit = integer(argv[9]);
         std::vector<int> replacements;
         for (int i = 10; i < argc; ++i) {

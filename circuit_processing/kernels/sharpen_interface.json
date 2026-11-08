@@ -1,0 +1,66 @@
+{
+  "schema": 2,
+  "name": "sharpen_mixed",
+  "application": "c",
+  "source": "sharpen.c",
+  "entry": "sharpen_kernel",
+  "tile": [
+    1,
+    1
+  ],
+  "border": "replicate",
+  "interior_only": true,
+  "border_output": "input",
+  "inputs": [
+    {
+      "id": "p0",
+      "dy": 0,
+      "dx": 0
+    },
+    {
+      "id": "p1",
+      "dy": -1,
+      "dx": 0
+    },
+    {
+      "id": "p2",
+      "dy": 1,
+      "dx": 0
+    },
+    {
+      "id": "p3",
+      "dy": 0,
+      "dx": -1
+    },
+    {
+      "id": "p4",
+      "dy": 0,
+      "dx": 1
+    }
+  ],
+  "outputs": [
+    {
+      "dx": 0,
+      "dy": 0
+    }
+  ],
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "5QC"
+    },
+    {
+      "node": 1,
+      "unit": "5L8"
+    },
+    {
+      "node": 2,
+      "unit": "5RP"
+    },
+    {
+      "node": 3,
+      "unit": "5TE"
+    }
+  ],
+  "node_policy": "marked"
+}

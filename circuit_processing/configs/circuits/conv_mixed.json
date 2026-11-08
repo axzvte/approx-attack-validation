@@ -1,7 +1,69 @@
 {
-  "schema": 1,
+  "schema": 2,
   "name": "conv_mixed",
-  "application": "conv",
+  "application": "c",
+  "source": "../../kernels/conv.c",
+  "entry": "conv_kernel",
+  "tile": [
+    1,
+    1
+  ],
+  "border": "replicate",
+  "interior_only": true,
+  "border_output": "input",
+  "inputs": [
+    {
+      "id": "p0",
+      "dy": -1,
+      "dx": -1
+    },
+    {
+      "id": "p1",
+      "dy": -1,
+      "dx": 0
+    },
+    {
+      "id": "p2",
+      "dy": -1,
+      "dx": 1
+    },
+    {
+      "id": "p3",
+      "dy": 0,
+      "dx": -1
+    },
+    {
+      "id": "p4",
+      "dy": 0,
+      "dx": 0
+    },
+    {
+      "id": "p5",
+      "dy": 0,
+      "dx": 1
+    },
+    {
+      "id": "p6",
+      "dy": 1,
+      "dx": -1
+    },
+    {
+      "id": "p7",
+      "dy": 1,
+      "dx": 0
+    },
+    {
+      "id": "p8",
+      "dy": 1,
+      "dx": 1
+    }
+  ],
+  "outputs": [
+    {
+      "dx": 0,
+      "dy": 0
+    }
+  ],
   "baseline": [
     {
       "node": 0,
@@ -35,5 +97,6 @@
       "node": 7,
       "unit": "5TE"
     }
-  ]
+  ],
+  "node_policy": "marked"
 }

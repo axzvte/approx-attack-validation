@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-import circuit_profiles as circuits
+import legacy_circuit_profiles as circuits
 
 
 class CircuitProfileTests(unittest.TestCase):

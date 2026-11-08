@@ -1,0 +1,114 @@
+{
+  "schema": 2,
+  "name": "sobel_mixed",
+  "application": "c",
+  "source": "sobel.c",
+  "entry": "sobel_kernel",
+  "tile": [
+    1,
+    1
+  ],
+  "border": "replicate",
+  "interior_only": true,
+  "border_output": "zero",
+  "inputs": [
+    {
+      "id": "p0",
+      "dy": -1,
+      "dx": -1
+    },
+    {
+      "id": "p1",
+      "dy": -1,
+      "dx": 0
+    },
+    {
+      "id": "p2",
+      "dy": -1,
+      "dx": 1
+    },
+    {
+      "id": "p3",
+      "dy": 0,
+      "dx": -1
+    },
+    {
+      "id": "p4",
+      "dy": 0,
+      "dx": 0
+    },
+    {
+      "id": "p5",
+      "dy": 0,
+      "dx": 1
+    },
+    {
+      "id": "p6",
+      "dy": 1,
+      "dx": -1
+    },
+    {
+      "id": "p7",
+      "dy": 1,
+      "dx": 0
+    },
+    {
+      "id": "p8",
+      "dy": 1,
+      "dx": 1
+    }
+  ],
+  "outputs": [
+    {
+      "dx": 0,
+      "dy": 0
+    }
+  ],
+  "baseline": [
+    {
+      "node": 0,
+      "unit": "5QC"
+    },
+    {
+      "node": 1,
+      "unit": "exact"
+    },
+    {
+      "node": 2,
+      "unit": "5L8"
+    },
+    {
+      "node": 3,
+      "unit": "exact"
+    },
+    {
+      "node": 4,
+      "unit": "5RP"
+    },
+    {
+      "node": 5,
+      "unit": "exact"
+    },
+    {
+      "node": 6,
+      "unit": "exact"
+    },
+    {
+      "node": 7,
+      "unit": "5TE"
+    },
+    {
+      "node": 8,
+      "unit": "exact"
+    },
+    {
+      "node": 9,
+      "unit": "5QC"
+    },
+    {
+      "node": 10,
+      "unit": "exact"
+    }
+  ],
+  "node_policy": "marked"
+}

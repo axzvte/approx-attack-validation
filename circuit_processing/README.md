@@ -1,129 +1,97 @@
-# 第二部分：电路分析、修改与验证
+# 电路结构编码、统一选择与验证
 
-入口为 `scripts/fixed_roi_pipeline.py`，包含 `freeze` 和 `verify` 两步。完整可复制命令见[根目录说明](../README.md)。从根目录编译时使用 `cmake -S circuit_processing -B circuit_processing/build`。
+## 三项改变
 
-## 切换输入电路
+四个应用的新配置都采用 `C 内核 → 标量 SSA 图 → 统一选择器 → 通用执行器`。DCT 的完整行变换、列变换和逆变换同样进入节点图，处理位置由结构评分和误差证书确定。
 
-从工程根目录执行以下命令，查看内置算法节点数和支持的加法器。
+精确替换采用结构贡献排序后的逐步补偿，未展开所有替换子集。`.c` 编码器直接读取 AST、展开固定循环和辅助函数，生成节点与连接，保存源码位置和调用栈。
 
-```bash
-python circuit_processing/scripts/fixed_roi_pipeline.py list-circuits
-```
+历史版本的手写模型与组合枚举放在 `scripts/legacy_planning.py`、`scripts/legacy_circuit_profiles.py`，只供已冻结 schema 1/2 结果复现。新配置统一走 `scripts/circuit_ir.py`。
 
-`configs/circuits/` 中有四种原基准的完整配置、四套混合单元配置 `sharpen_mixed.json`、`conv_mixed.json`、`sobel_mixed.json`、`dct_mixed.json` 和新运算图示例 `custom_sharpen.json`。复制一份配置，修改 `name` 和每个节点的 `unit`，即可定义自己的输入基准。`unit` 支持 `exact`、`5QC`、`5QT`、`5L8`、`5RP`、`5TE`、`5PD`、`5PN`、`5SB`、`5Z0`。每个加减节点必须出现一次，编号从 0 开始。
+## 安装和编译
 
-下面以混合单元基准为例。生成配置时已经选定输入电路，验证时读取冻结文件中的完整输入配置。
+从工程根目录执行，Python 环境沿用已有环境。
 
 ```bash
 source ~/projects/u2net_roi/.venv/bin/activate
-ROI_RUN="$HOME/projects/u2net_roi/output/union_rc_850_01"
-DATA="$HOME/datasets/PASCAL-S"
-RUN="circuit_processing/results/mixed_$(date +%Y%m%d_%H%M%S)"
-
-python circuit_processing/scripts/fixed_roi_pipeline.py freeze \
-  --roi-run "$ROI_RUN" --threshold 85 \
-  --circuit circuit_processing/configs/circuits/sharpen_mixed.json \
-  --output "$RUN/frozen.json"
-python circuit_processing/scripts/fixed_roi_pipeline.py verify \
-  --config "$RUN/frozen.json" --images "$DATA/datasets/imgs/pascal" \
-  --count 10 --output "$RUN/verify"
+python -m pip install -r circuit_processing/requirements.txt
+cmake -S circuit_processing -B circuit_processing/build -DCMAKE_BUILD_TYPE=Release
+cmake --build circuit_processing/build -j 4
+ctest --test-dir circuit_processing/build --output-on-failure
 ```
 
-可重复指定 `--circuit`，在同一次运行中比较多个独立输入基准，各配置的 `name` 必须不同。也可在 freeze 时使用 `--apps sharpen sobel` 只选内置默认基准。verify 的 `--apps` 指冻结文件中的配置名称，例如 `sharpen_mixed`。
+`pycparser==2.23` 用于 C 语法解析。原先的验证二进制需要重新编译，schema 3 验证会先检查 IR 执行能力，避免使用旧二进制处理整个数据集后才发现接口不匹配。
 
-输入基准由使用者给定。混合示例只是展示文件格式，未经图片筛选。冻结文件同时保存原始节点配置和推导出的处理配置。验证不会再次读取原来的配置文件，编辑原文件不会改变已冻结的运行。
-
-## 接入新算法
-
-`application: "graph"` 使用逐像素运算图执行新算法。`custom_sharpen.json` 给出了完整示例，可以直接替换上面命令中的配置路径。`graph.inputs` 把变量绑定到当前像素附近的 `dx`、`dy` 位置，并可使用整数 `scale`、`bias`。边界采用 `replicate` 或 `reflect101`。
-
-`graph.operations` 按执行顺序列出节点，支持 `add`、`sub`、`abs`、整数 `scale`、算术右移 `shift` 和 `clamp`。`args` 使用先前变量名或整数常量。加减节点的 `id` 连续编号为字符串 `"0"`、`"1"` 等，其余运算使用唯一名称。`graph.output` 指定输出，最终限幅至 0—255。右移对负数向下取整。
-
-新增 C/C++ 算法需先把实际运算关系、位宽和边界规则转换到该接口。块变换、循环状态、浮点或当前算子之外的操作，需要补充对应执行与误差模型。现有 DCT 通过已审核的专用后端接入。每个近似加法器使用有符号 12 位输入和 13 位输出，无法证明输入范围满足要求的图会在 freeze 时给出原因。
-
-九种单元的误差界保存在 `configs/unit_error_bounds.json`，来自逐单元全输入遍历。复核程序为 `tests/audit_unit_errors.cpp`。区间传播可保守高估误差，因此“未找到可证明满足约束的配置”需要结合报告理解。`--max-subsets` 默认 10000，限制精确替换子集的枚举数量，返回内部翻转配置时，`examined_subsets` 和 `search_exhaustive` 记录检查数量与是否完成全部子集检查。像素端备选通过 `reason` 说明未找到已认证的内部候选。
+## 查看自动生成的结构
 
 ```bash
-python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
+python circuit_processing/scripts/fixed_roi_pipeline.py encode-c \
+  --interface circuit_processing/configs/circuits/dct_mixed.json \
+  --output circuit_processing/results/dct_encoded.json
 ```
 
-原 schema 1 冻结文件可以继续验证。新生成的 schema 2 文件嵌入输入配置和源码指纹，可核查输入基准与后续处理的区别。
+接口文件只声明 C 源码、入口函数、像素采样/输出位置、分块边界和输入基准。运算连接由源码读取，编码结果保存在 `ir.operations`，每个节点包含 `id`、`op`、`args`、有符号性、位宽及源码位置。
 
-## 两步的作用
+`unit_node` 表示共享的硬件加法器组。展开后的 `id` 表示一次执行实例，两者共同确定替换与翻转位置。DCT 的 32 个加法器组对应 512 次前向执行实例，逆变换的常数乘法、加法与舍入也包含在图中。`circuit_add(group,a,b)` 给出共享硬件编号；普通整数加减可使用 `all_integer_adds` 按源码位置自动编号。
 
-`freeze` 读取第一部分的矩形统计和输入电路，根据算术模型、逐节点近似加法器误差界和全图 MSE 预算，确定精确替换节点、翻转节点和位。`--threshold 85` 选择统计中的 85% 矩形，`--min-bit` 默认 4。
+内置四个算法的 C 内核位于 `kernels/`。它们是从已有 C++ 算术实现整理的适配内核，编码器解析这些 C 文件。支持范围与运算约定见 `kernels/README.md`。
 
-`verify` 固定使用冻结文件中选定的电路。省略输入电路参数时，freeze 沿用 sharpen、conv、sobel、dct 四种原基准。`--count 10` 用于先检查流程，后续可在新输出目录运行 `--count 850`。每次输出目录必须不存在。
+## 新的配置选择步骤
 
-## 完整验证 850 张图片并保存三图对比
+1. 读取输入基准及固定矩形，计算区域面积占比。
+2. 在统一图上计算保守数值范围和单元误差传播。近似单元误差来自 `configs/unit_error_bounds.json` 的全输入审计。
+3. 从输出反向传播绝对传递系数，给每个可翻转加法执行实例计算结构评分，给每个近似单元组计算误差贡献。
+4. 在全精确补偿状态下，按结构评分检查有限个翻转候选，选择已有误差证书的候选。评分用于排序，实际扰动仍需图片验证。
+5. 固定该翻转位置和位，按照结构贡献顺序逐步精确化单元组，找到满足全图预算的一个补偿前缀。
+6. 通过前向误差传播重新验证区域内外误差上界，记录全部分析次数和选择轨迹。
 
-四个应用一起运行时，在工程根目录执行以下命令。脚本将锐化、卷积、Sobel、DCT 的四套混合单元基准放入同一个冻结文件，再分别验证 850 张图片。
+默认最多检查 128 个候选、512 次前向误差分析。补偿前缀最多分 64 步。图中的节点数为 V、输出数为 P 时，反向传递计算按 V×P 的规模开展；每次前向分析按节点数线性开展。候选排序和补偿排序随节点及单元组数增长，没有 2^M 的替换子集项。传递矩阵超过 800 万元素时会给出资源上限说明。
+
+`--max-candidates` 与 `--max-evaluations` 可修改上述预算。选择结果包含 `analysis_evaluations`、`selection_trace`、`structural_score`、`unit_node`、`source_coord` 等字段。
+
+该过程是有分析预算的启发式方法，未找到证书不等价于无可行解，选中结果也不声明全局最优。绝对传递系数可能高估作用，误差上界仅用于安全检查。内部翻转的区域 MSE 下界仍为 0，视觉效果和实际 PSNR 由图片验证。
+
+## 全图误差约束
+
+对于区域面积占比 a、区域内外绝对误差上界 BR、BB，要求 `a*BR^2 + (1-a)*BB^2 <= 65.025`，对应 8 位灰度输出的全图 PSNR 下界 30 dB。程序检查近似加法器输入的有符号 12 位范围、翻转位置的 13 位范围，并处理绝对值、截断、舍入与限幅。
+
+每次图像尺寸映射后再次核对面积预算。所有分块内核只在完整输出块落入重要矩形时启用内部翻转，使扰动局限于矩形。精确替换在全图生效。
+
+## 执行四个混合基准
 
 ```bash
-source ~/projects/u2net_roi/.venv/bin/activate
 bash circuit_processing/scripts/run_all_applications.sh
 ```
 
-| 输入基准 | 节点总数 | 近似节点与单元 | 其他节点 |
-|---|---:|---|---|
-| `sharpen_mixed` | 4 | 0 用 5QC，1 用 5L8，2 用 5RP，3 用 5TE | 无 |
-| `conv_mixed` | 8 | 1 用 5QC，2 用 5L8，4 用 5RP，7 用 5TE | 精确 |
-| `sobel_mixed` | 11 | 0、9 用 5QC，2 用 5L8，4 用 5RP，7 用 5TE | 精确 |
-| `dct_mixed` | 32 | 8、16、28 用 5QC；10、19、31 用 5L8；11、22 用 5RP；13、25 用 5TE | 精确 |
+脚本仍读取 `sharpen_mixed.json`、`conv_mixed.json`、`sobel_mixed.json`、`dct_mixed.json` 的原基准分配，默认每个应用 850 张图片。`ROI_RUN`、`IMAGE_DIR`、`RUN_DIR`、`IMAGE_COUNT`、`PYTHON_BIN` 可以通过环境变量指定。
 
-节点编号从 0 开始，对应当前算法模型中的加减节点。这次新增的三套混合配置按已有近似节点编号升序，循环分配 5QC → 5L8 → 5RP → 5TE。该固定规则用于提供不同单元共同使用的输入基准，尚未据此开展图片效果验证。四应用入口读取 `configs/circuits/*_mixed.json`，修改各自 JSON 中的 `unit` 即可更改该应用的基准。`*_default.json` 及 `--apps` 对应历史内置基准，选择混合配置时使用 `--circuit` 或四应用入口。
-
-输出集中放在 `circuit_processing/results/all_apps_时间戳/`，其中 `verify/comparisons/` 存放所有应用的编号拼图，`verify/psnr_results.xlsx` 包含四张工作表。`ROI_RUN`、`IMAGE_DIR`、`RUN_DIR`、`IMAGE_COUNT`、`PYTHON_BIN` 环境变量可覆盖对应路径、验证数量和 Python 解释器。运行脚本前激活现有 Python 环境。
-
-以下命令沿用混合锐化基准。`--circuit` 可替换为你自己的配置文件，也可重复指定以比较多个输入基准。
+也可以单独指定一个或多个 C 接口、已编码 schema 3 文件或旧显式图文件。
 
 ```bash
-cd ~/projects/approx_attack_validation
-source ~/projects/u2net_roi/.venv/bin/activate
-ROI_RUN="$HOME/projects/u2net_roi/output/union_rc_850_01"
-RUN="circuit_processing/results/full850_$(date +%Y%m%d_%H%M%S)"
-
+RUN="circuit_processing/results/unified_$(date +%Y%m%d_%H%M%S)"
 python circuit_processing/scripts/fixed_roi_pipeline.py freeze \
   --circuit circuit_processing/configs/circuits/sharpen_mixed.json \
-  --roi-run "$ROI_RUN" --threshold 85 --output "$RUN/frozen.json"
+  --roi-run "$HOME/projects/u2net_roi/output/union_rc_850_01" \
+  --threshold 85 --output "$RUN/frozen.json"
 python circuit_processing/scripts/fixed_roi_pipeline.py verify \
   --config "$RUN/frozen.json" \
   --images "$HOME/datasets/PASCAL-S/datasets/imgs/pascal" \
   --count 850 --output "$RUN/verify"
 ```
 
-每张图片、每个应用或输入基准配置生成一张横向三图拼图，依次为 `Exact reference`、`Baseline`、`Processed`。标注原图片编号、配置名称、处理前全图 PSNR、处理后全图 PSNR 和处理后重要区域 PSNR，单位为 dB，显示两位小数。PSNR 均相对于精确参考计算。图像保持原像素尺寸，标注放在图像外的白色画布中。
+新 freeze 对旧内置应用描述和显式图也先转换为同一 IR。历史 schema 1/2 冻结文件维持原配置复现。
 
-所有拼图集中保存在 `verify/comparisons/`，例如 `sharpen_mixed_0001.png` 至 `sharpen_mixed_0850.png`。一次运行多个配置时也使用同一个文件夹，文件名包含配置名称。每张成功完成的验证都会保存拼图。旧的 `--save-examples` 参数仍可传入，拼图始终保存全部图片。
+## 结果
 
-仅补偿结果用于运行中的数值检查，最终图片输出为三图拼图。单独图片放在临时目录中，运行结束后清理。失败记录写入 `summary.json` 和数据表，结束时打印拼图及 Excel 的保存路径。
+`frozen.json` 嵌入完整输入图与固定处理配置。`verify/images.csv` 和 `summary.json` 逐图记录原基准、仅补偿及处理后的全图、区域内外 PSNR，以及全图达标、区域下降和两者同时满足的数量。
 
-| 文件夹 | 内容 |
-|---|---|
-| `scripts/` | 冻结配置与汇总验证结果 |
-| `configs/` | 算术模型对应的源代码指纹 |
-| `app/` | C++ 验证入口 |
-| `src/`、`include/` | 算术核心、区域判定和共用接口 |
-| `third_party/evoapproxlib/` | 保留可供替换的近似加法器源码 |
-| `tests/` | 当前位翻转回归测试 |
-| `build/`、`results/` | 本地生成的编译产物和结果，不上传 Git |
+`verify/comparisons/` 集中保存 `应用名_0001.png` 等三图拼图，包含精确参考、原基准、最终处理，以及处理前全图、处理后全图和处理后区域 PSNR。中间单图在临时目录使用，结束后清理。
 
-## 结果怎么读
-
-`frozen.json` 给出区域坐标、节点配置和误差界。`verify/images.csv` 对每张图片记录三种输出：原近似基准 baseline、仅精确替换 compensated、精确替换加翻转 processed。三者都与精确参考比较，分别统计全图、矩形内、矩形外 PSNR。
-
-`verify/summary.json` 中 `global_pass` 是全图 PSNR 达到 30 dB 的张数，`roi_decreased` 是区域 PSNR 比原近似基准下降的张数，`joint_pass` 是两者同时满足的张数。另有 `roi_decreased_vs_compensated` 用于观察翻转本身的作用。退出码非零表示运行错误或全图不达标；退出码为零仍需检查区域是否下降。
-
-每次 verify 完成时，自动生成 `verify/psnr_results.xlsx`，并在终端打印绝对路径。每个应用或输入基准配置独占一张工作表，依次列出图片编号、处理前全图 PSNR、处理后全图 PSNR、处理前重要区域 PSNR、处理后重要区域 PSNR。末行是逐图 PSNR 的算术平均。数值单位为 dB，显示两位小数并保留底层精度，表头冻结，支持筛选。
-
-`∞` 表示该范围内与精确参考完全一致，平均中也计入无穷值。失败图片保留编号并标记，PSNR 留空，平均仅使用完成结果。Excel 导出仅依赖 Python 标准库。
-
-已有运行可以直接从 `verify/images.csv` 补导出 Excel。
+`verify/psnr_results.xlsx` 每个配置一个工作表，保留五列 PSNR 数据和算术平均，显示两位小数。无穷值显式记录，失败图保留编号和标记，平均仅计完成结果。
 
 ```bash
-python circuit_processing/scripts/fixed_roi_pipeline.py export-excel \
-  --results /实际运行目录/verify
+python circuit_processing/scripts/fixed_roi_pipeline.py export-excel --results /实际运行目录/verify
+python -m unittest discover -s circuit_processing/tests -p 'test_*.py' -v
 ```
 
-当前原始算术规则见 [METHOD.md](METHOD.md)。混合配置使用每种单元的实际误差界传播，DCT 的处理路径将输入基准中的全部近似节点精确化后修改终端 DC 系数。已有配置与源码指纹绑定。DC 面积和硬件计数器时序留待后续。
-
+本阶段验证软件算术与结构分析。RTL 映射、硬件计数器时序和 DC 综合面积留到后续。近似单元内部的布尔门级 C 实现继续使用已审计单元函数，自动源码编码目前面向上述有明确接口的应用算术内核。

@@ -1,7 +1,69 @@
 {
-  "schema": 1,
+  "schema": 2,
   "name": "sobel_mixed",
-  "application": "sobel",
+  "application": "c",
+  "source": "../../kernels/sobel.c",
+  "entry": "sobel_kernel",
+  "tile": [
+    1,
+    1
+  ],
+  "border": "replicate",
+  "interior_only": true,
+  "border_output": "zero",
+  "inputs": [
+    {
+      "id": "p0",
+      "dy": -1,
+      "dx": -1
+    },
+    {
+      "id": "p1",
+      "dy": -1,
+      "dx": 0
+    },
+    {
+      "id": "p2",
+      "dy": -1,
+      "dx": 1
+    },
+    {
+      "id": "p3",
+      "dy": 0,
+      "dx": -1
+    },
+    {
+      "id": "p4",
+      "dy": 0,
+      "dx": 0
+    },
+    {
+      "id": "p5",
+      "dy": 0,
+      "dx": 1
+    },
+    {
+      "id": "p6",
+      "dy": 1,
+      "dx": -1
+    },
+    {
+      "id": "p7",
+      "dy": 1,
+      "dx": 0
+    },
+    {
+      "id": "p8",
+      "dy": 1,
+      "dx": 1
+    }
+  ],
+  "outputs": [
+    {
+      "dx": 0,
+      "dy": 0
+    }
+  ],
   "baseline": [
     {
       "node": 0,
@@ -47,5 +109,6 @@
       "node": 10,
       "unit": "exact"
     }
-  ]
+  ],
+  "node_policy": "marked"
 }
