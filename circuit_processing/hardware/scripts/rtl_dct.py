@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 from rtl_emit import emit_graph
-from rtl_area import FRAME_PORTS, area_position
+from rtl_area import FRAME_PORTS, POSITION_WIRES, area_position
 
 
 def core_profile(root, baseline):
@@ -88,6 +88,7 @@ def emit_dct(root:Path,profile:dict,plan:dict,version:str,bbox:list,*,area_scope
         position_wires = ''
         if version == 'processed':
             frame_ports = FRAME_PORTS
+            position_wires = POSITION_WIRES
             position = area_position(8)
         else:
             frame_ports = position = roi_reg = roi_reset = roi_capture = ''

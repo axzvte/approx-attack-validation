@@ -6,11 +6,13 @@ FRAME_PORTS = """ input wire [15:0] frame_width,frame_height,
  input wire [15:0] frame_roi_left,frame_roi_top,frame_roi_right,frame_roi_bottom,
 """
 
+POSITION_WIRES = """wire active;
+wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;
+"""
+
 
 def area_position(step):
-    return f"""wire active;
-wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;
-roi_position #(.STEP({step})) position(
+    return f"""roi_position #(.STEP({step})) position(
  .clk(clk),.rst_n(rst_n),.frame_start(frame_start),.advance(accept),
  .frame_width(frame_width),.frame_height(frame_height),.active(active),
  .frame_roi_left(frame_roi_left),.frame_roi_top(frame_roi_top),
@@ -37,7 +39,7 @@ def emit_area_stencil(profile, plan, app, version):
         top_edge = -min(item['dy'] for item in inputs)
         bottom = max(item['dy'] for item in inputs)
         control = f"""wire accept=in_valid && in_ready;
-{area_position(1)}assign in_ready=active && rst_n && !frame_start;
+{POSITION_WIRES}{area_position(1)}assign in_ready=active && rst_n && !frame_start;
 wire interior=(x>=16'd{left}) && (y>=16'd{top_edge}) &&
  ({{1'b0,x}}+17'd{right}<{{1'b0,width}}) && ({{1'b0,y}}+17'd{bottom}<{{1'b0,height}});
 wire flip_enable=accept && interior && x>=roi_left && x<roi_right && y>=roi_top && y<roi_bottom;

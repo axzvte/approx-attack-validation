@@ -393,12 +393,12 @@ module dct_processed(
  output wire in_ready, output reg out_valid,
  output reg [2047:0] coefficients
 );
+wire active;
+wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;
 reg busy,block_inside;reg [3:0] phase;
 reg signed [31:0] data[0:63];reg signed [31:0] rows[0:63];
 wire accept=in_valid && in_ready;
 assign in_ready=active && !busy && !frame_start && rst_n;
-wire active;
-wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;
 roi_position #(.STEP(8)) position(
  .clk(clk),.rst_n(rst_n),.frame_start(frame_start),.advance(accept),
  .frame_width(frame_width),.frame_height(frame_height),.active(active),

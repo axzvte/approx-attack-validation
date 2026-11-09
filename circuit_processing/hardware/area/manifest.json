@@ -37,7 +37,7 @@
     "rtl/conv/processed.sv": "9b76a48920f2e2ff544a85688fba1d5d09eb054baa0aa66de4daa910ee88e414",
     "rtl/dct/baseline.sv": "027e984560c19cbd965a0fc6f562e0a9b82e847b656a49c6c7b3af7882edf46b",
     "rtl/dct/compensated.sv": "990765ed623e286f7799abf38064e9d6db7ffda0baa5b278374c0c8fcb464e1b",
-    "rtl/dct/processed.sv": "b93555dc86c62dbca2a6e89e0b1679154a36acd9a38cf2d12217c61c6e2792a7",
+    "rtl/dct/processed.sv": "966da693556897cf6358481af0a90147625a53de94230b592fee77cd696ac2a6",
     "rtl/sharpen/baseline.sv": "1130c641a2dd152c3a3c5fbef7bdf0a3a7dbb55e0253a1fbf221597977d15768",
     "rtl/sharpen/compensated.sv": "9cac728ceb11e334e5d6e14aea5b0099a0821d4cede4432e4e9bf99da148fdcf",
     "rtl/sharpen/processed.sv": "fe3287e9e88c0e45269872ccc70c48efdad6e5f30938a8bb3babb2fedaf3385d",
