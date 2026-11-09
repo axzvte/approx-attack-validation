@@ -29,8 +29,8 @@ def checked_configuration(config):
     import circuit_ir
     from circuit_sources import load_profile
     from fixed_roi_pipeline import plan_profiles,profile_digest
-    if config.get('schema')!=3 or config.get('grid')!=320:
-        raise ValueError('RTL requires schema3 and normalized320 geometry')
+    if config.get('schema') not in (3,4) or config.get('grid')!=320:
+        raise ValueError('RTL requires a schema 3 or 4 freeze and normalized320 geometry')
     bbox=config['bbox_half_open']
     if len(bbox)!=4 or any(type(x)!=int for x in bbox) or not 0<=bbox[0]<bbox[2]<=320 or not 0<=bbox[1]<bbox[3]<=320:
         raise ValueError('Invalid ROI rectangle')
@@ -52,7 +52,9 @@ def checked_configuration(config):
         if semantic(profiles[name])!=semantic(current):
             raise ValueError(f'{app}: frozen circuit does not match current source kernel and baseline')
     area=(bbox[2]-bbox[0])*(bbox[3]-bbox[1])
-    plans=plan_profiles(profiles,area,320*320,config.get('min_bit',4),config.get('max_evaluations',512),config.get('max_candidates',128))
+    plans=plan_profiles(profiles,area,320*320,config.get('min_bit',4),config.get('max_evaluations',512),
+                        config.get('max_candidates',128),
+                        policy=config['unit_policy'] if config['schema']==4 else None, grid=320, box=bbox)
     for name,choice in plans.items():
         stored=config['circuits'][name]
         # Coordinates depend on host location; all decisions and bound checks must match.
@@ -81,6 +83,9 @@ def generate_bundle(output,config=None,*,area_scope=False):
         profile=config['input_circuits'][f'{app}_mixed']
         plan=config['circuits'][f'{app}_mixed']
         selections[app]={k:plan[k] for k in ('node','bit','unit_node','exact_nodes','inside_error_bound','outside_error_bound','analysis_evaluations')}
+        if config['schema']==4:
+            for key in ('unit_replacements','unit_area_um2','baseline_unit_area_um2','global_mse_bound','selection_method'):
+                selections[app][key]=plan[key]
         selections[app]['baseline']=profile['baseline']
         selections[app]['source_sha256']=hashlib.sha256((ROOT/f'kernels/{app}.c').read_text(encoding='utf-8').encode()).hexdigest()
         for version in VERSIONS:
@@ -123,7 +128,7 @@ def generate_bundle(output,config=None,*,area_scope=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--frozen',type=Path,help='Existing schema3 frozen configuration; no images are read')
+    parser.add_argument('--frozen',type=Path,help='Existing schema 3 or 4 frozen configuration; no images are read')
     parser.add_argument('--output',type=Path)
     parser.add_argument('--area-scope',action='store_true',help='Generate core-area RTL with ROI hardware only in processed')
     args=parser.parse_args()

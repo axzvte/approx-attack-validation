@@ -17,9 +17,11 @@ def literal(value, width=64):
     return ('-' if value<0 else '')+f"{width}'sd{abs(value)}"
 
 
-def emit_graph(profile, module, exact_nodes, flip_site=None, flip_bit=0):
+def emit_graph(profile, module, exact_nodes, flip_site=None, flip_bit=0, *, unit_replacements=()):
     """Return a module with signed32 p/IR-input ports, y0.. outputs and flip_enable."""
     import circuit_ir
+    from unit_policy import with_units
+    profile = with_units(profile, unit_replacements)
     circuit_ir.validate_profile(profile)
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',module):
         raise ValueError('Invalid RTL module name')

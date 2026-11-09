@@ -155,7 +155,7 @@ def _round_away(x):
     return math.floor(x + .5) if x >= 0 else math.ceil(x - .5)
 
 
-def _analyze(profile, replacements, unit_bounds, flip):
+def _analyze(profile, replacements, unit_bounds, flip, details=False):
     ir, state, ranges = profile['ir'], {}, {}
     assignments = {x['node']: x['unit'] for x in profile['baseline']}
     def result(error=math.inf, reason=None):
@@ -217,7 +217,10 @@ def _analyze(profile, replacements, unit_bounds, flip):
         lo, hi, error, integer = operand(output['value'])
         # Final round-to-byte is monotone but can add one rounding step.
         errors.append(min(255, error + (1 if error and not integer else 0)))
-    return result(max(errors, default=0))
+    summary = result(max(errors, default=0))
+    if details:
+        summary.update(output_bounds=errors, state=state)
+    return summary
 
 
 def analyze(profile, replacements, unit_bounds, flip=None):

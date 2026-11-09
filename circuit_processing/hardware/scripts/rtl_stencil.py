@@ -58,7 +58,8 @@ def emit_stencil(profile, plan, app, version, bbox):
     module=f'{app}_{version}'
     count=len(profile['ir']['inputs'])
     core=emit_graph(profile,module+'_core',[] if version=='baseline' else plan['exact_nodes'],
-                    plan['node'] if version=='processed' else None,plan['bit'])
+                    plan['node'] if version=='processed' else None,plan['bit'],
+                    unit_replacements=() if version=='baseline' else plan.get('unit_replacements', ()))
     ins=profile['ir']['inputs']
     minx,miny=min(x['dx'] for x in ins),min(x['dy'] for x in ins)
     maxx,maxy=max(x['dx'] for x in ins),max(x['dy'] for x in ins)

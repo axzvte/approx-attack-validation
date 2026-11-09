@@ -1,5 +1,35 @@
 # 电路结构编码、统一选择与验证
 
+## 按单元面积选择固定配置
+
+给 `freeze` 传入 `--unit-costs configs/nangate45_unit_costs.json` 可启用面积选择。四个应用共享选择器。它以每个近似组原有误差上界为候选门槛，比较保留原单元、改用误差上界相同或更小的近似单元，以及精确替换。按位分配翻转候选预算，对满足约束的候选逐步降低估计单元面积，每一步重新计算全图误差证书。默认保留最强已证候选至少 50% 的结构评分，可用 `--min-strength-ratio` 调整。结构评分用于筛选，区域 PSNR 下降由逐图验证判断。
+
+误差证书累加各输出位置的误差平方。图结构允许时，还使用线性重建尾部的矩阵范数约束完整块的误差能量。只对完整落在矩形内的块计入翻转，图像末端的裁切块用对应像素的误差上界。验证时按每张图的实际尺寸重新检查预算。
+
+面积表是同一 Nangate45 库、10 ns 约束下独立加法器的综合面积。每个共享组计一次，精确加法器按 32/64 位区分。该表用于排序，最终比较使用整电路 DC 报告。搜索受候选和分析次数限制，结果是已考察配置中估计面积最低的可行候选。
+
+从工程根目录运行：
+
+```bash
+cmake -S circuit_processing -B circuit_processing/build -DCMAKE_BUILD_TYPE=Release
+cmake --build circuit_processing/build -j 4
+RUN_DIR="$PWD/circuit_processing/results/area_aware_01" \
+UNIT_COSTS="$PWD/circuit_processing/configs/nangate45_unit_costs.json" \
+bash circuit_processing/scripts/run_all_applications.sh
+```
+
+然后生成这次冻结配置对应的面积 RTL 并提交 DC：
+
+```bash
+run="$PWD/circuit_processing/results/area_aware_01"
+python circuit_processing/hardware/scripts/generate_rtl.py --area-scope \
+  --frozen "$run/frozen.json" --output "$run/rtl_bundle"
+DC_AREA_BUNDLE="$run/rtl_bundle" \
+  bash circuit_processing/hardware/scripts/run_dc_core_area.sh all
+```
+
+新冻结文件为 schema 4，记录成本表、两类替换、矩阵或逐输出证书和候选排序。旧配置仍走原来的选择和验证方式。
+
 ## 三项改变
 
 四个应用的新配置都采用 `C 内核 → 标量 SSA 图 → 统一选择器 → 通用执行器`。DCT 的完整行变换、列变换和逆变换同样进入节点图，处理位置由结构评分和误差证书确定。

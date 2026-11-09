@@ -11,6 +11,10 @@ IMAGE_COUNT="${IMAGE_COUNT:-850}"
 RUN_DIR="${RUN_DIR:-$PROJECT_DIR/circuit_processing/results/all_apps_$(date +%Y%m%d_%H%M%S)}"
 PROFILES="$PROJECT_DIR/circuit_processing/configs/circuits"
 PIPELINE="$PROJECT_DIR/circuit_processing/scripts/fixed_roi_pipeline.py"
+policy_args=()
+if [[ -n "${UNIT_COSTS:-}" ]]; then
+  policy_args=(--unit-costs "$UNIT_COSTS" --min-strength-ratio "${MIN_STRENGTH_RATIO:-0.5}")
+fi
 
 printf 'Results directory: %s\n' "$RUN_DIR"
 
@@ -20,6 +24,7 @@ printf 'Results directory: %s\n' "$RUN_DIR"
   --circuit "$PROFILES/sobel_mixed.json" \
   --circuit "$PROFILES/dct_mixed.json" \
   --roi-run "$ROI_RUN" --threshold 85 \
+  "${policy_args[@]}" \
   --output "$RUN_DIR/frozen.json"
 
 "$PYTHON_BIN" "$PIPELINE" verify \

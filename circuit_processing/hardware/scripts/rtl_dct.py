@@ -70,7 +70,9 @@ def emit_dct(root:Path,profile:dict,plan:dict,version:str,bbox:list,*,area_scope
     core=core_profile(Path(root),profile['baseline'])
     phase,site=selected_phase(profile,core,plan)
     module='dct_'+version
-    arithmetic=emit_graph(core,module+'_core',[] if version=='baseline' else plan['exact_nodes'],site if version=='processed' else None,plan['bit'])
+    arithmetic=emit_graph(core,module+'_core',[] if version=='baseline' else plan['exact_nodes'],
+                          site if version=='processed' else None,plan['bit'],
+                          unit_replacements=() if version=='baseline' else plan.get('unit_replacements', ()))
     l,t,r,b=bbox
     frame_ports = ' input wire [15:0] frame_width,frame_height,\n'
     position_wires = 'wire active;wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;\n'

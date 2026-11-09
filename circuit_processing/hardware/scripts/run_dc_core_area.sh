@@ -15,12 +15,13 @@ dc_shell="${DC_SHELL:-$HOME/Synopsys/dc2016/bin/dc_shell}"
 compat_lib="${DC_COMPAT_LIB:-$HOME/synopsys-compat/lib}"
 test -r "$DC_LIB" || { echo "Missing library: $DC_LIB" >&2; exit 1; }
 test -r "$dc_shell" || { echo "Missing DC launcher: $dc_shell" >&2; exit 1; }
-test -r "$scripts_dir/../area/manifest.json" || {
+area_bundle="${DC_AREA_BUNDLE:-$scripts_dir/../area}"
+test -r "$area_bundle/manifest.json" || {
     echo "Generate the area RTL with generate_rtl.py --area-scope first." >&2
     exit 1
 }
 export DC_LIB="$(realpath -- "$DC_LIB")"
-export DC_RTL="$(realpath -- "$scripts_dir/../area/rtl")"
+export DC_RTL="$(realpath -- "$area_bundle/rtl")"
 dc_shell=$(realpath -s -- "$dc_shell")
 compat_lib=$(realpath -s -- "$compat_lib")
 mkdir -p "$project_dir/results/dc_core_area"

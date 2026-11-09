@@ -28,7 +28,8 @@ def emit_area_stencil(profile, plan, app, version):
     processed = version == 'processed'
     exact_nodes = [] if version == 'baseline' else plan['exact_nodes']
     core = emit_graph(profile, top+'_core', exact_nodes,
-                      plan['node'] if processed else None, plan['bit'])
+                      plan['node'] if processed else None, plan['bit'],
+                      unit_replacements=() if version == 'baseline' else plan.get('unit_replacements', ()))
     inputs = profile['ir']['inputs']
     ports = control = ''
     enable = "1'b0"

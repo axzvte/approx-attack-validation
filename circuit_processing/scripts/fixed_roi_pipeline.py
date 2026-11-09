@@ -14,6 +14,7 @@ import tempfile
 import legacy_circuit_profiles as profiles
 import legacy_planning
 import circuit_ir
+import unit_policy
 import circuit_sources
 from excel_report import export_psnr_workbook, export_results_directory
 from comparison_images import save_comparison
@@ -51,7 +52,7 @@ def source_identity():
              ROOT/"third_party/evoapproxlib/add12se_5RP.c"]
     paths.extend(ROOT/f"src/applications/{app}.cpp" for app in (*APPLICATIONS, "dct8_fixed_graph"))
     paths.extend((ROOT/"scripts/legacy_circuit_profiles.py", ROOT/"configs/unit_error_bounds.json"))
-    paths.extend(ROOT/f"scripts/{name}.py" for name in ("legacy_planning", "circuit_sources", "c_kernel_encoder", "circuit_ir"))
+    paths.extend(ROOT/f"scripts/{name}.py" for name in ("legacy_planning", "circuit_sources", "c_kernel_encoder", "circuit_ir", "unit_policy", "circuit_energy"))
     paths.extend(sorted((ROOT/"app").glob("*.hpp")))
     paths.extend(path for path in sorted((ROOT/"include").rglob("*.hpp")) if path not in paths)
     paths.extend(path for path in sorted((ROOT/"src").rglob("*.cpp")) if path not in paths)
@@ -124,12 +125,18 @@ def legacy_plan_profiles(selected, area, total, min_bit, max_subsets):
             for name, profile in selected.items()}
 
 
-def plan_profiles(selected, area, total, min_bit, max_evaluations, max_candidates):
+def plan_profiles(selected, area, total, min_bit, max_evaluations, max_candidates, *,
+                  policy=None, grid=None, box=None):
     bounds = unit_bounds()
     result = {}
     for name, profile in selected.items():
-        choice = circuit_ir.plan(profile, bounds, area, total, min_bit,
-                                 max_evaluations, max_candidates)
+        if policy is None:
+            choice = circuit_ir.plan(profile, bounds, area, total, min_bit,
+                                     max_evaluations, max_candidates)
+        else:
+            choice = unit_policy.plan(profile, bounds, policy["costs"], grid, box,
+                                      min_bit, max_evaluations, max_candidates,
+                                      policy["min_strength_ratio"])
         if choice['mode'] == 'no_certified_configuration':
             raise ValueError(f"{name}: {choice['reason']}")
         if choice['mode'] == 'ir_internal':
@@ -156,15 +163,26 @@ def freeze(args):
         raise ValueError("Rectangle coordinates are outside the statistical grid")
     area = (right-left)*(bottom-top)
     selected = select_profiles(args)
-    config = dict(schema=3, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
+    policy = (dict(costs=read_json(args.unit_costs), min_strength_ratio=args.min_strength_ratio)
+              if args.unit_costs else None)
+    config = dict(schema=4 if policy else 3, grid=grid, bbox_half_open=bounds, frequency_percent=args.threshold,
                   roi_images=protocol["count"], roi_run_sha256=sha256(args.roi_run/"rectangles.json"),
                   min_bit=args.min_bit, max_evaluations=args.max_evaluations, max_candidates=args.max_candidates, sources=checked_sources(),
                   input_circuits=selected, input_circuits_sha256=profile_digest(selected),
-                  circuits=plan_profiles(selected, area, grid*grid, args.min_bit, args.max_evaluations, args.max_candidates))
+                  circuits=plan_profiles(selected, area, grid*grid, args.min_bit, args.max_evaluations,
+                                         args.max_candidates, policy=policy, grid=grid, box=bounds))
+    if policy:
+        config["unit_policy"] = policy
     args.output.parent.mkdir(parents=True, exist_ok=True)
     write_json(args.output, config)
     for app, choice in config["circuits"].items():
         print(f"{app}: {choice['mode']}, node {choice['node']}, bit {choice['bit']}, exact {choice['exact_nodes']}")
+        if policy:
+            mse = choice['global_mse_bound']
+            psnr = 10*math.log10(PEAK_SQUARED/mse) if mse else math.inf
+            print(f"  approximate {choice['unit_replacements']}, "
+                  f"estimated units {choice['unit_area_um2']:.2f} um^2, "
+                  f"PSNR bound {psnr:.2f} dB")
 
 
 def project(bounds, grid, width, height):
@@ -211,8 +229,9 @@ def evaluate(args):
             if name != profile["name"]:
                 raise ValueError("Circuit profile key and name differ")
         expected = legacy_plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"], config["max_subsets"])
-    elif schema == 3:
-        if config["sources"] != current_sources:
+    elif schema in (3, 4):
+        legacy_ir_sources = schema == 3 and config["sources"] == read_json(ROOT/"configs/legacy_schema3_sources.json")
+        if config["sources"] != current_sources and not legacy_ir_sources:
             raise ValueError("Frozen IR configuration belongs to a different source revision")
         selected = config["input_circuits"]
         if not isinstance(selected, dict) or not selected or profile_digest(selected) != config["input_circuits_sha256"]:
@@ -224,7 +243,8 @@ def evaluate(args):
         profiles.integer(config["max_evaluations"], "max-evaluations", 4, 100000)
         profiles.integer(config["max_candidates"], "max-candidates", 1, 10000)
         expected = plan_profiles(selected, (r-l)*(b-t), grid**2, config["min_bit"],
-                                 config["max_evaluations"], config["max_candidates"])
+                                 config["max_evaluations"], config["max_candidates"],
+                                 policy=config["unit_policy"] if schema == 4 else None, grid=grid, box=bounds)
     else:
         raise ValueError("Unsupported frozen configuration schema")
     if config["circuits"] != expected:
@@ -238,10 +258,12 @@ def evaluate(args):
         raise ValueError("Output and input image directories must be separate")
     if not args.binary.is_file():
         raise ValueError(f"Missing compiled verifier: {args.binary}")
-    if schema == 3:
+    if schema in (3, 4):
         capability = subprocess.run([str(args.binary.resolve()), '--capabilities'], capture_output=True, text=True)
         try:
-            supported = capability.returncode == 0 and json.loads(capability.stdout).get('circuit_ir') == 1
+            features = json.loads(capability.stdout)
+            supported = (capability.returncode == 0 and features.get('circuit_ir') == 1
+                         and (schema == 3 or features.get('approximate_replacements') == 1))
         except (ValueError, AttributeError):
             supported = False
         if not supported:
@@ -260,7 +282,7 @@ def evaluate(args):
     with tempfile.TemporaryDirectory(dir=output) as scratch:
         scratch = Path(scratch)
         profile_paths = {}
-        if schema in (2, 3):
+        if schema in (2, 3, 4):
             for name in applications:
                 profile_paths[name] = scratch/f"{name}.json"
                 write_json(profile_paths[name], selected[name])
@@ -286,13 +308,17 @@ def evaluate(args):
                            roi_decreased_vs_compensated=False)
                 rows.append(row)
                 try:
-                    if area == 0 or not within_budget(area, total, plan["inside_error_bound"], plan["outside_error_bound"]):
+                    fits = (unit_policy.configuration_mse(selected[app], plan, width, height, box) <= PEAK_SQUARED/1000
+                            if schema == 4 else within_budget(area, total, plan["inside_error_bound"], plan["outside_error_bound"]))
+                    if area == 0 or not fits:
                         raise ValueError("Projected rectangle is empty or exceeds the frozen error budget")
                     destination = scratch
-                    extra = ["--circuit", str(profile_paths[app])] if schema in (2, 3) else []
+                    extra = ["--circuit", str(profile_paths[app])] if schema in (2, 3, 4) else []
+                    replacements = [str(g) for g in plan["exact_nodes"]]
+                    replacements.extend(f"{entry['node']}={entry['unit']}" for entry in plan.get("unit_replacements", []))
                     subprocess.run([str(args.binary.resolve()), selected[app]["application"], str(path), str(destination),
                                     *map(str, box), str(plan["node"]), str(plan["bit"]),
-                                    *map(str, plan["exact_nodes"]), *extra], check=True, capture_output=True, text=True)
+                                    *replacements, *extra], check=True, capture_output=True, text=True)
                     def pixels(name):
                         with Image.open(destination/f"{name}.png") as im:
                             return np.asarray(im, dtype=np.int32)
@@ -319,6 +345,10 @@ def evaluate(args):
                             np.any(result[~mask] != compensated[~mask])
                         ):
                             raise ValueError("Observed error exceeds its bound or the disturbance leaks outside ROI")
+                        if name == "processed" and schema == 4 and errors[name][0]/total > unit_policy.configuration_mse(
+                            selected[app], plan, width, height, box
+                        ):
+                            raise ValueError("Observed MSE exceeds the frozen frame certificate")
                     save_comparison(destination, comparisons/f"{app}_{int(path.stem):04d}.png", row)
                     row.update(status="completed", global_pass=1000*errors["processed"][0] <= PEAK_SQUARED*total,
                                roi_decreased=errors["processed"][1] > errors["baseline"][1],
@@ -367,6 +397,9 @@ def main():
                          help="Legacy option accepted only for old frozen configurations")
     prepare.add_argument("--max-evaluations", type=int, default=512)
     prepare.add_argument("--max-candidates", type=int, default=128)
+    prepare.add_argument("--unit-costs", type=Path, help="Use area-aware unit selection with this cost table")
+    prepare.add_argument("--min-strength-ratio", type=float, default=0.5,
+                         help="Minimum structural flip score relative to the strongest certified candidate")
     encode = sub.add_parser("encode-c", help="Encode a supported C kernel into the shared circuit IR")
     encode.add_argument("--interface", type=Path, required=True)
     encode.add_argument("--output", type=Path, required=True)

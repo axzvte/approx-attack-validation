@@ -125,12 +125,12 @@ void verifyGraph(const cv::Mat& image, const cv::Rect& region, const std::filesy
 int main(int argc, char** argv) {
     try {
         if (argc == 2 && std::string(argv[1]) == "--capabilities") {
-            std::cout << "{\"circuit_ir\":1,\"legacy\":true}\n";
+            std::cout << "{\"circuit_ir\":1,\"approximate_replacements\":1,\"legacy\":true}\n";
             return 0;
         }
         if (argc < 10) {
             throw std::runtime_error(
-                "Usage: fixed_roi_verify APP IMAGE OUT LEFT TOP RIGHT BOTTOM NODE BIT [EXACT_NODE ...]");
+                "Usage: fixed_roi_verify APP IMAGE OUT LEFT TOP RIGHT BOTTOM NODE BIT [EXACT_NODE or GROUP=UNIT ...]");
         }
         const std::string app(argv[1]);
         std::string profilePath;
@@ -162,8 +162,26 @@ int main(int argc, char** argv) {
             const auto ir=circuit_ir::Profile::load(profilePath);
             const std::string site(argv[8]); const int bit=integer(argv[9]);
             std::vector<int> replacements;
-            for(int i=10;i<argc;++i) replacements.push_back(integer(argv[i]));
-            const auto compensated=ir.compensatedConfig(replacements);
+            std::map<int,circuit_profile::BaselineNode> approximateReplacements;
+            for (int i=10; i<argc; ++i) {
+                const std::string token(argv[i]);
+                const auto separator=token.find('=');
+                if (separator==std::string::npos) {
+                    replacements.push_back(integer(argv[i]));
+                } else {
+                    const int group=integer(token.substr(0,separator).c_str());
+                    const auto unit=circuit_profile::unit(token.substr(separator+1));
+                    circuit_ir::need(!unit.exact && approximateReplacements.emplace(group,unit).second,
+                                     "expected a unique approximate replacement group and unit");
+                }
+            }
+            auto compensated=ir.compensatedConfig(replacements);
+            for (const auto& [group,unit]:approximateReplacements) {
+                const auto found=compensated.find(group);
+                circuit_ir::need(found!=compensated.end() && !found->second.exact,
+                                 "approximate replacement must name an original approximate group without exact replacement");
+                found->second=unit;
+            }
             const auto exact=ir.run(image,ir.exactConfig());
             const auto baseline=ir.run(image,ir.baseline);
             const auto noFlip=ir.run(image,compensated);
