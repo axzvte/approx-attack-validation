@@ -38,7 +38,7 @@ for app in "${apps[@]}"; do
             export LD_LIBRARY_PATH="$compat_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             bash "$dc_shell" -f "$scripts_dir/synth_core_area.tcl" >dc.log 2>&1
         ) || { tail -n 60 "$out/dc.log" >&2; exit 1; }
-        if ! rg -m 1 'Total cell area:' "$out/area.rpt" || ! test -s "$out/timing.rpt"; then
+        if ! grep -m 1 'Total cell area:' "$out/area.rpt" || ! test -s "$out/timing.rpt"; then
             tail -n 60 "$out/dc.log" >&2
             exit 1
         fi
