@@ -91,33 +91,41 @@ void forward(int *input,int *output,int v,int roi,int ph,int grp,int bit,unsigne
             (d/'units.sv').write_text(generate_units(ROOT));(d/'position.sv').write_text(position_rtl())
             # Exercise every row and column phase at an exact32 group and bit11.
             marked=[x for x in p['ir']['operations'] if 'unit_node' in x]
-            selections=[('baseline',plan,phase),('compensated',plan,phase),('processed',plan,phase)]
+            selections=[(version,plan,phase,area_scope)
+                        for area_scope in (False,True)
+                        for version in ('baseline','compensated','processed')]
             for ph in range(16):
                 alternate=copy.deepcopy(plan)
                 chosen=next(x for x in marked[ph*32:(ph+1)*32] if x['unit_node']==0)
                 alternate.update(node=chosen['id'],unit_node=0,bit=11)
-                selections.append(('processed',alternate,ph))
-            for version,choice,ph in selections:
-                with self.subTest(version=version,phase=ph):
+                selections.append(('processed',alternate,ph,False))
+            for version,choice,ph,area_scope in selections:
+                with self.subTest(version=version,phase=ph,area_scope=area_scope):
                     expected=[]
                     for block,roi in zip(vectors,eligible):
                         inputs=(ctypes.c_int*64)(*block);outputs=(ctypes.c_int*64)()
                         oracle(inputs,outputs,('baseline','compensated','processed').index(version),roi,ph,choice['unit_node'],choice['bit'],sum(1<<g for g in choice['exact_nodes']))
                         expected.append(packed(outputs,32))
                     (d/'expected.hex').write_text('\n'.join(f'{v:0512x}' for v in expected)+'\n')
-                    (d/'top.sv').write_text(emit_dct(ROOT,p,choice,version,bbox))
+                    (d/'position.sv').write_text(position_rtl(external_bounds=area_scope))
+                    (d/'top.sv').write_text(emit_dct(ROOT,p,choice,version,bbox,area_scope=area_scope))
                     invocations='\n'.join(f'run_frame({w},{h},{offset},{count});' for w,h,offset,count in frames)
+                    frame_limited=int(not area_scope or version=='processed')
                     tb=f'''module tb;
 reg clk=0;always #5 clk=~clk;
 reg rst_n=0,frame_start=0,in_valid=0;reg[15:0]frame_width=0,frame_height=0;
+reg [15:0] frame_roi_left=0,frame_roi_top=0,frame_roi_right=0,frame_roi_bottom=0;
 reg[511:0]samples=0;wire in_ready,out_valid;wire[2047:0]coefficients;
 reg[511:0]vectors[0:{len(vectors)-1}];reg[2047:0]expected[0:{len(vectors)-1}];
 { 'dct_'+version } dut(.*);
 task run_frame;input integer w,h,offset,count;integer i,j;begin
  @(negedge clk);frame_start=1;in_valid=1;frame_width=w;frame_height=h;
+ frame_roi_left=(2*{bbox[0]}*w+319)/640; frame_roi_right=(2*{bbox[2]}*w+319)/640;
+ frame_roi_top=(2*{bbox[1]}*h+319)/640; frame_roi_bottom=(2*{bbox[3]}*h+319)/640;
  #1;if(in_ready!==0)$fatal(1,"ready on start");
  @(posedge clk);#1;if(out_valid!==0)$fatal(1,"output on start");
  @(negedge clk);frame_start=0;in_valid=0;frame_width=0;frame_height=0;
+ frame_roi_left=0;frame_roi_top=0;frame_roi_right=0;frame_roi_bottom=0;
  for(i=0;i<count;i=i+1) begin
   if(i%3==0) begin
    @(negedge clk);in_valid=0;@(posedge clk);#1;if(out_valid!==0)$fatal(1,"gap produced output");
@@ -133,8 +141,8 @@ task run_frame;input integer w,h,offset,count;integer i,j;begin
     $fatal(1,"{version} phase{ph} block %0d coeff mismatch got %h expected %h",offset+i,coefficients,expected[offset+i]);
   end
  end
- @(negedge clk);in_valid=1;
- @(posedge clk);#1;if(in_ready!==0 || out_valid!==0)$fatal(1,"past frame end");
+ @(negedge clk);in_valid={frame_limited};
+ @(posedge clk);#1;if(in_ready!==1'b{1-frame_limited} || out_valid!==0)$fatal(1,"past frame end");
 end endtask
 initial begin
  $readmemh("{(d/'samples.hex').as_posix()}",vectors);$readmemh("{(d/'expected.hex').as_posix()}",expected);

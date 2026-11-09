@@ -1,5 +1,33 @@
 # 三个版本的 RTL
 
+## 算术核心口径的面积综合
+
+使用 `area/rtl/` 下的顶层做面积对照。三个版本使用同一算术数据通路，区域处理需要的硬件归入完整方案。
+
+| 版本 | 计入综合的硬件 |
+|---|---|
+| `baseline` | 原混合近似算术核心 |
+| `compensated` | 按配置做精确替换后的算术核心 |
+| `processed` | 仅补偿版的算术核心，加上坐标计数、尺寸和边界寄存、区域比较及固定位翻转 |
+
+Sharpen、Conv、Sobel 三版均以准备好的像素窗口为输入、组合像素为输出。窗口生成、图像边缘的输出旁路和流式输出寄存器在共同边界之外。完整版在 `in_valid && in_ready` 的接收沿提供该窗口的结果并推进坐标。
+
+DCT 三版均包含计算二维前向变换所需的输入、行中间数据和系数寄存器，以及 16 周期行列调度。完整版还包含图像块坐标计数、区域状态锁存和指定阶段的翻转控制。基准和仅补偿版按单块握手接收，由外部决定一帧包含的块数。
+
+完整版在 `frame_start` 锁存帧尺寸和四个半开区间边界。帧输入端计算 `edge(c,n)=(2*c*n+319)//640`，按 `frame_roi_left/top/right/bottom` 提供像素坐标。边界应落在对应帧尺寸内，允许空区间。面积包含硬件里的边界锁存和比较，投影计算属于帧输入端。固定选点、位编号和替换列表见 `area/config/selection.json`。
+
+在 WSL 工程根目录执行：
+
+```bash
+bash circuit_processing/hardware/scripts/run_dc_core_area.sh sharpen
+# 综合四个应用时使用 all
+bash circuit_processing/hardware/scripts/run_dc_core_area.sh all
+```
+
+每次输出到独立的 `results/dc_core_area/run.*` 目录。脚本默认使用现有的 Nangate45 `stdcells.db` 和 10 ns 周期，组合核心用虚拟时钟设置相同的输入输出预算。比较每个应用的 `Total cell area`、时序和约束报告。支持用 `DC_LIB` 和 `DC_PERIOD` 指定库及周期。
+
+重新生成这套 RTL 时运行 `python circuit_processing/hardware/scripts/generate_rtl.py --area-scope`。下文的流式协议对应常规 `rtl/` 顶层。
+
 本目录提供四个应用的静态 SystemVerilog 实现，每个应用包含三个版本。生成器读取当前 C 运算图和冻结选择；RTL 不执行图像特征提取或配置搜索。
 
 | 文件 | 内容 |

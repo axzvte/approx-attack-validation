@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 from rtl_emit import emit_graph
+from rtl_area import FRAME_PORTS, area_position
 
 
 def core_profile(root, baseline):
@@ -63,7 +64,7 @@ def selected_phase(profile, core, plan):
     return chosen[0]//32, next(x['id'] for x in cm if x['unit_node']==plan['unit_node'])
 
 
-def emit_dct(root:Path,profile:dict,plan:dict,version:str,bbox:list)->str:
+def emit_dct(root:Path,profile:dict,plan:dict,version:str,bbox:list,*,area_scope=False)->str:
     if version not in ('baseline','compensated','processed'): raise ValueError('Unknown RTL version')
     if plan['mode']!='ir_internal': raise ValueError('DCT requires internal certified configuration')
     core=core_profile(Path(root),profile['baseline'])
@@ -71,39 +72,52 @@ def emit_dct(root:Path,profile:dict,plan:dict,version:str,bbox:list)->str:
     module='dct_'+version
     arithmetic=emit_graph(core,module+'_core',[] if version=='baseline' else plan['exact_nodes'],site if version=='processed' else None,plan['bit'])
     l,t,r,b=bbox
-    code=f'''// One source-derived 32-group forward core, reused for rows then columns.
-module {module}(
- input wire clk,rst_n,frame_start,in_valid,
- input wire [15:0] frame_width,frame_height,
- input wire [511:0] samples,
- output wire in_ready, output reg out_valid,
- output reg [2047:0] coefficients
-);
-wire active;wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;
-reg busy,block_inside;reg [3:0] phase;
-reg signed [31:0] data[0:63];reg signed [31:0] rows[0:63];
-wire accept=in_valid && in_ready;
-assign in_ready=active && !busy && !frame_start && rst_n;
-roi_position #(.STEP(8),.L({l}),.T({t}),.R({r}),.B({b})) position(
+    frame_ports = ' input wire [15:0] frame_width,frame_height,\n'
+    position_wires = 'wire active;wire [15:0] x,y,width,height,roi_left,roi_top,roi_right,roi_bottom;\n'
+    ready = 'active && !busy && !frame_start && rst_n'
+    position = f"""roi_position #(.STEP(8),.L({l}),.T({t}),.R({r}),.B({b})) position(
  .clk(clk),.rst_n(rst_n),.frame_start(frame_start),.advance(accept),
  .frame_width(frame_width),.frame_height(frame_height),.active(active),.x(x),.y(y),.width(width),.height(height),
  .roi_left(roi_left),.roi_top(roi_top),.roi_right(roi_right),.roi_bottom(roi_bottom));
-wire flip_enable={"busy && block_inside && phase==4'd"+str(phase) if version=='processed' else "1'b0"};
+"""
+    roi_reg = ',block_inside'
+    roi_reset = 'block_inside<=0;'
+    roi_capture = """   block_inside<=x>=roi_left && y>=roi_top && {1'b0,x}+17'd8<={1'b0,roi_right} && {1'b0,y}+17'd8<={1'b0,roi_bottom};
+"""
+    if area_scope:
+        position_wires = ''
+        if version == 'processed':
+            frame_ports = FRAME_PORTS
+            position = area_position(8)
+        else:
+            frame_ports = position = roi_reg = roi_reset = roi_capture = ''
+            ready = '!busy && !frame_start && rst_n'
+    code=f'''// One source-derived 32-group forward core, reused for rows then columns.
+module {module}(
+ input wire clk,rst_n,frame_start,in_valid,
+{frame_ports} input wire [511:0] samples,
+ output wire in_ready, output reg out_valid,
+ output reg [2047:0] coefficients
+);
+{position_wires}reg busy{roi_reg};reg [3:0] phase;
+reg signed [31:0] data[0:63];reg signed [31:0] rows[0:63];
+wire accept=in_valid && in_ready;
+assign in_ready={ready};
+{position}wire flip_enable={"busy && block_inside && phase==4'd"+str(phase) if version=='processed' else "1'b0"};
 '''
     for i in range(8):
         code+=f'wire signed [31:0] p{i}=phase<8 ? data[phase*8+{i}] : rows[{i}*8+(phase-8)];\nwire signed [31:0] y{i};\n'
     code+=f'{module}_core arithmetic(.flip_enable(flip_enable),'+','.join(f'.p{i}(p{i}),.y{i}(y{i})' for i in range(8))+');\n'
-    code+='''integer i;
+    code+=f'''integer i;
 always @(posedge clk or negedge rst_n) begin
- if(!rst_n) begin busy<=0;phase<=0;block_inside<=0;out_valid<=0;coefficients<=0;
+ if(!rst_n) begin busy<=0;phase<=0;{roi_reset}out_valid<=0;coefficients<=0;
   for(i=0;i<64;i=i+1) begin data[i]<=0;rows[i]<=0;end
- end else if(frame_start) begin busy<=0;phase<=0;block_inside<=0;out_valid<=0;coefficients<=0;
+ end else if(frame_start) begin busy<=0;phase<=0;{roi_reset}out_valid<=0;coefficients<=0;
  end else begin
   out_valid<=0;
   if(accept) begin
    busy<=1;phase<=0;
-   block_inside<=x>=roi_left && y>=roi_top && {1'b0,x}+17'd8<={1'b0,roi_right} && {1'b0,y}+17'd8<={1'b0,roi_bottom};
-   for(i=0;i<64;i=i+1) data[i]<=$signed({24'd0,samples[i*8+:8]})-32'sd128;
+{roi_capture}   for(i=0;i<64;i=i+1) data[i]<=$signed({{24'd0,samples[i*8+:8]}})-32'sd128;
   end else if(busy) begin
 '''
     for i in range(8): code+=f'   if(phase<8) rows[phase*8+{i}]<=y{i}; else coefficients[({i}*8+phase-8)*32+:32]<=y{i};\n'

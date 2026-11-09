@@ -27,6 +27,7 @@ class StencilSimulationTests(unittest.TestCase):
     def test_three_stencils_all_versions_match_native_on_frames_and_gaps(self):
         from generate_rtl import default_configuration
         from rtl_stencil import emit_stencil,position_rtl
+        from rtl_area import emit_area_stencil
         from rtl_units import generate_units
         from fixed_roi_pipeline import project
         config=default_configuration()
@@ -63,41 +64,56 @@ class StencilSimulationTests(unittest.TestCase):
                     boundaries.append((w,h,offset,w*h))
                 size=len(samples); bits=8*len(profile['ir']['inputs'])
                 (work/'samples.hex').write_text('\n'.join(f'{x:0{bits//4}x}' for x in samples)+'\n')
-                for version in expected:
-                    with self.subTest(app=app,version=version):
+                versions=[(scope, version) for scope in (False, True) for version in expected]
+                for area_scope, version in versions:
+                    with self.subTest(app=app,version=version,area_scope=area_scope):
                         (work/'expected.hex').write_text('\n'.join(f'{x:02x}' for x in expected[version])+'\n')
-                        (work/'top.sv').write_text(emit_stencil(profile,plan,app,version,config['bbox_half_open']))
+                        (work/'position.sv').write_text(position_rtl(external_bounds=area_scope))
+                        top = (emit_area_stencil(profile,plan,app,version) if area_scope
+                               else emit_stencil(profile,plan,app,version,config['bbox_half_open']))
+                        (work/'top.sv').write_text(top)
+                        l,t,r,b=config['bbox_half_open']
+                        uses_position=int(not area_scope or version=='processed')
                         invocations='\n'.join(f'run_frame({w},{h},{offset},{count});' for w,h,offset,count in boundaries)
                         tb=f'''module tb;
 reg clk=0; always #5 clk=~clk;
 reg rst_n=0,frame_start=0,in_valid=0;
 reg [15:0] frame_width=0,frame_height=0;
+reg [15:0] frame_roi_left=0,frame_roi_top=0,frame_roi_right=0,frame_roi_bottom=0;
 reg [{bits-1}:0] samples=0;
 wire in_ready,out_valid; wire [7:0] pixel;
 reg [{bits-1}:0] vectors[0:{size-1}]; reg [7:0] expected[0:{size-1}];
 {app}_{version} dut(.*);
+localparam AREA_SCOPE={int(area_scope)}, USES_POSITION={uses_position};
 task run_frame;
  input integer w,h,offset,count;
  integer i;
  begin
   @(negedge clk);frame_start=1;in_valid=1;frame_width=w;frame_height=h;
-  @(posedge clk);#1;if(out_valid!==0) $fatal(1,"frame_start accepted stale sample");
+  frame_roi_left=(2*{l}*w+319)/640;frame_roi_right=(2*{r}*w+319)/640;
+  frame_roi_top=(2*{t}*h+319)/640;frame_roi_bottom=(2*{b}*h+319)/640;
+  @(posedge clk);#1;if(!AREA_SCOPE && out_valid!==0) $fatal(1,"frame_start accepted stale sample");
   @(negedge clk);frame_start=0;in_valid=0;
+  frame_roi_left=0;frame_roi_top=0;frame_roi_right=0;frame_roi_bottom=0;
   for(i=0;i<count;i=i+1) begin
    if(i%7==0) begin
     @(negedge clk);in_valid=0;samples=0;
-    @(posedge clk);#1;if(out_valid!==0) $fatal(1,"gap produced output");
+    @(posedge clk);#1;if(!AREA_SCOPE && out_valid!==0) $fatal(1,"gap produced output");
    end
    @(negedge clk);in_valid=1;samples=vectors[offset+i];
    // Dimensions are latched at frame_start, not read continuously.
    frame_width=0;frame_height=0;
-   if(in_ready!==1) $fatal(1,"unexpected input backpressure");
+   #1;
+   if(USES_POSITION && in_ready!==1) $fatal(1,"unexpected input backpressure");
+   if(AREA_SCOPE && i%w>0 && i%w<w-1 && i/w>0 && i/w<h-1 && pixel!==expected[offset+i])
+    $fatal(1,"area {app}/{version}: sample %0d got %0d expected %0d",i,pixel,expected[offset+i]);
    @(posedge clk);#1;
-   if(out_valid!==1 || pixel!==expected[offset+i])
+   if(!AREA_SCOPE && (out_valid!==1 || pixel!==expected[offset+i]))
     $fatal(1,"{app}/{version}: sample %0d got %0d expected %0d",i,pixel,expected[offset+i]);
   end
   @(negedge clk);in_valid=1;
-  @(posedge clk);#1;if(out_valid!==0 || in_ready!==0) $fatal(1,"accepted past frame end");
+  @(posedge clk);#1;if((!AREA_SCOPE && out_valid!==0) || (USES_POSITION && in_ready!==0))
+    $fatal(1,"accepted past frame end");
  end
 endtask
 initial begin

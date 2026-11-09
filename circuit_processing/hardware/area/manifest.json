@@ -1,0 +1,162 @@
+{
+  "interface": {
+    "dct_input": "64 unsigned8 pixels in row-major8x8 lanes",
+    "dct_latency": "16 compute cycles after block acceptance; pulse out_valid after column7",
+    "dct_output": "64 signed32 forward coefficients in row-major lanes",
+    "dimension_bits": 16,
+    "dimension_range": [
+      1,
+      65535
+    ],
+    "frame_start": "processed latches frame dimensions and pixel-space ROI bounds; DCT aborts pending block in every version",
+    "input_handshake": "processed and DCT use in_valid && in_ready; baseline/compensated stencils are combinational",
+    "output_backpressure": false,
+    "roi_ports": "processed accepts half-open pixel bounds frame_roi_left/top/right/bottom at frame_start",
+    "stencil_latency": "combinational pixel; processed pixel is sampled at the accepted input edge"
+  },
+  "language": "SystemVerilog-2012",
+  "schema": 1,
+  "scope": {
+    "dct": "shared forward 2D DCT block datapath, storage and schedule in every version; raster and ROI control in processed only",
+    "excluded": [
+      "inverse DCT reconstruction",
+      "external window/padding generators",
+      "full-frame memory",
+      "host interfaces",
+      "host ROI projection",
+      "stencil boundary bypass and output registers"
+    ],
+    "stencils": "combinational window arithmetic in every version; raster and ROI control in processed only"
+  },
+  "sha256": {
+    "config/selection.json": "37009eabfd50a945c4757872eb453f4650ce0f806dd735364571e27719fef6dc",
+    "rtl/common/evoapprox_units.sv": "cfdd8e87e61ae1738949348ab6c54807e8f818e38f3ee793b032c5facbacac47",
+    "rtl/common/roi_position.sv": "ef99530e7d7069605078281d149f8b3eb7a31fe7ac9e526e52b1c860d88f29ef",
+    "rtl/conv/baseline.sv": "2a834567a346b5da9921a69aa2703dd7f4134b3cc8b16271db864760811939e3",
+    "rtl/conv/compensated.sv": "346d824d3807a4e01a8febf3d6aae3adcb321d1dee12bf3d0f14b1b8936b4099",
+    "rtl/conv/processed.sv": "9b76a48920f2e2ff544a85688fba1d5d09eb054baa0aa66de4daa910ee88e414",
+    "rtl/dct/baseline.sv": "027e984560c19cbd965a0fc6f562e0a9b82e847b656a49c6c7b3af7882edf46b",
+    "rtl/dct/compensated.sv": "990765ed623e286f7799abf38064e9d6db7ffda0baa5b278374c0c8fcb464e1b",
+    "rtl/dct/processed.sv": "b93555dc86c62dbca2a6e89e0b1679154a36acd9a38cf2d12217c61c6e2792a7",
+    "rtl/sharpen/baseline.sv": "1130c641a2dd152c3a3c5fbef7bdf0a3a7dbb55e0253a1fbf221597977d15768",
+    "rtl/sharpen/compensated.sv": "9cac728ceb11e334e5d6e14aea5b0099a0821d4cede4432e4e9bf99da148fdcf",
+    "rtl/sharpen/processed.sv": "fe3287e9e88c0e45269872ccc70c48efdad6e5f30938a8bb3babb2fedaf3385d",
+    "rtl/sobel/baseline.sv": "0f0f18137cd6ea6611346711d55fc78cf56cc324d9b3e1a693005ce870d3698f",
+    "rtl/sobel/compensated.sv": "e6fced7bfff2ed89d094616c50f82553567935e6522e81bf34a210873343bf49",
+    "rtl/sobel/processed.sv": "b0fbbfc3bc4204d19fbdf73192e9e985a5962e1d1f3b63284cd149b4d2d633df"
+  },
+  "targets": [
+    {
+      "application": "sharpen",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/sharpen/baseline.sv"
+      ],
+      "top": "sharpen_baseline",
+      "version": "baseline"
+    },
+    {
+      "application": "sharpen",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/sharpen/compensated.sv"
+      ],
+      "top": "sharpen_compensated",
+      "version": "compensated"
+    },
+    {
+      "application": "sharpen",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/common/roi_position.sv",
+        "rtl/sharpen/processed.sv"
+      ],
+      "top": "sharpen_processed",
+      "version": "processed"
+    },
+    {
+      "application": "conv",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/conv/baseline.sv"
+      ],
+      "top": "conv_baseline",
+      "version": "baseline"
+    },
+    {
+      "application": "conv",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/conv/compensated.sv"
+      ],
+      "top": "conv_compensated",
+      "version": "compensated"
+    },
+    {
+      "application": "conv",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/common/roi_position.sv",
+        "rtl/conv/processed.sv"
+      ],
+      "top": "conv_processed",
+      "version": "processed"
+    },
+    {
+      "application": "sobel",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/sobel/baseline.sv"
+      ],
+      "top": "sobel_baseline",
+      "version": "baseline"
+    },
+    {
+      "application": "sobel",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/sobel/compensated.sv"
+      ],
+      "top": "sobel_compensated",
+      "version": "compensated"
+    },
+    {
+      "application": "sobel",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/common/roi_position.sv",
+        "rtl/sobel/processed.sv"
+      ],
+      "top": "sobel_processed",
+      "version": "processed"
+    },
+    {
+      "application": "dct",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/dct/baseline.sv"
+      ],
+      "top": "dct_baseline",
+      "version": "baseline"
+    },
+    {
+      "application": "dct",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/dct/compensated.sv"
+      ],
+      "top": "dct_compensated",
+      "version": "compensated"
+    },
+    {
+      "application": "dct",
+      "sources": [
+        "rtl/common/evoapprox_units.sv",
+        "rtl/common/roi_position.sv",
+        "rtl/dct/processed.sv"
+      ],
+      "top": "dct_processed",
+      "version": "processed"
+    }
+  ]
+}
